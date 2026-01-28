@@ -136,9 +136,7 @@ __device__ __forceinline__ void compute_friction_backward(
     float* __restrict__ g_force,
     int dim,
     int tid,
-    int topology,
-    float amplification_factor = 5.0f,
-    float grad_clip = 10.0f
+    int topology
 ) {
     // Re-compute Forward Pass (Checkpointed logic)
     for (int i = tid; i < dim; i += blockDim.x) {
@@ -156,13 +154,10 @@ __device__ __forceinline__ void compute_friction_backward(
             for (int j = 0; j < dim; j++) gate_activation += W_input[i * dim + j] * force[j];
         }
         
-        // 2. Backprop through Sigmoid with amplification factor and gradient clamping
+        // 2. Backprop through Sigmoid * 5.0
         float sig = sigmoidf_device(gate_activation);
         float dMu = s_dLoss_dFriction[i]; 
-        float dAct = dMu * amplification_factor * sig * (1.0f - sig);
-        
-        // Clamp gradient to prevent explosion
-        dAct = fmaxf(-grad_clip, fminf(grad_clip, dAct));
+        float dAct = dMu * 5.0f * sig * (1.0f - sig);
 
         // 3. Accumulate Gradients
         if (g_b_forget) atomicAdd(&g_b_forget[i], dAct);
@@ -264,49 +259,27 @@ __device__ __forceinline__ void compute_christoffel_torus_backward(
         float cos_th = cosf(th);
         float sin_th = sinf(th);
         
-        // Improved numerical stability for toroidal terms
-        float cos_th_clamped = fmaxf(-1.0f, fminf(1.0f, cos_th)); // Ensure cos_th is in valid range
-        float R_plus_r_cos_th = R + r * cos_th_clamped;
-        
-        // Add better protection against division by zero
-        float safe_denominator = fmaxf(1e-4f, fabsf(R_plus_r_cos_th)); // Use larger epsilon and absolute value
-        
-        float term_th = (R_plus_r_cos_th) * sin_th / r;
+        float term_th = (R + r * cos_th) * sin_th / r;
         float dG_th = dLoss_dGamma[i]; 
 
-        float term_ph = -(r * sin_th) / (R_plus_r_cos_th + 1e-4f * signbit(R_plus_r_cos_th) + 1e-4f);
+        float term_ph = -(r * sin_th) / (R + r * cos_th + 1e-6f);
         float dG_ph = dLoss_dGamma[i+1];
         
-        // Calculate contribution to dL/dM with velocity clamping to prevent explosion
-        float v_th_clamped = fmaxf(-10.0f, fminf(10.0f, v_th));  // Clamp velocities
-        float v_ph_clamped = fmaxf(-10.0f, fminf(10.0f, v_ph));
-        
-        // Gamma_unscaled = Force * 0.05 with clamped scaling factor
-        float scale_factor = fmaxf(-2.0f, fminf(2.0f, 0.05f));  // Clamp scaling factor
-        float G_th = v_ph_clamped * v_ph_clamped * term_th * scale_factor;
-        float G_ph = 2.0f * v_th_clamped * v_ph_clamped * term_ph * scale_factor;
-        
-        // Clamp individual gradient contributions
-        G_th = fmaxf(-5.0f, fminf(5.0f, G_th));
-        G_ph = fmaxf(-5.0f, fminf(5.0f, G_ph));
-        
+        // Calculate contribution to dL/dM
+        // Gamma_unscaled = Force * 0.05
+        float G_th = v_ph * v_ph * term_th * 0.05f;
+        float G_ph = 2.0f * v_th * v_ph * term_ph * 0.05f;
         local_dM += dG_th * G_th + dG_ph * G_ph;
 
-        float dGth_dth = ((-r * sin_th * sin_th) + (R_plus_r_cos_th) * cos_th_clamped) / r;
-        float dGph_dth = -2.0f * r * (R * cos_th_clamped + r) / (safe_denominator * safe_denominator + 1e-4f);
+        float dGth_dth = ((-r * sin_th * sin_th) + (R + r * cos_th) * cos_th) / r;
+        float dGph_dth = -2.0f * r * (R * cos_th + r) / ((R + r * cos_th) * (R + r * cos_th) + 1e-6f);
         
-        float dg_x = dG_th * dGth_dth * v_ph_clamped * v_ph_clamped * (scale_M * scale_factor) + 
-                     dG_ph * dGph_dth * 2.0f * v_ph_clamped * v_th_clamped * (scale_M * scale_factor);
-        
-        // Clamp gradient before atomic add
-        dg_x = fmaxf(-10.0f, fminf(10.0f, dg_x));
+        float dg_x = dG_th * dGth_dth * v_ph * v_ph * (scale_M * 0.05f) + 
+                     dG_ph * dGph_dth * 2.0f * v_ph * v_th * (scale_M * 0.05f);
         atomicAdd(&g_x[i], dg_x);
 
-        float dg_vph = dG_th * (term_th * 2.0f * v_ph_clamped) * (scale_M * scale_factor) + 
-                       dG_ph * (term_ph * 2.0f * v_th_clamped) * (scale_M * scale_factor);
-        
-        // Clamp gradient before atomic add
-        dg_vph = fmaxf(-10.0f, fminf(10.0f, dg_vph));
+        float dg_vph = dG_th * (term_th * 2.0f * v_ph) * (scale_M * 0.05f) + 
+                       dG_ph * (term_ph * 2.0f * v_th) * (scale_M * 0.05f);
         atomicAdd(&g_v[i+1], dg_vph);
 
         float dg_vth = dG_ph * (term_ph * 2.0f * v_ph) * (scale_M * 0.05f);

@@ -33,34 +33,20 @@ def hamiltonian_loss(velocities: list, states: list = None, metric_fn=None, lamb
     energies = []
     for i in range(len(velocities)):
         v = velocities[i]
-        # Clamp velocities to prevent explosion
-        v_clamped = torch.clamp(v, min=-10.0, max=10.0)
-        
         if metric_fn is not None and states is not None:
              x = states[i]
              # E = 0.5 * sum(g_ii * v_i^2) for diagonal metrics
              g = metric_fn(x) 
-             # Clamp metric values to prevent extreme scaling
-             g_clamped = torch.clamp(g, min=0.1, max=10.0)
-             e = 0.5 * torch.sum(g_clamped * v_clamped.pow(2), dim=-1)
-             # Clamp final energy to prevent explosion
-             e = torch.clamp(e, min=0.0, max=100.0)
+             e = 0.5 * torch.sum(g * v.pow(2), dim=-1)
         else:
-             e = 0.5 * v_clamped.pow(2).sum(dim=-1)
-             # Clamp final energy to prevent explosion
-             e = torch.clamp(e, min=0.0, max=100.0)
+             e = 0.5 * v.pow(2).sum(dim=-1)
         energies.append(e)
         
     diffs = []
     for i in range(len(energies) - 1):
         dE = torch.abs(energies[i+1] - energies[i])
-        # Normalize energy differences to prevent explosion
-        dE = torch.clamp(dE, min=0.0, max=50.0)
-        
         if forces is not None and i < len(forces):
             f_norm = forces[i].pow(2).sum(dim=-1)
-            # Clamp force norms to prevent extreme masking
-            f_norm = torch.clamp(f_norm, min=0.0, max=100.0)
             mask = (f_norm < 1e-4).float()
             dE = dE * mask
         diffs.append(dE)

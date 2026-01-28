@@ -70,12 +70,12 @@ extern "C" __global__ void rk4_fused_kernel(
         // 2. Thermodynamic Friction (Part A)
         float* s_mu = s_va + dim; // Re-use portion of s_va as mu buffer
         if (W_forget != nullptr && b_forget != nullptr) {
-            compute_friction_coeff(s_mu, s_x, nullptr, W_forget, nullptr, b_forget, dim, tid, topology, 5.0f, 0.1f);
+            compute_friction_coeff(s_mu, s_x, nullptr, W_forget, nullptr, b_forget, dim, tid, topology);
             apply_friction_damping(s_v, s_mu, dim, tid, half_dt);
         }
 
         // --- K1 ---
-        compute_christoffel_force(s_gamma, s_v, s_x, U, W, s_h, dim, rank, tid, topology, M, R_val, r_val, 0.01f, 50.0f);
+        compute_christoffel_force(s_gamma, s_v, s_x, U, W, s_h, dim, rank, tid, topology, M, R_val, r_val);
         for (int i = tid; i < dim; i += blockDim.x) {
             float f_val = (f != nullptr) ? f[b * dim + i] : 0.0f;
             float acc = f_val - s_gamma[i];
@@ -89,7 +89,7 @@ extern "C" __global__ void rk4_fused_kernel(
 
         // --- K2 ---
         float M2 = compute_plasticity_scale(s_buf_energy, s_vt, dim, tid, plasticity);
-        compute_christoffel_force(s_gamma, s_vt, s_xt, U, W, s_h, dim, rank, tid, topology, M2, R_val, r_val, 0.01f, 50.0f);
+        compute_christoffel_force(s_gamma, s_vt, s_xt, U, W, s_h, dim, rank, tid, topology, M2, R_val, r_val);
         for (int i = tid; i < dim; i += blockDim.x) {
             float f_val = (f != nullptr) ? f[b * dim + i] : 0.0f;
             float acc = f_val - s_gamma[i];
@@ -102,7 +102,7 @@ extern "C" __global__ void rk4_fused_kernel(
 
         // --- K3 ---
         float M3 = compute_plasticity_scale(s_buf_energy, s_vt, dim, tid, plasticity);
-        compute_christoffel_force(s_gamma, s_vt, s_xt, U, W, s_h, dim, rank, tid, topology, M3, R_val, r_val, 0.01f, 50.0f);
+        compute_christoffel_force(s_gamma, s_vt, s_xt, U, W, s_h, dim, rank, tid, topology, M3, R_val, r_val);
         for (int i = tid; i < dim; i += blockDim.x) {
             float f_val = (f != nullptr) ? f[b * dim + i] : 0.0f;
             float acc = f_val - s_gamma[i];
@@ -115,7 +115,7 @@ extern "C" __global__ void rk4_fused_kernel(
 
         // --- K4 ---
         float M4 = compute_plasticity_scale(s_buf_energy, s_vt, dim, tid, plasticity);
-        compute_christoffel_force(s_gamma, s_vt, s_xt, U, W, s_h, dim, rank, tid, topology, M4, R_val, r_val, 0.01f, 50.0f);
+        compute_christoffel_force(s_gamma, s_vt, s_xt, U, W, s_h, dim, rank, tid, topology, M4, R_val, r_val);
         for (int i = tid; i < dim; i += blockDim.x) {
             float f_val = (f != nullptr) ? f[b * dim + i] : 0.0f;
             float acc = f_val - s_gamma[i];

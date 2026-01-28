@@ -27,7 +27,7 @@ __device__ __forceinline__ void compute_friction_device(
     int tid,
     int topology          
 ) {
-    compute_friction_coeff(s_mu, s_x, s_u, W_x, W_u, b_gate, dim, tid, topology, 5.0f, 0.1f);
+    compute_friction_coeff(s_mu, s_x, s_u, W_x, W_u, b_gate, dim, tid, topology);
 }
 
 // --------------------------------------------------------

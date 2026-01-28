@@ -54,7 +54,7 @@ __global__ void verlet_fused_kernel(
         float M = compute_plasticity_scale(s_buf_energy, s_v, dim, tid, 0.0f); // Default 0
         
         // 2. Christoffel
-        compute_christoffel_force(s_gamma, s_v, s_x, U, W, s_h, dim, rank, tid, topology, M, R_val, r_val, 0.01f, 50.0f);
+        compute_christoffel_force(s_gamma, s_v, s_x, U, W, s_h, dim, rank, tid, topology, M, R_val, r_val);
         __syncthreads();
         
         // v += dt * (f - gamma)

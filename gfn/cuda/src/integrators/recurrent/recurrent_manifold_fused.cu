@@ -71,7 +71,7 @@ __global__ void recurrent_manifold_fused_kernel(
                 float M_total = 1.0f;
                 
                 // 1. Friction & Clutch
-                compute_friction_coeff(s_mu_h, s_x_h, s_f_h, W_f_h, W_in_h, b_f_h, dim_per_head, tid, topology, 5.0f, 0.1f);
+                compute_friction_coeff(s_mu_h, s_x_h, s_f_h, W_f_h, W_in_h, b_f_h, dim_per_head, tid, topology);
                 
                 // 2. Plasticity
                 float M_plast = compute_plasticity_scale(s_buf_energy, s_v_h, dim_per_head, tid, plasticity);
@@ -88,7 +88,7 @@ __global__ void recurrent_manifold_fused_kernel(
                 // 4. Kick 1 (Half) + Friction 1 (Half)
                 apply_friction_damping(s_v_h, s_mu_h, dim_per_head, tid, half_dt); // Pre-damp
                 
-                compute_christoffel_force(s_gamma_h, s_v_h, s_x_h, U_h, W_h, s_h_s, dim_per_head, head_rank, tid, topology, M_total, R_val, r_val, 0.01f, 50.0f);
+                compute_christoffel_force(s_gamma_h, s_v_h, s_x_h, U_h, W_h, s_h_s, dim_per_head, head_rank, tid, topology, M_total, R_val, r_val);
                 if (reg_loss != nullptr) {
                     float reg_local = 0.0f;
                     for (int i = tid; i < dim_per_head; i += blockDim.x) reg_local += s_gamma_h[i] * s_gamma_h[i];
@@ -112,7 +112,7 @@ __global__ void recurrent_manifold_fused_kernel(
                 __syncthreads();
                 
                 // 6. Recalculate State-Dependent Terms
-                compute_friction_coeff(s_mu_h, s_x_h, s_f_h, W_f_h, W_in_h, b_f_h, dim_per_head, tid, topology, 5.0f, 0.1f);
+                compute_friction_coeff(s_mu_h, s_x_h, s_f_h, W_f_h, W_in_h, b_f_h, dim_per_head, tid, topology);
                 float M_plast2 = compute_plasticity_scale(s_buf_energy, s_v_h, dim_per_head, tid, plasticity);
                 M_total = M_plast2; // Reset and re-apply Singularity at new X
                 
@@ -124,7 +124,7 @@ __global__ void recurrent_manifold_fused_kernel(
                 }
                 
                 // 7. Kick (Second Half)
-                compute_christoffel_force(s_gamma_h, s_v_h, s_x_h, U_h, W_h, s_h_s, dim_per_head, head_rank, tid, topology, M_total, R_val, r_val, 0.01f, 50.0f);
+                compute_christoffel_force(s_gamma_h, s_v_h, s_x_h, U_h, W_h, s_h_s, dim_per_head, head_rank, tid, topology, M_total, R_val, r_val);
                 if (reg_loss != nullptr) {
                     float reg_local = 0.0f;
                     for (int i = tid; i < dim_per_head; i += blockDim.x) reg_local += s_gamma_h[i] * s_gamma_h[i];

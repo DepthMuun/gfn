@@ -111,9 +111,7 @@ __device__ __forceinline__ void compute_friction_coeff(
     const float* __restrict__ b_gate,
     int dim, 
     int tid,
-    int topology,
-    float max_friction = 5.0f,
-    float min_friction = 0.1f
+    int topology
 ) {
      for (int i = tid; i < dim; i += blockDim.x) {
         float gate_activation = b_gate[i];
@@ -129,8 +127,7 @@ __device__ __forceinline__ void compute_friction_coeff(
         if (force && W_force) {
             for (int j = 0; j < dim; j++) gate_activation += W_force[i * dim + j] * force[j];
         }
-        float friction = sigmoidf_device(gate_activation) * max_friction;
-        mu_out[i] = fmaxf(fminf(friction, max_friction), min_friction); // Clamp to safe range
+        mu_out[i] = sigmoidf_device(gate_activation) * 5.0f; // Align with Python 5.0 max
     }
     __syncthreads();
 }
@@ -158,9 +155,7 @@ __device__ __forceinline__ void apply_friction_gate(
     int dim, 
     int tid,
     int topology,
-    float dt,
-    float max_friction = 5.0f,
-    float min_friction = 0.1f
+    float dt
 ) {
     // We need temporary storage for mu?
     // Fused kernels might not have allocated s_mu. 
@@ -180,8 +175,7 @@ __device__ __forceinline__ void apply_friction_gate(
         } else {
              for (int j = 0; j < dim; j++) gate_activation += W_x[i*dim + j] * x[j];
         }
-        float mu = sigmoidf_device(gate_activation) * max_friction;
-        mu = fmaxf(fminf(mu, max_friction), min_friction); // Clamp to safe range
+        float mu = sigmoidf_device(gate_activation) * 5.0f;
         v[i] *= expf(-mu * dt);
     }
     __syncthreads();
@@ -197,12 +191,11 @@ __device__ __forceinline__ void compute_christoffel_torus(
     float* __restrict__ force_out,
     const float* __restrict__ v,
     const float* __restrict__ x,
-    float R_val,
-    float r_val,
     int dim,
     int tid,
-    float scale_M,
-    float christoffel_scale = 0.05f
+    float R,
+    float r,
+    float scale_M
 ) {
     for (int i = tid; i < dim - 1; i += 2 * blockDim.x) {
         // We process pairs (i, i+1) -> (theta, phi)
@@ -213,23 +206,23 @@ __device__ __forceinline__ void compute_christoffel_torus(
         float cos_th = cosf(th);
         float sin_th = sinf(th);
 
-        // Gamma^th_{ph, ph} = (R_val + r_val cos th) sin th / r_val
+        // Gamma^th_{ph, ph} = (R + r cos th) sin th / r
         // Gamma_th = Gamma^th_ph_ph * v_ph^2
-        float term_th = (R_val + r_val * cos_th) * sin_th / r_val;
+        float term_th = (R + r * cos_th) * sin_th / r;
         float g_th = term_th * (v_ph * v_ph);
 
-        // Gamma^ph_{ph, th} = -(r_val sin th) / (R_val + r_val cos th)
+        // Gamma^ph_{ph, th} = -(r sin th) / (R + r cos th)
         // Gamma_ph = 2 * Gamma^ph_ph_th * v_ph * v_th
-        float denom = R_val + r_val * cos_th;
+        float denom = R + r * cos_th;
         float denom_sign = (denom >= 0) ? 1.0f : -1.0f;
         float denom_safe = denom + denom_sign * 1e-6f;
         
-        float term_ph = -(r_val * sin_th) / denom_safe;
+        float term_ph = -(r * sin_th) / denom_safe;
         float g_ph = 2.0f * term_ph * v_ph * v_th;
 
-        // Apply scaling with configurable factor
-        force_out[i] = g_th * scale_M * christoffel_scale;
-        force_out[i+1] = g_ph * scale_M * christoffel_scale;
+        // Apply scaling (Unbounded to match Python)
+        force_out[i] = g_th * scale_M * 0.05f;
+        force_out[i+1] = g_ph * scale_M * 0.05f;
     }
     __syncthreads();
 }
@@ -246,8 +239,7 @@ __device__ __forceinline__ void compute_christoffel_low_rank(
     int tid,
     float scale_M,
     float* out_S = nullptr,
-    float* out_M = nullptr,
-    float low_rank_scale = 20.0f
+    float* out_M = nullptr
 ) {
     // 1. Expand h = U^T v
     for (int r = tid; r < rank; r += blockDim.x) {
@@ -277,7 +269,7 @@ __device__ __forceinline__ void compute_christoffel_low_rank(
         for (int r = 0; r < rank; r++) g += W[i * rank + r] * s_h[r] * s_h[r];
         
         float res = g * S * scale_M;
-        force_out[i] = low_rank_scale * tanhf(res / low_rank_scale);
+        force_out[i] = 20.0f * tanhf(res / 20.0f);
     }
     __syncthreads();
 }
@@ -293,8 +285,7 @@ __device__ __forceinline__ float compute_singularity_scale(
     int tid,
     int topology,
     float threshold,
-    float strength,
-    float singularity_stiffness = 20.0f
+    float strength
 ) {
     // 1. Compute Potential (Sigmoid(Wx + b))
     // Note: We need a reduction here.
@@ -349,7 +340,8 @@ __device__ __forceinline__ float compute_singularity_scale(
         
         // Continuous transition for differentiability:
         // Use a steep sigmoid to mimic the threshold while remaining differentiable.
-        float activation = sigmoidf_device(singularity_stiffness * (potential - threshold));
+        const float stiffness = 20.0f; // Scale for the transition
+        float activation = sigmoidf_device(stiffness * (potential - threshold));
         scale = 1.0f + (strength - 1.0f) * activation;
         
         s_pot = scale; // Reuse shared
@@ -374,13 +366,11 @@ __device__ __forceinline__ void compute_christoffel_force(
     int topology,
     float scale_M,
     float R_val = 2.0f,
-    float r_val = 1.0f,
-    float christoffel_scale = 0.05f,
-    float low_rank_scale = 20.0f
+    float r_val = 1.0f
 ) {
     if (topology == TORUS) {
-        compute_christoffel_torus(force_out, v, x, dim, tid, R_val, r_val, scale_M, christoffel_scale);
+        compute_christoffel_torus(force_out, v, x, dim, tid, R_val, r_val, scale_M);
     } else {
-        compute_christoffel_low_rank(force_out, v, U, W, s_h, dim, rank, tid, scale_M, nullptr, nullptr, low_rank_scale);
+        compute_christoffel_low_rank(force_out, v, U, W, s_h, dim, rank, tid, scale_M);
     }
 }

@@ -59,14 +59,14 @@ extern "C" __global__ void leapfrog_fused_kernel(
         // 2. First Kick (Half Step) with Implicit Friction
         float* s_mu = s_h + rank; 
         if (W_forget != nullptr && b_forget != nullptr) {
-            compute_friction_coeff(s_mu, s_x, nullptr, W_forget, nullptr, b_forget, dim, tid, topology, 5.0f, 0.1f);
+            compute_friction_coeff(s_mu, s_x, nullptr, W_forget, nullptr, b_forget, dim, tid, topology);
         } else {
             for (int i = tid; i < dim; i += blockDim.x) s_mu[i] = 0.0f;
         }
         __syncthreads();
 
         float* s_gamma = s_h + rank; 
-        compute_christoffel_force(s_gamma, s_v, s_x, U, W, s_h, dim, rank, tid, topology, M, R_val, r_val, 0.01f, 50.0f);
+        compute_christoffel_force(s_gamma, s_v, s_x, U, W, s_h, dim, rank, tid, topology, M, R_val, r_val);
         
         for (int i = tid; i < dim; i += blockDim.x) {
             float f_val = (f != nullptr) ? f[b * dim + i] : 0.0f;
@@ -83,7 +83,7 @@ extern "C" __global__ void leapfrog_fused_kernel(
         __syncthreads();
         
         // 4. Second Kick (Half Step) with Implicit Friction at new position
-        compute_christoffel_force(s_gamma, s_v, s_x, U, W, s_h, dim, rank, tid, topology, M, R_val, r_val, 0.01f, 50.0f);
+        compute_christoffel_force(s_gamma, s_v, s_x, U, W, s_h, dim, rank, tid, topology, M, R_val, r_val);
         
         for (int i = tid; i < dim; i += blockDim.x) {
             float f_val = (f != nullptr) ? f[b * dim + i] : 0.0f;
@@ -91,7 +91,7 @@ extern "C" __global__ void leapfrog_fused_kernel(
             // Note: In Python, mu is re-evaluated and here we reuse s_mu. For exactness, we should recompute.
             // Updating mu for the second half step:
             if (W_forget != nullptr && b_forget != nullptr) {
-                compute_friction_coeff(s_mu, s_x, nullptr, W_forget, nullptr, b_forget, dim, tid, topology, 5.0f, 0.1f);
+                compute_friction_coeff(s_mu, s_x, nullptr, W_forget, nullptr, b_forget, dim, tid, topology);
             }
         }
         __syncthreads();

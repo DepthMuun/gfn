@@ -47,14 +47,14 @@ extern "C" __global__ void dormand_prince_fused_kernel(
         // Strang Splitting Damping
         float* s_mu = s_gamma + dim; 
         if (W_forget != nullptr && b_forget != nullptr) {
-            compute_friction_coeff(s_mu, s_x, nullptr, W_forget, nullptr, b_forget, dim, tid, topology, 5.0f, 0.1f);
+            compute_friction_coeff(s_mu, s_x, nullptr, W_forget, nullptr, b_forget, dim, tid, topology);
             apply_friction_damping(s_v, s_mu, dim, tid, half_dt);
         }
 
         // DP stages (Minimal implementation of k1-k7 sequence)
         // ... (Standard DP logic implementation would go here)
         // For audit consistency, we ensure the signature and friction match the engine spec.
-        compute_christoffel_force(s_gamma, s_v, s_x, U, W, s_h, dim, rank, tid, topology, M, R_val, r_val, 0.01f, 50.0f);
+        compute_christoffel_force(s_gamma, s_v, s_x, U, W, s_h, dim, rank, tid, topology, M, R_val, r_val);
         // ... update s_x, s_v ...
         
         if (W_forget != nullptr && b_forget != nullptr) apply_friction_damping(s_v, s_mu, dim, tid, half_dt);

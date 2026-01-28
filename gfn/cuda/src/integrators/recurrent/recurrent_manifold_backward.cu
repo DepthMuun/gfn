@@ -97,15 +97,15 @@ __global__ void recurrent_manifold_backward_kernel(
                 float* s_mh = s_mu + off;
                 
                 // M_total calculation (Mirror Forward)
-                float M = 0.1f;
-                compute_friction_coeff(s_mh, s_xh, f_h, Wf_s + lhi*dim_h*wxs, Wi_h, bf_s + lhi*dim_h, dim_h, tid, topology, 5.0f, 0.1f);
+                float M = 1.0f;
+                compute_friction_coeff(s_mh, s_xh, f_h, Wf_s + lhi*dim_h*wxs, Wi_h, bf_s + lhi*dim_h, dim_h, tid, topology);
                 M *= compute_plasticity_scale((float*)s_db, s_vh, dim_h, tid, plasticity);
                 if (Wp_s && bp_s) M *= compute_singularity_scale(s_xh, Wp_s + lhi*wxs, bp_s + lhi, dim_h, tid, topology, sing_thresh, sing_strength);
 
                 for(int i=tid; i<dim_h; i+=blockDim.x) s_nvh[i] = s_vh[i] * expf(-s_mh[i] * hdt);
                 __syncthreads();
                 
-                compute_christoffel_force(s_ga + off, s_nvh, s_xh, U_s + lhi*dim_h*rank_h, W_s + lhi*dim_h*rank_h, s_h + h*rank_h, dim_h, rank_h, tid, topology, M, R_val, r_val, 0.01f, 50.0f);
+                compute_christoffel_force(s_ga + off, s_nvh, s_xh, U_s + lhi*dim_h*rank_h, W_s + lhi*dim_h*rank_h, s_h + h*rank_h, dim_h, rank_h, tid, topology, M, R_val, r_val);
                 for(int i=tid; i<dim_h; i+=blockDim.x) {
                     s_nvh[i] += hdt * (forces[(b*seq_len+t)*dim+off+i] - s_ga[off+i]);
                     s_nxh[i] = apply_boundary(s_xh[i] + eff_dt * s_nvh[i], topology);
@@ -113,11 +113,11 @@ __global__ void recurrent_manifold_backward_kernel(
                 __syncthreads();
                 
                 // Second Half Replay (Implicitly simplified for now, as in v5.1 forward)
-                compute_friction_coeff(s_mh, s_nxh, f_h, Wf_s + lhi*dim_h*wxs, Wi_h, bf_s + lhi*dim_h, dim_h, tid, topology, 5.0f, 0.1f);
+                compute_friction_coeff(s_mh, s_nxh, f_h, Wf_s + lhi*dim_h*wxs, Wi_h, bf_s + lhi*dim_h, dim_h, tid, topology);
                 float M2 = compute_plasticity_scale((float*)s_db, s_nvh, dim_h, tid, plasticity);
                 if (Wp_s && bp_s) M2 *= compute_singularity_scale(s_nxh, Wp_s + lhi*wxs, bp_s + lhi, dim_h, tid, topology, sing_thresh, sing_strength);
                 
-                compute_christoffel_force(s_ga + off, s_nvh, s_nxh, U_s + lhi*dim_h*rank_h, W_s + lhi*dim_h*rank_h, s_h + h*rank_h, dim_h, rank_h, tid, topology, M2, R_val, r_val, 0.01f, 50.0f);
+                compute_christoffel_force(s_ga + off, s_nvh, s_nxh, U_s + lhi*dim_h*rank_h, W_s + lhi*dim_h*rank_h, s_h + h*rank_h, dim_h, rank_h, tid, topology, M2, R_val, r_val);
                 for(int i=tid; i<dim_h; i+=blockDim.x) s_nvh[i] += hdt * (forces[(b*seq_len+t)*dim+off+i] - s_ga[off+i]);
                 __syncthreads();
                 apply_friction_damping(s_nvh, s_mh, dim_h, tid, hdt);
@@ -157,7 +157,7 @@ __global__ void recurrent_manifold_backward_kernel(
                 // Since shared memory is tight, we recompute.
                 
                 // mu_0, M_1 (at x_0, v_init)
-                compute_friction_coeff(s_mu + off, s_xh, f_h, Wf_s + lhi*dim_h*wxs, Wi_h, bf_s + lhi*dim_h, dim_h, tid, topology, 5.0f, 0.1f);
+                compute_friction_coeff(s_mu + off, s_xh, f_h, Wf_s + lhi*dim_h*wxs, Wi_h, bf_s + lhi*dim_h, dim_h, tid, topology);
                 float M1 = compute_plasticity_scale((float*)s_db, s_vh_init, dim_h, tid, plasticity);
                 if (Wp_s && bp_s) M1 *= compute_singularity_scale(s_xh, Wp_s + lhi*wxs, bp_s + lhi, dim_h, tid, topology, sing_thresh, sing_strength);
                 
@@ -167,12 +167,12 @@ __global__ void recurrent_manifold_backward_kernel(
                 }
                 __syncthreads();
                 
-                compute_christoffel_force(s_ga + off, s_t1 + off /* junk buffer */, s_xh, U_s+lhi*dim_h*rank_h, W_s+lhi*dim_h*rank_h, s_h+h*rank_h, dim_h, rank_h, tid, topology, M1, R_val, r_val, 0.01f, 50.0f);
+                compute_christoffel_force(s_ga + off, s_t1 + off /* junk buffer */, s_xh, U_s+lhi*dim_h*rank_h, W_s+lhi*dim_h*rank_h, s_h+h*rank_h, dim_h, rank_h, tid, topology, M1, R_val, r_val);
                 for (int i = tid; i < dim_h; i += blockDim.x) s_t1[off+i] += hdt * (forces[(b*seq_len+t)*dim+off+i] - s_ga[off+i]);
                 __syncthreads();
 
                 // mu_1, M_2 (at x_1, v_half)
-                compute_friction_coeff(s_mu + off, s_nxh, f_h, Wf_s + lhi*dim_h*wxs, Wi_h, bf_s + lhi*dim_h, dim_h, tid, topology, 5.0f, 0.1f);
+                compute_friction_coeff(s_mu + off, s_nxh, f_h, Wf_s + lhi*dim_h*wxs, Wi_h, bf_s + lhi*dim_h, dim_h, tid, topology);
                 float M2 = compute_plasticity_scale((float*)s_db, s_t1+off, dim_h, tid, plasticity);
                 if (Wp_s && bp_s) M2 *= compute_singularity_scale(s_nxh, Wp_s + lhi*wxs, bp_s + lhi, dim_h, tid, topology, sing_thresh, sing_strength);
 
@@ -196,12 +196,12 @@ __global__ void recurrent_manifold_backward_kernel(
                     g_Wf ? (g_Wf + lhi * dim_h * wxs) : nullptr,
                     g_Wi ? (g_Wi + lhi * dim_h * dim_h) : nullptr,
                     g_bf ? (g_bf + lhi * dim_h) : nullptr,
-                    s_gxh, g_f_h, dim_h, tid, topology, 5.0f, 10.0f
+                    s_gxh, g_f_h, dim_h, tid, topology
                 );
 
                 // 2. Kick 2 (at x_1, v_half, M_2)
                 // Recompute Gamma2 for gradient accuracy
-                compute_christoffel_force(s_ga + off, s_t1 + off, s_nxh, U_s+lhi*dim_h*rank_h, W_s+lhi*dim_h*rank_h, s_h+h*rank_h, dim_h, rank_h, tid, topology, M2, R_val, r_val, 0.01f, 50.0f);
+                compute_christoffel_force(s_ga + off, s_t1 + off, s_nxh, U_s+lhi*dim_h*rank_h, W_s+lhi*dim_h*rank_h, s_h+h*rank_h, dim_h, rank_h, tid, topology, M2, R_val, r_val);
                 
                 for (int i = tid; i < dim_h; i += blockDim.x) {
                     float gamma = s_ga[off+i];
@@ -243,7 +243,7 @@ __global__ void recurrent_manifold_backward_kernel(
                 __syncthreads();
 
                 // Recompute Gamma1
-                compute_christoffel_force(s_ga + off, s_t1 + off, s_xh, U_s+lhi*dim_h*rank_h, W_s+lhi*dim_h*rank_h, s_h+h*rank_h, dim_h, rank_h, tid, topology, M1, R_val, r_val, 0.01f, 50.0f);
+                compute_christoffel_force(s_ga + off, s_t1 + off, s_xh, U_s+lhi*dim_h*rank_h, W_s+lhi*dim_h*rank_h, s_h+h*rank_h, dim_h, rank_h, tid, topology, M1, R_val, r_val);
 
                 for (int i = tid; i < dim_h; i += blockDim.x) {
                     float gamma = s_ga[off+i];
@@ -270,7 +270,7 @@ __global__ void recurrent_manifold_backward_kernel(
                 // 5. Initial Friction (mu_0)
                 // s_t1 holds v_damp1 now (restored above).
                 // s_dm holds dL/dGamma which is junk now. Reuse s_ga for dL/dMu.
-                compute_friction_coeff(s_mu + off, s_xh, f_h, Wf_s + lhi*dim_h*wxs, Wi_h, bf_s + lhi*dim_h, dim_h, tid, topology, 5.0f, 0.1f);
+                compute_friction_coeff(s_mu + off, s_xh, f_h, Wf_s + lhi*dim_h*wxs, Wi_h, bf_s + lhi*dim_h, dim_h, tid, topology);
                 for (int i = tid; i < dim_h; i += blockDim.x) {
                     float damp = expf(-s_mu[off+i] * hdt);
                     float gv_after = s_gvh[i];
@@ -287,7 +287,7 @@ __global__ void recurrent_manifold_backward_kernel(
                     g_Wf ? (g_Wf + lhi * dim_h * wxs) : nullptr,
                     g_Wi ? (g_Wi + lhi * dim_h * dim_h) : nullptr,
                     g_bf ? (g_bf + lhi * dim_h) : nullptr,
-                    s_gxh, g_f_h, dim_h, tid, topology, 5.0f, 10.0f
+                    s_gxh, g_f_h, dim_h, tid, topology
                 );
                 __syncthreads();
                 

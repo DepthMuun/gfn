@@ -51,7 +51,7 @@ __global__ void euler_fused_kernel(
         // Checking legacy call: passed '0.0f' as plasticity.
         
         // 2. Christoffel Force
-        compute_christoffel_force(s_gamma, s_v, s_x, U, W, s_h, dim, rank, tid, topology, M, R_val, r_val, 0.01f, 50.0f);
+        compute_christoffel_force(s_gamma, s_v, s_x, U, W, s_h, dim, rank, tid, topology, M, R_val, r_val);
         __syncthreads();
 
         for (int i = tid; i < dim; i += blockDim.x) {
