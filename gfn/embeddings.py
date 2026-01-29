@@ -20,13 +20,14 @@ This allows:
 import torch
 import torch.nn as nn
 import numpy as np
+from .constants import EMBEDDING_SCALE, SIREN_OMEGA_0
 
 class SineLayer(nn.Module):
     """
     Linear Layer with Sinusoidal Activation (SIREN).
     High-frequency periodic activation allows fitting complex signals/embeddings.
     """
-    def __init__(self, in_features, out_features, bias=True, is_first=False, omega_0=30.0):
+    def __init__(self, in_features, out_features, bias=True, is_first=False, omega_0=SIREN_OMEGA_0):
         super().__init__()
         self.omega_0 = omega_0
         self.is_first = is_first
@@ -116,7 +117,7 @@ class ImplicitEmbedding(nn.Module):
         # 3. Project
         out = self.out_proj(x)
         
-        return out * 1.5 # Moderated boost
+        return out * EMBEDDING_SCALE  # Moderated boost for better gradients
 
 class FunctionalEmbedding(nn.Module):
     """
@@ -130,7 +131,7 @@ class FunctionalEmbedding(nn.Module):
     
     O(1) Memory: Parameters do NOT scale with Vocab Size.
     """
-    def __init__(self, vocab_size, emb_dim, coord_dim=16, hidden_dim=64, layers=2, mode='binary', impulse_scale=1.0, omega_0=30.0):
+    def __init__(self, vocab_size, emb_dim, coord_dim=16, hidden_dim=64, layers=2, mode='binary', impulse_scale=1.0, omega_0=SIREN_OMEGA_0):
         super().__init__()
         self.mode = mode
         self.coord_dim = coord_dim

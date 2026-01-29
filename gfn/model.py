@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from typing import Optional, List, Tuple
 from .layers import MLayer, ParallelMLayer
 from .readout import ImplicitReadout
 
@@ -401,7 +402,14 @@ class Manifold(nn.Module):
             
             return logits, (x, v), all_christoffels, v_seq, x_seq, all_forces
     
-    def generate(self, prompt_ids, max_new_tokens=50, temperature=1.0, top_k=None, top_p=None):
+    def generate(
+        self,
+        prompt_ids: torch.Tensor,
+        max_new_tokens: int = 50,
+        temperature: float = 1.0,
+        top_k: Optional[int] = None,
+        top_p: Optional[float] = None
+    ) -> List[int]:
         """
         Autoregressive generation with sampling.
         

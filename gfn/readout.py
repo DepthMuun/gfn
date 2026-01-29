@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from .constants import READOUT_GAIN
 
 class ImplicitReadout(nn.Module):
     """
@@ -56,7 +57,7 @@ class ImplicitReadout(nn.Module):
             x_emb = x
         
         # Gain provides sharper gradients for BCE
-        logits = self.mlp(x_emb) * 10.0 # [batch, seq, coord_dim]
+        logits = self.mlp(x_emb) * READOUT_GAIN  # Sharpen logits for better BCE loss
         
         return logits
         # Sigmoid is applied by the caller when needed

@@ -9,6 +9,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .geometry.boundaries import toroidal_dist_python
+from .constants import (
+    LAMBDA_H_DEFAULT, LAMBDA_G_DEFAULT, LAMBDA_N_DEFAULT,
+    LAMBDA_K_DEFAULT, EPSILON_SMOOTH, GEODESIC_FUSED_SCALE
+)
 
 
 def hamiltonian_loss(velocities: list, states: list = None, metric_fn=None, lambda_h: float = 0.01, forces: list = None) -> torch.Tensor:
@@ -37,7 +41,7 @@ def hamiltonian_loss(velocities: list, states: list = None, metric_fn=None, lamb
     for i in range(len(energies) - 1):
         # Use smooth L2 approximation instead of abs() to prevent gradient vanishing
         # sqrt(x^2 + eps) has non-zero gradient everywhere, unlike abs(x)
-        dE = torch.sqrt((energies[i+1] - energies[i]).pow(2) + 1e-8)
+        dE = torch.sqrt((energies[i+1] - energies[i]).pow(2) + EPSILON_SMOOTH)
         if forces is not None and i < len(forces):
             f_norm = forces[i].pow(2).sum(dim=-1)
             mask = (f_norm < 1e-4).float()
@@ -75,7 +79,7 @@ def geodesic_regularization(velocities: list, christoffel_outputs: list, lambda_
         # For MANIFOLD models, this is normally (depth * seq_len * dim)
         # We'll use a conservative estimate or let it be scaled by lambda_g.
         # Actually, let's keep it simple as a sum for now, but scaled.
-        return lambda_g * christoffel_outputs[0].mean() / 1000.0 # Heuristic scaling
+        return lambda_g * christoffel_outputs[0].mean() / GEODESIC_FUSED_SCALE  # Heuristic scaling
     
     # Standard Vectorization:
     all_curvatures = torch.stack(christoffel_outputs) # [N_heads*Seq, B, d]
@@ -174,7 +178,7 @@ class GFNLoss(nn.Module):
         ignore_index: Padding token index for CE loss
     """
     
-    def __init__(self, lambda_h: float = 0.01, lambda_g: float = 0.001, lambda_n: float = 0.0, ignore_index: int = -100):
+    def __init__(self, lambda_h: float = LAMBDA_H_DEFAULT, lambda_g: float = LAMBDA_G_DEFAULT, lambda_n: float = LAMBDA_N_DEFAULT, ignore_index: int = -100):
         super().__init__()
         self.lambda_h = lambda_h
         self.lambda_g = lambda_g

@@ -1,5 +1,9 @@
 import torch
 import torch.nn as nn
+from ..constants import (
+    CURVATURE_CLAMP, FRICTION_SCALE, DEFAULT_FRICTION,
+    EPSILON_STRONG, GATE_BIAS_OPEN
+)
 
 try:
     from gfn.cuda.ops import christoffel_fused,CUDA_AVAILABLE
@@ -21,7 +25,7 @@ class LowRankChristoffel(nn.Module):
         self.dim = dim
         self.rank = rank
         self.config = physics_config or {}
-        self.clamp_val = self.config.get('stability', {}).get('curvature_clamp', 5.0)
+        self.clamp_val = self.config.get('stability', {}).get('curvature_clamp', CURVATURE_CLAMP)
         self.is_torus = self.config.get('topology', {}).get('type', '').lower() == 'torus'
         
         # Toroidal gates use Fourier features [sin(x), cos(x)]
@@ -32,7 +36,7 @@ class LowRankChristoffel(nn.Module):
         self.W = nn.Parameter(torch.zeros(dim, rank))
         
         # Friction coefficient for Conformal Symplectic System
-        self.friction = self.config.get('stability', {}).get('friction', 0.05)
+        self.friction = self.config.get('stability', {}).get('friction', DEFAULT_FRICTION)
         
         # Position gate for potential strength, initialized near zero
         self.V = nn.Linear(gate_input_dim, 1, bias=False)
@@ -41,7 +45,7 @@ class LowRankChristoffel(nn.Module):
         # Adaptive curvature gate
         self.gate_proj = nn.Linear(gate_input_dim, dim)
         nn.init.zeros_(self.gate_proj.weight)
-        nn.init.constant_(self.gate_proj.bias, 2.0) # Start OPEN (sigmoid(2) ~ 0.88)
+        nn.init.constant_(self.gate_proj.bias, GATE_BIAS_OPEN)  # Start OPEN (sigmoid(2) ~ 0.88)
         
         # State component of friction gate
         self.forget_gate = nn.Linear(gate_input_dim, dim)
@@ -74,7 +78,7 @@ class LowRankChristoffel(nn.Module):
                      else:
                          x_in = x
 
-                     friction = torch.sigmoid(self.forget_gate(x_in)) * 5.0
+                     friction = torch.sigmoid(self.forget_gate(x_in)) * FRICTION_SCALE
                      
                      if getattr(self, 'return_friction_separately', False):
                          return gamma_cuda, friction
@@ -124,12 +128,12 @@ class LowRankChristoffel(nn.Module):
                 if force is not None:
                     gate_activ = gate_activ + self.input_gate(force)
                 
-            mu = torch.sigmoid(gate_activ) * 5.0
+            mu = torch.sigmoid(gate_activ) * FRICTION_SCALE
             
             if getattr(self, 'return_friction_separately', False):
-                 gamma = 20.0 * torch.tanh(gamma / 20.0)
+                 gamma = CURVATURE_CLAMP * torch.tanh(gamma / CURVATURE_CLAMP)
                  return gamma, mu
                  
             gamma = gamma + mu * v
             
-        return 20.0 * torch.tanh(gamma / 20.0)
+        return CURVATURE_CLAMP * torch.tanh(gamma / CURVATURE_CLAMP)
