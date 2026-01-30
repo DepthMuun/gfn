@@ -6,7 +6,7 @@
 **Abstract**  
 Achieving categorical certainty in continuous latent spaces remains a significant challenge for differentiable architectures. We introduce **Semantic Event Horizons**, a mechanism for enforcing discrete symbolic states through controlled curvature amplification in a neural manifold. By creating localized regions of high curvature—attractors analogous to event horizons—the state trajectory can be stabilized around a specific logical configuration without breaking differentiability. In the reference implementation, this is realized as a potential-driven multiplicative boost of the Christoffel force, creating a "black hole" effect that captures and holds the latent state once a confidence threshold is crossed.
 
----
+
 
 ## 1. Introduction
 
@@ -51,7 +51,7 @@ where:
 
 When $V(x) \ll \tau$, $\Psi(x) \approx 1$, and the geometry is purely Riemannian. When $V(x) > \tau$, $\Psi(x) \to \lambda$, creating a region of intense curvature—an event horizon.
 
----
+
 
 ## 3. Implementation
 
@@ -102,7 +102,7 @@ class ReactiveChristoffel(LowRankChristoffel):
 ### 3.2 CUDA Optimization
 For high-performance training, the singularity logic is fused into the custom CUDA kernel `christoffel_fused`. This avoids materializing the massive $\Gamma$ tensor in global memory. The potential $V(x)$ and the boost factor $\Psi(x)$ are computed on-the-fly within the GPU registers for each thread block, ensuring that the memory complexity remains $O(N)$ despite the complex dynamic geometry.
 
----
+
 
 ## 4. Stability and Dynamics
 
@@ -116,7 +116,7 @@ To mitigate this, GFN employs symplectic integrators (Leapfrog) or lower-order m
 *   **Leapfrog Integration**: Updates position and velocity in alternating half-steps. This "local" update ensures that if a particle hits a horizon, the velocity update reflects the immediate curvature boost, trapping the particle rather than flinging it away.
 *   **Energy Damping**: The singularity acts as a massive friction source. By coupling this with thermodynamic gating (see *Thermodynamic Gating* paper), the kinetic energy of the particle is rapidly dissipated upon entering the horizon, effectively "freezing" the thought in place.
 
----
+
 
 ## 5. Semantic Interpretation
 
@@ -130,13 +130,13 @@ The network learns to shape the manifold such that valid logical states (e.g., t
 ### 5.2 Topological Protection
 Unlike LSTM gates which can "leak" over time due to floating-point drift, a Semantic Event Horizon provides **topological protection**. Once a state is inside the horizon (and its energy dissipated), small perturbations (noise) are insufficient to overcome the potential barrier required to escape. This allows GFN to maintain discrete states over thousands of steps without special "long-term memory" modules—the memory is an emergent property of the geometry itself.
 
----
+
 
 ## 6. Conclusion
 
 Semantic Event Horizons provide a rigorous mechanism for embedding discrete logic into continuous manifolds. By extending the Levi-Civita connection with a learned singularity potential, we enable neural networks to dynamically create "traps" for information. This synthesizes the stability of symbolic logic with the trainability of differentiable systems, offering a path toward robust neuro-symbolic reasoning.
 
----
+
 
 **References**
 

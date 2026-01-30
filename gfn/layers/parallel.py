@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from ..scan import parallel_scan
+from ..utils.scan import parallel_scan
 
 class ParallelMLayer(nn.Module):
     """

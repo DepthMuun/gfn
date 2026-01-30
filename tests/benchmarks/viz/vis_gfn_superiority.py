@@ -22,8 +22,8 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 # Import GFN Models & Physics
-from gfn.model import Manifold
-from gfn.optim import RiemannianAdam
+from gfn import Manifold
+from gfn.optimizers import RiemannianAdam
 from gfn.losses import geodesic_regularization, hamiltonian_loss, ToroidalDistanceLoss
 
 # Import Baselines & Utils
@@ -80,7 +80,7 @@ def train_step_manifold(model, optimizer, scheduler, inputs, targets, targets_cl
             loss_phy = geodesic_regularization(None, christoffels, lambda_g=0.001)
             def first_head_metric(x):
                  return model.layers[0].christoffels[0].get_metric(x) if hasattr(model.layers[0].christoffels[0], 'get_metric') else torch.ones_like(x)
-            loss_ham = hamiltonian_loss(v_seq, states=x_seq, metric_fn=first_head_metric, lambda_h=1e-4, forces=all_forces)
+            loss_ham = hamiltonian_loss(v_seq, states=x_seq, metric_fn=first_head_metric, lambda_h=0.0, forces=all_forces)
             
     total_loss = loss_val + loss_phy + loss_ham
     if torch.isnan(total_loss):
@@ -121,15 +121,9 @@ def train_step_gpt(model, optimizer, scheduler, inputs, targets, device):
 def train_model(model_name, model, max_steps=1000, device='cuda'):
     is_manifold = isinstance(model, Manifold)
     if is_manifold:
-        # Separate parameters for Riemannian optimization
-        torus_params = [p for n, p in model.named_parameters() if 'x0' in n]
-        euclidean_params = [p for n, p in model.named_parameters() if any(x in n for x in ['v0', 'impulse_scale', 'gate']) and 'x0' not in n]
-        standard_params = [p for n, p in model.named_parameters() if not any(x in n for x in ['x0', 'v0', 'impulse_scale', 'gate'])]
-        
-        optimizer = RiemannianAdam([
-            {'params': standard_params, 'lr': 1e-3, 'weight_decay': 1e-4, 'retraction': 'normalize'},
-            {'params': torus_params, 'lr': 1e-2, 'weight_decay': 0.0, 'retraction': 'torus'},
-            {'params': euclidean_params, 'lr': 1e-2, 'weight_decay': 0.0, 'retraction': 'euclidean'}
+        optimizer = optim.AdamW([
+            {'params': [p for n, p in model.named_parameters() if not any(x in n for x in ['x0', 'v0', 'impulse_scale', 'gate'])], 'lr': 1e-3, 'weight_decay': 1e-4},
+            {'params': [p for n, p in model.named_parameters() if any(x in n for x in ['x0', 'v0', 'impulse_scale', 'gate'])], 'lr': 1e-2, 'weight_decay': 0}
         ])
     else:
         optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)

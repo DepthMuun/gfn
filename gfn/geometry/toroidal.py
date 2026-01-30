@@ -1,5 +1,11 @@
 import torch
 import torch.nn as nn
+from ..constants import (
+    TOROIDAL_MAJOR_RADIUS, TOROIDAL_MINOR_RADIUS,
+    TOROIDAL_CURVATURE_SCALE, FRICTION_SCALE,
+    EPSILON_SMOOTH, CLAMP_MIN_STRONG, GATE_BIAS_CLOSED,
+    DEFAULT_PLASTICITY, SINGULARITY_THRESHOLD, BLACK_HOLE_STRENGTH
+)
 
 class ToroidalChristoffel(nn.Module):
     """
@@ -20,8 +26,8 @@ class ToroidalChristoffel(nn.Module):
         self.dim = dim
         self.config = physics_config or {}
         # Toroidal parameters: R (major radius), r (minor radius)
-        self.R = self.config.get('topology', {}).get('major_radius', 2.0)
-        self.r = self.config.get('topology', {}).get('minor_radius', 1.0)
+        self.R = self.config.get('topology', {}).get('major_radius', TOROIDAL_MAJOR_RADIUS)
+        self.r = self.config.get('topology', {}).get('minor_radius', TOROIDAL_MINOR_RADIUS)
         
         self.topology_id = 1
         self.is_torus = True
@@ -33,7 +39,7 @@ class ToroidalChristoffel(nn.Module):
         # State component of friction gate
         self.forget_gate = nn.Linear(gate_input_dim, dim)
         nn.init.normal_(self.forget_gate.weight, std=0.01)
-        nn.init.constant_(self.forget_gate.bias, 0.0) # Moderate friction start (was -5.0) 
+        nn.init.constant_(self.forget_gate.bias, GATE_BIAS_CLOSED)  # Release the clutch (Low friction start) 
         
         # Force component of friction gate
         self.input_gate = nn.Linear(dim, dim, bias=False)
@@ -43,14 +49,14 @@ class ToroidalChristoffel(nn.Module):
         
         # ACTIVE INFERENCE (Restored for Torus)
         self.active_cfg = self.config.get('active_inference', {})
-        self.plasticity = self.active_cfg.get('reactive_curvature', {}).get('plasticity', 0.1)
-        self.singularity_threshold = self.active_cfg.get('singularities', {}).get('threshold', 0.8)
-        self.black_hole_strength = self.active_cfg.get('singularities', {}).get('strength', 10.0)
+        self.plasticity = self.active_cfg.get('reactive_curvature', {}).get('plasticity', DEFAULT_PLASTICITY)
+        self.singularity_threshold = self.active_cfg.get('singularities', {}).get('threshold', SINGULARITY_THRESHOLD)
+        self.black_hole_strength = self.active_cfg.get('singularities', {}).get('strength', BLACK_HOLE_STRENGTH)
         
         # Potential Gate for Singularities
         self.V = nn.Linear(gate_input_dim, 1) if self.active_cfg.get('singularities', {}).get('enabled', False) else None
         if self.V:
-             nn.init.constant_(self.V.bias, -2.0) # Start with no singularities
+             nn.init.constant_(self.V.bias, GATE_BIAS_CLOSED)  # Start with no singularities
         
     def get_metric(self, x):
         """
@@ -101,17 +107,19 @@ class ToroidalChristoffel(nn.Module):
             v_th = v[..., i]
             v_ph = v[..., i+1]
             
-            denom = self.R + self.r * torch.cos(th)
-            # Differentiable safety clamp
-            denom_safe = torch.clamp(denom, min=1e-6)
-
-            term_th = denom * torch.sin(th) / self.r
+            # Double protection against division by zero
+            # 1. Clamp the denominator to prevent near-zero values
+            denom = torch.clamp(self.R + self.r * torch.cos(th), min=CLAMP_MIN_STRONG)
+            
+            # 2. Add epsilon in division for extra safety
+            term_th = denom * torch.sin(th) / (self.r + EPSILON_SMOOTH)
             gamma[..., i] = term_th * (v_ph ** 2)
             
-            term_ph = -(self.r * torch.sin(th)) / denom_safe
+            # Double epsilon protection for the second term
+            term_ph = -(self.r * torch.sin(th)) / (denom + EPSILON_SMOOTH)
             gamma[..., i+1] = 2.0 * term_ph * v_ph * v_th
             
-        gamma = gamma * 0.05 # Strong Curvature (User Requested Full Torus)
+        gamma = gamma * TOROIDAL_CURVATURE_SCALE  # Strong Curvature (User Requested Full Torus)
         
         # APPLY THE CLUTCH (DYNAMIC FRICTION)
         # Map to Periodic Space: [sin(x), cos(x)]
@@ -125,7 +133,7 @@ class ToroidalChristoffel(nn.Module):
             
         # Level 34: BRAKING POWER (STIFFNESS)
         # Higher mu to stop v=~15 in one step at dt=0.2
-        mu = torch.sigmoid(gate_activ) * 5.0
+        mu = torch.sigmoid(gate_activ) * FRICTION_SCALE
         
         # ACTIVE INFERENCE LOGIC (Triad v2.0)
         if self.active_cfg.get('enabled', False):

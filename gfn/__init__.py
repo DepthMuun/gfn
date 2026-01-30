@@ -23,11 +23,15 @@ Usage:
 __version__ = "2.5.0"
 __author__ = "Manifold Laboratory (Joaquín Stürtz)"
 
-# Core Model
-from .model import Manifold as GFN  # Alias for backward compatibility
-from .model import Manifold
-from .adjoint import AdjointManifold as AdjointGFN
-from .adjoint import AdjointManifold
+# Core Models (from core/ package)
+from .core import Manifold as GFN  # Alias for backward compatibility
+from .core import Manifold, AdjointManifold
+# Legacy aliases
+AdjointGFN = AdjointManifold
+
+# Model Components (from model/ package)
+from .model.state import ManifoldState
+from .model.fusion import CUDAFusionManager
 
 # Layers
 from .layers import MLayer as GLayer  # Alias
@@ -51,6 +55,9 @@ from .integrators import (
     NeuralIntegrator,
 )
 
+# Readouts
+from .readouts import ImplicitReadout
+
 # Loss Functions
 from .losses import (
     hamiltonian_loss,
@@ -59,17 +66,16 @@ from .losses import (
 )
 
 # Optimizers
-from .optim import (
+from .optimizers import (
     RiemannianAdam,
     ManifoldSGD,
 )
 
 # Datasets
-from .math_dataset import MathDataset
-from .mixed_dataset import MixedHFDataset
+from .datasets import MathDataset, MixedHFDataset
 
-# Safety
-from .safety import GPUMonitor
+# Utilities
+from .utils import parallel_scan, GPUMonitor
 
 # Registry
 # Registry
@@ -90,12 +96,15 @@ INTEGRATORS = {
 __all__ = [
     "GFN",
     "Manifold",  # Export base class
+    "ManifoldState",  # State management
+    "CUDAFusionManager",  # CUDA fusion
     "GLayer", "RiemannianGating",
     "LowRankChristoffel", 
     "HeunIntegrator", "RK4Integrator", "SymplecticIntegrator", "LeapfrogIntegrator", 
     "YoshidaIntegrator", "DormandPrinceIntegrator", "EulerIntegrator",
     "ForestRuthIntegrator", "OmelyanIntegrator", "CouplingFlowIntegrator", "NeuralIntegrator",
     "INTEGRATORS",
+    "ImplicitReadout",
     "hamiltonian_loss", "geodesic_regularization", "GFNLoss",
     "RiemannianAdam", "ManifoldSGD",
     "MathDataset", "MixedHFDataset",

@@ -6,7 +6,7 @@
 **Abstract**  
 We introduce **Geodesic Flow Networks (GFN)**, a novel architecture for sequence modeling that treats computation as the formation of trajectories in a learned latent manifold. Unlike Transformer-based models that require an explicit memory cache (KV-cache) scaling with sequence length, GFN maintains a compact, fixed-size phase state $(x, v)$ and updates it via **geometric integration** of forced geodesic equations. By parameterizing the manifold's curvature and dissipation through learned low-rank Christoffel symbols and state-dependent gating, GFN achieves constant-memory inference and long-horizon stability. We demonstrate that GFN naturally captures cyclic and modular structures when operating on compact topologies like the $n$-torus, providing a physically-grounded alternative to traditional recurrent and attention-based networks.
 
----
+
 
 ## 1. Introduction
 
@@ -86,7 +86,7 @@ GFN provides a unique Pareto efficiency in the memory-compute landscape:
 
 Geodesic Flow Networks represent a step towards a more robust and efficient architecture for artificial intelligence. By grounding the latent dynamics in Riemannian geometry and classical mechanics, GFN overcomes the memory bottlenecks of Transformers and the instability of traditional RNNs. The framework of learned manifolds, symplectic integration, and topological gating provides a fertile ground for developing models that are not only statistically powerful but physically stable and logically coherent.
 
----
+
 
 ## References
 

@@ -6,7 +6,7 @@
 **Abstract**  
 Long-horizon sequence modeling in recurrent architectures is fundamentally limited by the numerical stability of the integration scheme. Standard first and second-order methods (e.g., Euler, Leapfrog) may exhibit unacceptable energy drift when applied to highly non-linear force fields or manifolds with extreme curvature. We present a framework for high-order symplectic integration in Geodesic Flow Networks (GFN), exploring fourth-order schemes such as Yoshida composition, Forest-Ruth, and Omelyan's PEFRL integrators. We demonstrate that phase-space volume preservation and Hamiltonian structure conservation are critical for preventing gradient vanishing and ensuring long-term memory stability. This approach transforms the inference process into a robust physical evolution, capable of navigating logical singularities without numerical collapse.
 
----
+
 
 ## 1. The Stability Bottleneck in Manifold Learning
 
@@ -24,7 +24,7 @@ where the coefficients satisfy:
 
 This scheme cancels $O(\Delta t^3)$ error terms, providing superior energy conservation in smooth dynamic regimes.
 
----
+
 
 ## 2. Exotic Integrators: Forest-Ruth and Omelyan PEFRL
 
@@ -45,7 +45,7 @@ $$ \mathcal{E} \approx C \cdot \Delta t^4 $$
 
 where $C$ is significantly smaller in PEFRL, allowing longer time steps $\Delta t$ without compromising the physical stability of latent "thought."
 
----
+
 
 ## 3. Conservation of Geometric Information
 
@@ -57,7 +57,7 @@ According to Liouville's Theorem, phase-space volume preservation ensures that t
 ### 3.2 Stability in Toroidal Topologies
 In toroidal settings, symplectic integrators maintain stable semantic "winding" of trajectories. Unlike Runge-Kutta methods (e.g., RK4), which may exhibit artificial numerical dissipation that "contracts" trajectories toward the torus center, symplectic schemes preserve angular momentum, enabling infinite-horizon reasoning cycles.
 
----
+
 
 ## 4. Performance and Stability Analysis
 
@@ -66,13 +66,13 @@ Empirical tests reveal a clear hierarchy in integration robustness:
 *   **Leapfrog**: Excellent speed-stability trade-off, but prone to errors in presence of very tight curvatures.
 *   **RK4 (Non-Symplectic)**: Although fourth-order, catastrophically fails in long trajectories due to energy drift accumulation, resulting in semantic instability and representation collapse.
 
----
+
 
 ## 5. Conclusion
 
 High-order symplectic integration is not merely a numerical technique, but a fundamental pillar for physics-based sequence model architecture. By adopting exotic schemes like Forest-Ruth and Omelyan, GFN can navigate arbitrarily complex semantic landscapes with stability that traditional recurrent methods cannot achieve. This geometric robustness enables computation to extend to deep temporal horizons, preserving latent information integrity through symplectic flow.
 
----
+
 
 **References**  
 

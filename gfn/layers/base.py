@@ -289,46 +289,48 @@ class MLayer(nn.Module):
             x_outs.append(xh)
             v_outs.append(vh)
 
-        # 6. Concatenate and Mix
-        computed_in_cuda = False
+        # 6. Concatenate and Mix (Standard)
         if self.heads > 1 and not collect_christ:
             try:
                 from gfn.cuda.ops import head_mixing_fused, CUDA_AVAILABLE
                 if CUDA_AVAILABLE and x.is_cuda:
                     x_stacked = torch.stack(x_outs, dim=0)
                     v_stacked = torch.stack(v_outs, dim=0)
-                    x_next, v_next = head_mixing_fused(x_stacked, v_stacked, self.out_proj_x.weight, self.out_proj_v.weight, self.topology_id)
-                    computed_in_cuda = True
+                    x_next, v_next = head_mixing_fused(x_stacked, v_stacked, self.out_proj_x.weight, self.out_proj_v.weight)
+                    context_next = gates.squeeze(-1).transpose(0, 1)
+                    return x_next, v_next, context_next, christoffel_outputs
             except: pass
         
-        if not computed_in_cuda:
-            x_cat = torch.stack(x_outs, dim=1).view(batch, -1)
-            v_cat = torch.stack(v_outs, dim=1).view(batch, -1)
-            
-            if self.heads > 1:
-                if self.topology_id == 1:
-                     # PERIODIC MIXING: Mixer sees [sin(x), cos(x), v]
-                     v_mix = torch.tanh(v_cat / 100.0)
-                     mixer_in_x = torch.cat([torch.sin(x_cat), torch.cos(x_cat), v_mix], dim=-1)
-                     x_next = self.out_proj_x(mixer_in_x)
-                else:
-                     x_next = self.out_proj_x(x_cat)
-                
-                v_next = self.out_proj_v(v_cat)
-            else:
-                x_next, v_next = x_cat, v_cat
-            
+        # 6. Concatenate and Mix
+        x_cat = torch.stack(x_outs, dim=1).view(batch, -1)
+        v_cat = torch.stack(v_outs, dim=1).view(batch, -1)
+        
         if self.heads > 1:
+            if self.topology_id == 1:
+                 # PERIODIC MIXING: Mixer sees [sin(x), cos(x), v]
+                 v_mix = torch.tanh(v_cat / 100.0)
+                 mixer_in_x = torch.cat([torch.sin(x_cat), torch.cos(x_cat), v_mix], dim=-1)
+                 x_next = self.out_proj_x(mixer_in_x)
+            else:
+                 x_next = self.out_proj_x(x_cat)
+            
+            v_next = self.out_proj_v(v_cat)
+            
+            # Normalize to prevent magnitude creep (Bypass for Torus to preserve phase)
+            # Normalize to prevent magnitude creep (Bypass for Torus to preserve phase)
             if self.topology_id != 1:
                 x_next = self.mixed_norm_x(x_next)
             else:
+              
                 # Project back to [0, 2pi] to maintain precision
                 PI = 3.14159265359
                 TWO_PI = 2.0 * PI
                 x_next = torch.remainder(x_next, TWO_PI)
                 
             v_next = self.mixed_norm_v(v_next)
-        
+        else:
+            x_next, v_next = x_cat, v_cat
+            
         # Velocity Saturation (Relativistic Bounding)
         v_next = 100.0 * torch.tanh(v_next / 100.0)
             

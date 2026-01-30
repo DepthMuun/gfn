@@ -202,7 +202,7 @@ Manifold is an active research project. If you utilize this framework or its fin
 ```bibtex
 @article{manifold2026,
   title={Manifold: Geometric Sequence Modeling via Symplectic Flows},
-  author={Joaquín Stürtz},
+  author={Manifold Laboratory},
   journal={arXiv preprint},
   year={2026}
 }
@@ -211,6 +211,6 @@ Manifold is an active research project. If you utilize this framework or its fin
 ---
 
 <div align="center">
-  <b>Joaquín Stürtz</b><br>
+  <b>Manifold Laboratory</b><br>
   <i>Geometric Intelligence via Physical Principles</i>
 </div>

@@ -6,7 +6,7 @@
 **Abstract**  
 In computational physics and numerical analysis, high-order integrators such as the 4th-order Runge-Kutta (RK4) method are regarded as the gold standard for accuracy and convergence. However, we identify a counter-intuitive phenomenon—termed the **Runge-Kutta Paradox**—where these sophisticated methods exhibit catastrophic divergence when applied to neural sequence modeling within Geodesic Flow Networks (GFN). We demonstrate that the latent "thought space" of a GFN is not a smooth Riemannian manifold, but a **Piecewise Riemannian Variety** characterized by logical singularities and sharp metric transitions. In these non-smooth environments, high-order polynomial extrapolation leads to "Singularity Aliasing," while lower-order, structurally "local" integrators (e.g., Heun, Leapfrog) provide superior stability and logical reliability. This paper explores the fundamental link between numerical stability, geometric discontinuity, and the emergence of symbolic reasoning in continuous neural flows.
 
----
+
 
 ## 1. Introduction: The Smoothness Assumption
 
@@ -68,7 +68,7 @@ A perfectly smooth manifold represents a world of "maybes" and "probabilities." 
 
 We have identified the Runge-Kutta Paradox as a fundamental limitation of high-order numerical methods in the context of neural reasoning. By formalizing the concept of **Piecewise Riemannian Varieties**, we provide a geometric framework for understanding how continuous models can perform discrete logic. The transition from smooth interpolation to piecewise reasoning is not a matter of model scale, but of geometric topology and the numerical "honesty" of the integrator.
 
----
+
 
 ## References
 

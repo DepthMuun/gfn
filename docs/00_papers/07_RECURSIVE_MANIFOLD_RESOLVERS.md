@@ -6,7 +6,7 @@
 **Abstract**  
 Computational efficiency in sequence modeling typically requires a trade-off between temporal resolution and memory complexity. We propose **Recursive Manifold Resolvers**, a framework for implementing multiscale "Geometric Tunneling" in latent space. By monitoring the local manifold curvature density, the system can dynamically instantiate high-resolution sub-manifolds to resolve semantic ambiguity—a process analogous to Adaptive Mesh Refinement (AMR) in computational fluid dynamics. This allows for the precise resolution of high-frequency logical operations while maintaining a constant-time global integration step. We demonstrate that this architecture successfully bridges the gap between fast, intuitive processing and slow, high-precision deliberative reasoning.
 
----
+
 
 ## 1. Introduction
 
@@ -18,7 +18,7 @@ To address this, we introduce the concept of a **Recursive Manifold Resolver**. 
 1.  **Learned Time-Dilation:** A neural controller that predicts the optimal $\Delta t$ for each step.
 2.  **Recursive Sub-Stepping:** Breaking a single macro-step into multiple micro-steps when a singularity is detected.
 
----
+
 
 ## 2. Mathematical Foundation
 
@@ -43,7 +43,7 @@ $$ x_{t+1} = \Phi_{\text{micro}}^{\, m} \left( x_t, \frac{\Delta t}{m} \right) $
 
 where $\Phi_{\text{micro}}$ is the refined integrator and $m$ is the number of sub-steps. This ensures that the local curvature is sampled with sufficient frequency to preserve topological invariants.
 
----
+
 
 ## 3. Implementation
 
@@ -104,7 +104,7 @@ if self.use_recursive:
 
 In the fused CUDA kernel (`dormand_prince_fused.cu`), this logic is optimized to run entirely on-chip, avoiding the overhead of Python loops for sub-stepping.
 
----
+
 
 ## 4. Empirical Implications
 
@@ -114,13 +114,13 @@ The Recursive Manifold Resolver grants the network **Resolution Elasticity**. It
 ### 4.2 Computational Economy
 By maintaining a coarse global update for flat manifold regions, the model minimizes computational overhead. The expensive high-precision integration is reserved only for "hard" tokens or complex logical transitions, optimizing the FLOPs/entropy ratio.
 
----
+
 
 ## 5. Conclusion
 
 Recursive Manifold Resolvers provide a formal framework for enabling "deliberative thought" within continuous neural flows. By treating task complexity as a trigger for local manifold refinement, we enable a new class of architectures that are both computationally efficient and numerically robust across vast temporal scales. This brings the GFN architecture closer to the ideal of a system that can "think fast and slow" purely through geometric adaptation.
 
----
+
 
 **References**  
 

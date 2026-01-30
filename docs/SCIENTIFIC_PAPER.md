@@ -10,7 +10,7 @@ The integration of discrete symbolic reasoning with continuous neural representa
 
 **Note**: This document presents the Hyper-Torus configuration of **Manifold**, which serves as a specific GFN implementation. For the general architectural paper defining GFN as a class with Manifold as the reference implementation, we refer the reader to `docs/GFN_PAPER.md`.
 
----
+
 
 ## 1. Introduction: The Geometry of Thought
 
@@ -20,7 +20,7 @@ We argue for a fundamental topological shift in neural network architecture desi
 
 Our contribution in this work is threefold. First, we introduce the **Hyper-Torus**, a recursive manifold architecture that eliminates phase drift through a mechanism we term **Fractal Tunneling**, enabling stable long-range dependencies across multiple scales of temporal resolution. Second, we present **Reactive Geometry**, a formulation of Active Inference wherein kinetic energy ($K$) serves as a source of Riemannian curvature, effectively creating "mass" from "uncertainty" and enabling adaptive computation based on informational requirements. Third, we develop **Thermodynamic Gating**, a learnable friction mechanism (termed "The Clutch") that enables seamless switching between conservative Hamiltonian regimes for memory retention and dissipative Lagrangian regimes for computational update.
 
----
+
 
 ## 2. Theoretical Framework
 
@@ -45,7 +45,7 @@ $$ \frac{dp}{dt} = -\frac{\partial \mathcal{H}}{\partial x} - \Gamma(x, p) $$
 
 Here, $\Gamma$ represents not merely the Christoffel symbol of the Levi-Civita connection, but a **Reactive Field** that incorporates Active Inference control terms. This generalization allows the manifold to adapt its dynamics based on informational uncertainty, creating a closed loop between perception and action that mirrors biological cognitive processes.
 
----
+
 
 ## 3. Mechanisms of Cognition
 
@@ -83,7 +83,7 @@ $$ x_{\text{macro}} \xrightarrow{\mathcal{R} > \tau} x_{\text{micro}} $$
 
 The micro-manifold evolves according to dynamics integrated with a finer temporal resolution ($dt' \ll dt$), enabling resolution of high-frequency dynamics such as complex parity transitions that would otherwise be aliased by the macro-level integrator. This recursive structure provides a geometric solution to the precision-resolution tradeoff inherent in all numerical integration schemes.
 
----
+
 
 ## 4. Empirical Validation: The Parity Benchmark
 
@@ -96,14 +96,14 @@ Our evaluation employs the following baseline comparison architectures: standard
 ### 4.2 Results and Analysis
 
 | Model | $L=20$ (Training) | $L=1000$ (OOD) | $L=10^5$ (Extreme OOD) | Memory Complexity |
-| :--- | :---: | :---: | :---: | :---: |
+| : | :: | :: | :: | :: |
 | LSTM | 100% | 12% (Chance Level) | 50% | $\mathcal{O}(N)$ (Hidden State) |
 | Transformer | 100% | 100% | **OOM (Memory Exhaustion)** | $\mathcal{O}(N^2)$ (Attention Cache) |
 | **Hyper-Torus** | **100%** | **100%** | **100%** | **$\mathcal{O}(1)$** |
 
 The empirical results reveal a stark divergence between architectural paradigms. Transformer architectures successfully capture the logical structure of the parity task but fail the computational constraints, exhibiting memory exhaustion at sequence lengths beyond practical limits. Euclidean recurrent architectures (LSTM, vanilla RNN) fail to capture the logical structure over long horizons, exhibiting gradient pathologies that manifest as chance-level performance on out-of-distribution sequences. The Hyper-Torus architecture uniquely succeeds on both dimensions: it captures discrete logical structure through topological winding numbers while maintaining infinite temporal stability through symplectic conservation laws.
 
----
+
 
 ## 5. Discussion: Symplectic Attention and the Future of Geometric Intelligence
 
@@ -113,7 +113,7 @@ We term this computational principle **Symplectic Attention**: the influence of 
 
 This geometric reformulation of attention suggests a promising research direction: the replacement of quadratic memory requirements with constant-time geodesic flow computation. The implications extend beyond computational efficiency to fundamental questions of cognitive representation: if biological neural systems exhibit similar geometric priors, the efficiency advantages of symplectic computation may partially explain the remarkable information processing capabilities of biological cognition.
 
----
+
 
 ## 6. Conclusion
 
@@ -121,7 +121,7 @@ The Hyper-Torus framework suggests that achieving general artificial intelligenc
 
 The philosophical implications extend to our understanding of computational substrates more generally. We are not merely training weight matrices to minimize loss functions; we are tuning the fundamental constants of a synthetic physical universe wherein "truth" corresponds to states of lowest energy, and "reasoning" corresponds to the dynamical relaxation of the system toward those states.
 
----
+
 
 ## References
 

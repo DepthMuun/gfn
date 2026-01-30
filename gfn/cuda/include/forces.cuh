@@ -105,9 +105,7 @@ __device__ __forceinline__ float compute_plasticity_scale(
 __device__ __forceinline__ void compute_friction_coeff(
     float* __restrict__ mu_out,
     const float* __restrict__ x,
-    const float* __restrict__ force,
     const float* __restrict__ W_x, 
-    const float* __restrict__ W_force,
     const float* __restrict__ b_gate,
     int dim, 
     int tid,
@@ -123,9 +121,6 @@ __device__ __forceinline__ void compute_friction_coeff(
             }
         } else {
              for (int j = 0; j < dim; j++) gate_activation += W_x[i*dim + j] * x[j];
-        }
-        if (force && W_force) {
-            for (int j = 0; j < dim; j++) gate_activation += W_force[i * dim + j] * force[j];
         }
         mu_out[i] = sigmoidf_device(gate_activation) * 5.0f; // Align with Python 5.0 max
     }
@@ -175,7 +170,7 @@ __device__ __forceinline__ void apply_friction_gate(
         } else {
              for (int j = 0; j < dim; j++) gate_activation += W_x[i*dim + j] * x[j];
         }
-        float mu = sigmoidf_device(gate_activation) * 5.0f;
+        float mu = sigmoidf_device(gate_activation) * 100.0f;
         v[i] *= expf(-mu * dt);
     }
     __syncthreads();

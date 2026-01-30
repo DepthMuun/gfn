@@ -47,8 +47,9 @@ class ReactiveChristoffel(LowRankChristoffel):
                 sing_strength = sing_cfg.get('strength', 1.0) if sing_cfg.get('enabled', False) else 1.0
                 
                 return christoffel_fused(v, self.U, self.W, x_in, V_w_in, plasticity, sing_thresh, sing_strength)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[GFN:WARN] CUDA christoffel_fused failed: {e}, falling back to PyTorch")
+            # Fall through to PyTorch implementation
 
         # Fallback PyTorch: Base curvature (static memory or PyTorch fallback)
         gamma = super().forward(v, x, force=force)
