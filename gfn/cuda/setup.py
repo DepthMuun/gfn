@@ -17,6 +17,7 @@ cuda_sources = [
     # Integrator kernels - Runge-Kutta
     'src/integrators/runge_kutta/heun_fused.cu',
     'src/integrators/runge_kutta/heun_backward.cu',
+    'src/integrators/recurrent_manifold_fused.cu',
 ]
 
 # Convert to absolute paths
@@ -30,6 +31,37 @@ include_dirs = [
     os.path.join(cuda_src_dir, 'integrators'),
 ]
 
+is_windows = os.name == "nt"
+
+cxx_flags = ["-O3"]
+nvcc_flags = [
+    "-O3",
+    "--use_fast_math",
+    "--expt-relaxed-constexpr",
+    "-gencode=arch=compute_75,code=sm_75",
+    "-gencode=arch=compute_80,code=sm_80",
+    "-gencode=arch=compute_86,code=sm_86",
+    "-gencode=arch=compute_89,code=sm_89",
+]
+
+if is_windows:
+    cxx_flags = ["/O2", "/bigobj", "/EHsc", "/Zm2000", "/DNOMINMAX", "/DWIN32_LEAN_AND_MEAN"]
+    nvcc_flags = [
+        "-O3",
+        "--use_fast_math",
+        "--expt-relaxed-constexpr",
+        "-Xcompiler",
+        "/bigobj",
+        "-Xcompiler",
+        "/Zm2000",
+        "-Xcompiler",
+        "/EHsc",
+        "-Xcompiler",
+        "/DNOMINMAX",
+        "-Xcompiler",
+        "/DWIN32_LEAN_AND_MEAN",
+    ] + nvcc_flags[3:]
+
 setup(
     name='gfn_cuda',
     ext_modules=[
@@ -38,16 +70,8 @@ setup(
             sources=cuda_sources,
             include_dirs=include_dirs,
             extra_compile_args={
-                'cxx': ['-O3'],
-                'nvcc': [
-                    '-O3',
-                    '--use_fast_math',
-                    '--expt-relaxed-constexpr',
-                    '-gencode=arch=compute_75,code=sm_75',  # RTX 20xx, T4
-                    '-gencode=arch=compute_80,code=sm_80',  # A100
-                    '-gencode=arch=compute_86,code=sm_86',  # RTX 30xx
-                    '-gencode=arch=compute_89,code=sm_89',  # RTX 40xx
-                ]
+                'cxx': cxx_flags,
+                'nvcc': nvcc_flags,
             }
         )
     ],

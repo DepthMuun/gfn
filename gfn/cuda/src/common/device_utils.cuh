@@ -17,10 +17,10 @@ namespace cuda {
  */
 GFN_DEVICE scalar_t apply_boundary_device(scalar_t x, Topology topology) {
     if (topology == Topology::TORUS) {
-        // Map to [-π, π]
-        scalar_t wrapped = fmodf(x + PI, TWO_PI);
+        // Map to [0, 2π]
+        scalar_t wrapped = fmodf(x, TWO_PI);
         if (wrapped < 0.0f) wrapped += TWO_PI;
-        return wrapped - PI;
+        return wrapped;
     }
     return x;
 }

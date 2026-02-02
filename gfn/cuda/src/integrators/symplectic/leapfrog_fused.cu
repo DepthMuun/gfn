@@ -1,5 +1,6 @@
 #include "../geometry/christoffel_impl.cuh"
-#include <torch/extension.h>
+#include <ATen/ATen.h>
+#include <c10/util/Exception.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
 
@@ -132,18 +133,18 @@ __global__ void leapfrog_fused_kernel(
 
 using namespace gfn::cuda;
 
-std::vector<torch::Tensor> leapfrog_fused(
-    torch::Tensor x,           // [batch, dim]
-    torch::Tensor v,           // [batch, dim]
-    torch::Tensor force,       // [batch, dim]
-    torch::Tensor U,           // [dim, rank]
-    torch::Tensor W,           // [dim, rank]
+std::vector<at::Tensor> leapfrog_fused(
+    at::Tensor x,           // [batch, dim]
+    at::Tensor v,           // [batch, dim]
+    at::Tensor force,       // [batch, dim]
+    at::Tensor U,           // [dim, rank]
+    at::Tensor W,           // [dim, rank]
     float dt,
     float dt_scale,
     int steps,
     int topology,
-    torch::Tensor W_forget,    // [dim, feature_dim] or empty
-    torch::Tensor b_forget,    // [dim] or empty
+    at::Tensor W_forget,    // [dim, feature_dim] or empty
+    at::Tensor b_forget,    // [dim] or empty
     float plasticity,
     float R,
     float r
@@ -159,8 +160,8 @@ std::vector<torch::Tensor> leapfrog_fused(
     int rank = U.size(1);
     
     // Create output tensors
-    auto x_out = torch::empty_like(x);
-    auto v_out = torch::empty_like(v);
+    auto x_out = at::empty_like(x);
+    auto v_out = at::empty_like(v);
     
     // Prepare pointers
     const scalar_t* W_forget_ptr = (W_forget.numel() > 0) ? W_forget.data_ptr<scalar_t>() : nullptr;

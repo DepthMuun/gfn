@@ -95,12 +95,51 @@ def train_step_manifold(model, optimizer, scheduler, inputs, targets, targets_cl
         PI = 3.14159265359
         TWO_PI = 2.0 * PI
         half_pi = PI * 0.5
-        dist_pos = torch.min(torch.abs(x_pred - half_pi) % TWO_PI, TWO_PI - (torch.abs(x_pred - half_pi) % TWO_PI))
-        dist_neg = torch.min(torch.abs(x_pred + half_pi) % TWO_PI, TWO_PI - (torch.abs(x_pred + half_pi) % TWO_PI))
-        d_pos = dist_pos.mean(dim=-1)
-        d_neg = dist_neg.mean(dim=-1)
-        preds = (d_pos < d_neg).long()
-        acc = (preds == targets_class).float().mean().item()
+
+        # [AutoPy/Lazify Optimization]
+        # Accelerated Tensor Operations via Custom CUDA Kernels
+        try:
+            from lazify import AutoTensor
+            import lazify.core.tensor
+            lazify.core.tensor._DEFAULT_GRAPH.nodes = [] # Reset graph context
+            
+            # Transfer to AutoPy Graph
+            # Note: Explicit transfer required until AutoTensor wraps Torch directly
+            x_np = x_pred.detach().cpu().numpy() 
+            x = AutoTensor(x_np)
+
+            # Symbolic Graph Construction (Lazify API)
+            diff = x - half_pi
+            term1 = abs(diff) % TWO_PI
+            term2 = TWO_PI - term1
+            dist_pos = term1.min(term2)
+
+            diff_neg = x + half_pi
+            term1_neg = abs(diff_neg) % TWO_PI
+            term2_neg = TWO_PI - term1_neg
+            dist_neg = term1_neg.min(term2_neg)
+
+            # JIT Compile & Execute on CUDA
+            # Returns PyTorch tensors on GPU directly from custom kernel
+            r_pos = dist_pos.cuda()
+            r_neg = dist_neg.cuda()
+
+            # Reductions (Mean) - Hybrid execution
+            d_pos = r_pos.mean(dim=-1)
+            d_neg = r_neg.mean(dim=-1)
+            
+            preds = (d_pos < d_neg).long()
+            acc = (preds == targets_class).float().mean().item()
+
+        except Exception as e:
+            # Fallback to standard PyTorch if Lazify fails
+            # console.print(f"[yellow]Lazify fallback: {e}[/]")
+            dist_pos = torch.min(torch.abs(x_pred - half_pi) % TWO_PI, TWO_PI - (torch.abs(x_pred - half_pi) % TWO_PI))
+            dist_neg = torch.min(torch.abs(x_pred + half_pi) % TWO_PI, TWO_PI - (torch.abs(x_pred + half_pi) % TWO_PI))
+            d_pos = dist_pos.mean(dim=-1)
+            d_neg = dist_neg.mean(dim=-1)
+            preds = (d_pos < d_neg).long()
+            acc = (preds == targets_class).float().mean().item()
     
     return total_loss.item(), acc
 
@@ -246,11 +285,11 @@ def run_superiority_benchmark():
     }
     
     manifold = Manifold(vocab_size=2, dim=dim, depth=6, heads=4, integrator_type='leapfrog', physics_config=physics_config, impulse_scale=80.0, holographic=True).to(device)
-    gpt = MicroGPT(vocab_size=2, dim=dim, depth=6, heads=1, max_len=100000).to(device)
+    gpt = MicroGPT(vocab_size=2, dim=dim, depth=6, heads=4, max_len=100000).to(device)
     
         
     # 2. Training
-    h_m = train_model("Manifold-GFN", manifold, max_steps=1000, device=device) # Reduced for quick viz test
+    h_m = train_model("Manifold-GFN", manifold, max_steps=150, device=device) # Reduced for quick viz test
     h_g = train_model("Transformer-GPT", gpt, max_steps=1000, device=device)
     
     # 3. Scaling

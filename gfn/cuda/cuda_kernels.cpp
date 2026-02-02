@@ -58,6 +58,12 @@ std::vector<torch::Tensor> heun_backward_cuda(
     float R, float r
 );
 
+std::vector<torch::Tensor> recurrent_manifold_fused(
+    torch::Tensor x, torch::Tensor v, torch::Tensor forces,
+    torch::Tensor U_stack, torch::Tensor W_stack,
+    double dt, double dt_scale, int64_t num_heads
+);
+
 // PyBind11 module definition
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.doc() = "GFN CUDA Kernels - High-performance manifold geometry and integration";
@@ -116,4 +122,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
           py::arg("U"), py::arg("W"),
           py::arg("dt"), py::arg("dt_scale"), py::arg("steps"), py::arg("topology"),
           py::arg("R"), py::arg("r"));
+
+    m.def("recurrent_manifold_fused", &recurrent_manifold_fused,
+          "Recurrent manifold fused sequence step (CUDA)",
+          py::arg("x"), py::arg("v"), py::arg("forces"),
+          py::arg("U_stack"), py::arg("W_stack"),
+          py::arg("dt"), py::arg("dt_scale"), py::arg("num_heads"));
 }

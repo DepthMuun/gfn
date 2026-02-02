@@ -415,60 +415,266 @@ def omelyan_fused_autograd(x, v, force, U, W, dt, dt_scale, steps, topology, R, 
 
 def recurrent_manifold_fused_autograd(x, v, f, U_stack, W_stack, dt, dt_scales, forget_rates, num_heads,
                                       plasticity, sing_thresh, sing_strength, mix_x, mix_v, Wf, Wi, bf, Wp, bp,
-                                      topology, R, r):
+                                      topology, R, r,
+                                      mix_x_bias=None, mix_v_bias=None,
+                                      norm_x_weight=None, norm_x_bias=None, norm_v_weight=None, norm_v_bias=None,
+                                      gate_W1=None, gate_b1=None, gate_W2=None, gate_b2=None,
+                                      integrator_type=0):
     """
-    Recurrent manifold fused optimization.
-    Executes sequence loop through layers using fused CUDA integrators.
+    Recurrent manifold fused kernel.
     """
-    batch, seq_len, dim = f.shape
-    num_layers = U_stack.shape[0] // num_heads
-    head_dim = dim // num_heads
-    
-    curr_x, curr_v = x, v
-    x_seq = []
-    
-    # Ensure Wf, bf are provided for leapfrog with friction
-    # Wf, Wi, Wp are stacked as [TotalHeads, Out, In]
-    
-    for t in range(seq_len):
-        force = f[:, t]
-        
-        for l in range(num_layers):
-            # Split into heads
-            xh = curr_x.view(batch, num_heads, head_dim).permute(1, 0, 2)
-            vh = curr_v.view(batch, num_heads, head_dim).permute(1, 0, 2)
-            fh = force.view(batch, num_heads, head_dim).permute(1, 0, 2)
-            
-            x_outs = []
-            v_outs = []
-            
-            for h in range(num_heads):
-                idx = l * num_heads + h
-                
-                # Use Leapfrog as default for recurrent manifold
-                # If we need Heun, we'd need another dispatch or parameter
-                # Since the benchmark uses Leapfrog, we use it here.
-                
-                # Prepare friction gates for this head
-                Wf_h = Wf[idx] if Wf is not None else None
-                bf_h = bf[idx] if bf is not None else None
-                
-                xh_next, vh_next = leapfrog_fused_autograd(
-                    xh[h], vh[h], fh[h], 
-                    U_stack[idx], W_stack[idx], 
-                    dt, dt_scales[h], 1, topology, 
-                    Wf_h, bf_h, plasticity, R, r
-                )
-                x_outs.append(xh_next)
-                v_outs.append(vh_next)
-            
-            # Recombine and Mix
-            curr_x = torch.stack(x_outs, dim=1).view(batch, -1)
-            curr_v = torch.stack(v_outs, dim=1).view(batch, -1)
-            
-            # TODO: Apply mix_x, mix_v if provided
-            # For parity task they are often identity or handled in the loop
-            
-        x_seq.append(curr_x)
-    
-    return curr_x, curr_v, torch.stack(x_seq, dim=1), torch.tensor(0.0, device=x.device, dtype=x.dtype)
+    try:
+        from gfn.constants import CURVATURE_CLAMP, EPSILON_STRONG, FRICTION_SCALE
+    except Exception:
+        CURVATURE_CLAMP = 20.0
+        EPSILON_STRONG = 1e-4
+        FRICTION_SCALE = 5.0
+
+    device = x.device
+    dtype = x.dtype
+
+    if f is None:
+        f = torch.zeros(x.size(0), 1, x.size(1), device=device, dtype=dtype)
+
+    if mix_x is None:
+        mix_x = torch.empty(0, device=device, dtype=dtype)
+    if mix_v is None:
+        mix_v = torch.empty(0, device=device, dtype=dtype)
+
+    if Wf is None:
+        Wf = torch.empty(0, device=device, dtype=dtype)
+    if Wi is None:
+        Wi = torch.empty(0, device=device, dtype=dtype)
+    if bf is None:
+        bf = torch.empty(0, device=device, dtype=dtype)
+    if Wp is None:
+        Wp = torch.empty(0, device=device, dtype=dtype)
+    if bp is None:
+        bp = torch.empty(0, device=device, dtype=dtype)
+
+    if not torch.is_tensor(dt_scales):
+        dt_scales = torch.tensor(dt_scales, device=device, dtype=dtype)
+    if not torch.is_tensor(forget_rates):
+        forget_rates = torch.tensor(forget_rates, device=device, dtype=dtype)
+
+    B, D = x.shape
+    T = f.shape[1]
+    head_dim = D // int(num_heads)
+    num_layers = int(U_stack.shape[0]) // int(num_heads)
+
+    TWO_PI = x.new_tensor(2.0 * 3.14159265359)
+
+    def _rms_norm(inp: torch.Tensor, weight: torch.Tensor, bias: torch.Tensor) -> torch.Tensor:
+        denom = torch.rsqrt(inp.pow(2).mean(dim=-1, keepdim=True) + 1e-5)
+        out = inp * denom * weight
+        if bias.numel() != 0:
+            out = out + bias
+        return out
+
+    def _boundary(inp: torch.Tensor) -> torch.Tensor:
+        if int(topology) == 1:
+            return torch.remainder(inp, TWO_PI)
+        return inp
+
+    def _dt_scale_for(layer_idx: int, head_idx: int, x_head: torch.Tensor) -> torch.Tensor:
+        if dt_scales.numel() == 1:
+            base = dt_scales.view(1)
+        elif dt_scales.dim() == 2:
+            base = dt_scales[layer_idx, head_idx].view(1)
+        else:
+            base = dt_scales.view(-1)[layer_idx * int(num_heads) + head_idx].view(1)
+
+        if gate_W1 is not None and torch.is_tensor(gate_W1) and gate_W1.numel() != 0:
+            if gate_W1.dim() == 4:
+                W1 = gate_W1[layer_idx, head_idx]
+                b1 = gate_b1[layer_idx, head_idx]
+                W2 = gate_W2[layer_idx, head_idx]
+                b2 = gate_b2[layer_idx, head_idx]
+            else:
+                W1 = gate_W1
+                b1 = gate_b1
+                W2 = gate_W2
+                b2 = gate_b2
+
+            if int(topology) == 1:
+                gate_inp = torch.cat([torch.sin(x_head), torch.cos(x_head)], dim=-1)
+            else:
+                gate_inp = x_head
+            h = torch.tanh(torch.matmul(gate_inp, W1.transpose(-1, -2)) + b1)
+            g = torch.sigmoid(torch.matmul(h, W2.transpose(-1, -2)) + b2)
+            return base * g.view(-1, 1)
+
+        return base
+
+    def _gamma_mu(v_head: torch.Tensor, x_head: torch.Tensor, force_head: torch.Tensor, idx: int, head_idx: int):
+        U = U_stack[idx]
+        W = W_stack[idx]
+
+        proj = torch.matmul(v_head, U)
+        norm = torch.linalg.norm(proj, dim=-1, keepdim=True)
+        scale = 1.0 / (1.0 + norm + EPSILON_STRONG)
+        sq = (proj * proj) * scale
+        gamma = torch.matmul(sq, W.transpose(-1, -2))
+        gamma = CURVATURE_CLAMP * torch.tanh(gamma / CURVATURE_CLAMP)
+
+        mu = torch.zeros_like(v_head)
+        if Wf.numel() != 0 and bf.numel() != 0:
+            if int(topology) == 1:
+                x_feat = torch.cat([torch.sin(x_head), torch.cos(x_head)], dim=-1)
+            else:
+                x_feat = x_head
+
+            Wf_i = Wf[idx]
+            bf_i = bf[idx]
+            gate = torch.matmul(x_feat, Wf_i.transpose(-1, -2)) + bf_i
+            if Wi.numel() != 0 and force_head is not None:
+                Wi_i = Wi[idx]
+                gate = gate + torch.matmul(force_head, Wi_i.transpose(-1, -2))
+            mu = torch.sigmoid(gate) * FRICTION_SCALE
+            if forget_rates.numel() == int(num_heads):
+                mu = mu * forget_rates[head_idx]
+
+        if Wp.numel() != 0 and bp.numel() != 0 and float(sing_thresh) < 1.0:
+            if int(topology) == 1:
+                x_feat_p = torch.cat([torch.sin(x_head), torch.cos(x_head)], dim=-1)
+            else:
+                x_feat_p = x_head
+            Wp_i = Wp[idx].squeeze(0)
+            bp_i = bp[idx].view(1)
+            p = torch.sigmoid(torch.matmul(x_feat_p, Wp_i.transpose(-1, -2)) + bp_i)
+            denom = (1.0 - float(sing_thresh)) + 1e-6
+            sing_scale = 1.0 + float(sing_strength) * torch.relu(p - float(sing_thresh)) / denom
+            gamma = gamma * sing_scale
+
+        return gamma, mu
+
+    def _step_heun(x_head: torch.Tensor, v_head: torch.Tensor, force_head: torch.Tensor, dt_eff: torch.Tensor, idx: int, head_idx: int):
+        gamma1, mu1 = _gamma_mu(v_head, x_head, force_head, idx, head_idx)
+        dv1 = force_head - (gamma1 + mu1 * v_head)
+        dx1 = v_head
+
+        v_pred = v_head + dt_eff * dv1
+        x_pred = _boundary(x_head + dt_eff * dx1)
+
+        gamma2, mu2 = _gamma_mu(v_pred, x_pred, force_head, idx, head_idx)
+        dv2 = force_head - (gamma2 + mu2 * v_pred)
+        dx2 = v_pred
+
+        x_next = x_head + 0.5 * dt_eff * (dx1 + dx2)
+        v_next = v_head + 0.5 * dt_eff * (dv1 + dv2)
+        x_next = _boundary(x_next)
+
+        return x_next, v_next
+
+    def _step_leapfrog(x_head: torch.Tensor, v_head: torch.Tensor, force_head: torch.Tensor, dt_eff: torch.Tensor, idx: int, head_idx: int):
+        h = 0.5 * dt_eff
+
+        gamma0, mu0 = _gamma_mu(v_head, x_head, force_head, idx, head_idx)
+        v_half = (v_head + h * (force_head - gamma0)) / (1.0 + h * mu0)
+
+        x_next = _boundary(x_head + dt_eff * v_half)
+
+        gamma1, mu1 = _gamma_mu(v_half, x_next, force_head, idx, head_idx)
+        v_next = (v_half + h * (force_head - gamma1)) / (1.0 + h * mu1)
+
+        return x_next, v_next
+
+    x_curr = x
+    v_curr = v
+
+    x_steps = []
+
+    for t in range(T):
+        force_t = f[:, t]
+
+        for layer_idx in range(num_layers):
+            x_heads_out = []
+            v_heads_out = []
+
+            for head_idx in range(int(num_heads)):
+                s = head_idx * head_dim
+                e = (head_idx + 1) * head_dim
+
+                x_h = x_curr[:, s:e]
+                v_h = v_curr[:, s:e]
+                f_h = force_t[:, s:e]
+
+                idx = layer_idx * int(num_heads) + head_idx
+                scale = _dt_scale_for(layer_idx, head_idx, x_h)
+                dt_eff = (dt * scale).to(dtype=dtype)
+
+                if int(integrator_type) == 1:
+                    x_h, v_h = _step_leapfrog(x_h, v_h, f_h, dt_eff, idx, head_idx)
+                else:
+                    x_h, v_h = _step_heun(x_h, v_h, f_h, dt_eff, idx, head_idx)
+
+                x_heads_out.append(x_h)
+                v_heads_out.append(v_h)
+
+            x_cat = torch.cat(x_heads_out, dim=-1)
+            v_cat = torch.cat(v_heads_out, dim=-1)
+
+            if int(num_heads) > 1 and mix_x.numel() != 0 and mix_v.numel() != 0:
+                mx = mix_x[layer_idx]
+                mv = mix_v[layer_idx]
+
+                if mix_x_bias is None or mix_x_bias.numel() == 0:
+                    bx = torch.zeros(mx.size(0), device=device, dtype=dtype)
+                else:
+                    bx = mix_x_bias[layer_idx].to(dtype=dtype)
+
+                if mix_v_bias is None or mix_v_bias.numel() == 0:
+                    bv = torch.zeros(mv.size(0), device=device, dtype=dtype)
+                else:
+                    bv = mix_v_bias[layer_idx].to(dtype=dtype)
+
+                if int(topology) == 1:
+                    v_mix = torch.tanh(v_cat / 100.0)
+                    mixer_in_x = torch.cat([torch.sin(x_cat), torch.cos(x_cat), v_mix], dim=-1)
+                    x_curr = torch.matmul(mixer_in_x, mx.transpose(-1, -2)) + bx
+                else:
+                    x_curr = torch.matmul(x_cat, mx.transpose(-1, -2)) + bx
+
+                v_curr = torch.matmul(v_cat, mv.transpose(-1, -2)) + bv
+
+                if norm_v_weight is not None and torch.is_tensor(norm_v_weight) and norm_v_weight.numel() != 0:
+                    wv = norm_v_weight[layer_idx].to(dtype=dtype)
+                    bv_norm = norm_v_bias[layer_idx].to(dtype=dtype) if norm_v_bias is not None and norm_v_bias.numel() != 0 else torch.empty(0, device=device, dtype=dtype)
+                    v_curr = _rms_norm(v_curr, wv, bv_norm)
+
+                if int(topology) != 1 and norm_x_weight is not None and torch.is_tensor(norm_x_weight) and norm_x_weight.numel() != 0:
+                    wx = norm_x_weight[layer_idx].to(dtype=dtype)
+                    bx_norm = norm_x_bias[layer_idx].to(dtype=dtype) if norm_x_bias is not None and norm_x_bias.numel() != 0 else torch.empty(0, device=device, dtype=dtype)
+                    x_curr = _rms_norm(x_curr, wx, bx_norm)
+                else:
+                    x_curr = _boundary(x_curr)
+
+                v_curr = 100.0 * torch.tanh(v_curr / 100.0)
+            else:
+                x_curr = _boundary(x_cat)
+                v_curr = 100.0 * torch.tanh(v_cat / 100.0)
+
+        x_steps.append(x_curr)
+
+    x_seq = torch.stack(x_steps, dim=1) if x_steps else torch.empty(B, 0, D, device=device, dtype=dtype)
+    reg_loss = torch.zeros((), device=device, dtype=dtype)
+    return x_curr, v_curr, x_seq, reg_loss
+
+
+def recurrent_manifold_fused_python_fallback(x, v, f, U_stack, W_stack, dt, dt_scales, forget_rates, num_heads,
+                                            plasticity, sing_thresh, sing_strength, mix_x, mix_v, Wf, Wi, bf, Wp, bp,
+                                            topology, R, r,
+                                            mix_x_bias=None, mix_v_bias=None,
+                                            norm_x_weight=None, norm_x_bias=None, norm_v_weight=None, norm_v_bias=None,
+                                            gate_W1=None, gate_b1=None, gate_W2=None, gate_b2=None,
+                                            integrator_type=0):
+    return recurrent_manifold_fused_autograd(
+        x, v, f, U_stack, W_stack, dt, dt_scales, forget_rates, num_heads,
+        plasticity, sing_thresh, sing_strength, mix_x, mix_v, Wf, Wi, bf, Wp, bp,
+        topology, R, r,
+        mix_x_bias=mix_x_bias, mix_v_bias=mix_v_bias,
+        norm_x_weight=norm_x_weight, norm_x_bias=norm_x_bias,
+        norm_v_weight=norm_v_weight, norm_v_bias=norm_v_bias,
+        gate_W1=gate_W1, gate_b1=gate_b1, gate_W2=gate_W2, gate_b2=gate_b2,
+        integrator_type=integrator_type
+    )

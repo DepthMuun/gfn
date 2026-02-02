@@ -227,13 +227,26 @@ def dormand_prince_fused(x, v, f, U, W, dt, dt_scale, steps, topology=0, R=2.0, 
 def recurrent_manifold_fused(x, v, f, U_stack, W_stack, dt, dt_scales, forget_rates, num_heads, 
                              plasticity=0.0, sing_thresh=1.0, sing_strength=1.0, 
                              mix_x=None, mix_v=None, Wf=None, Wi=None, bf=None, 
-                             Wp=None, bp=None, # NEW ARGS
-                             topology=0, R=2.0, r=1.0):
+                             Wp=None, bp=None,
+                             topology=0, R=2.0, r=1.0,
+                             mix_x_bias=None, mix_v_bias=None,
+                             norm_x_weight=None, norm_x_bias=None, norm_v_weight=None, norm_v_bias=None,
+                             gate_W1=None, gate_b1=None, gate_W2=None, gate_b2=None,
+                             integrator_type=0):
     """
     Fused recurrent manifold step for sequence training.
     """
     if CUDA_AVAILABLE and x.is_cuda: # Enabled for Torus (Fixed kernels)
         from .autograd import recurrent_manifold_fused_autograd
-        return recurrent_manifold_fused_autograd(x, v, f, U_stack, W_stack, dt, dt_scales, forget_rates, num_heads, plasticity, sing_thresh, sing_strength, mix_x, mix_v, Wf, Wi, bf, Wp, bp, topology, R, r)
+        return recurrent_manifold_fused_autograd(
+            x, v, f, U_stack, W_stack, dt, dt_scales, forget_rates, num_heads,
+            plasticity, sing_thresh, sing_strength, mix_x, mix_v, Wf, Wi, bf, Wp, bp,
+            topology, R, r,
+            mix_x_bias=mix_x_bias, mix_v_bias=mix_v_bias,
+            norm_x_weight=norm_x_weight, norm_x_bias=norm_x_bias,
+            norm_v_weight=norm_v_weight, norm_v_bias=norm_v_bias,
+            gate_W1=gate_W1, gate_b1=gate_b1, gate_W2=gate_W2, gate_b2=gate_b2,
+            integrator_type=integrator_type
+        )
     
     return None # Use Python Sequence Loop (Autograd managed)
