@@ -47,7 +47,7 @@ set DISTUTILS_USE_SDK=1
 
 
 
-python  setup.py build_ext --inplace 
+python -m build --no-isolation
 
 if %errorlevel% neq 0 (
     echo [ERROR] Compilation failed.
