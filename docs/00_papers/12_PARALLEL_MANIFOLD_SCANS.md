@@ -6,7 +6,7 @@
 **Abstract**  
 The sequential dependency of recursive architectures (e.g., RNNs, S4, Mamba) constitutes a primary bottleneck in high-throughput neural training, where token $t$ traditionally requires the completion of token $t-1$. We introduce **Parallel Manifold Scans**, an associative reformulation of the manifold update operator that enables $O(\log N)$ parallel depth for sequence trajectories. By expressing the discretized flow as a prefix-sum over affine propagators, we obtain a scan-compatible formulation that supports GPU acceleration via fused kernels. We demonstrate that geodesic flows, when linearized into a Linear Time-Varying (LTV) system, can be integrated across massive sequence lengths with logarithmic parallel complexity, bridging the gap between the constant-memory recursion of Geodesic Flow Networks (GFN) and the parallel training efficiency of attention-based models.
 
----
+
 
 ## 1. Introduction: The Serial Bottleneck in Manifold Dynamics
 
@@ -46,7 +46,7 @@ For maximum efficiency, we implement a **Fused Parallel Scan** kernel. This kern
 ## 4. Complexity and Performance Analysis
 
 | Metric | Sequential Integration | Parallel Manifold Scan |
-| :--- | :--- | :--- |
+| : | : | : |
 | **Compute Complexity** | $O(N \cdot D)$ | $O(N \cdot D)$ (Work-efficient) |
 | **Parallel Depth** | $O(N)$ | $O(\log N)$ |
 | **Memory Footprint** | $O(1)$ (Inference) | $O(N \cdot D)$ (Training) |
@@ -66,7 +66,7 @@ By modulating $\mathbf{A}_t \to 1$, the model can create "lossless" conduits whe
 
 Parallel Manifold Scans provide a rigorous bridge between the continuous physics of GFN and the requirements of modern deep learning. By reformulating manifold dynamics as an associative prefix-sum, we achieve $O(\log N)$ training speed without sacrificing the constant-memory, infinite-context advantages of recurrent flows. This architecture represents a new paradigm for scalable, physics-informed sequence modeling.
 
----
+
 
 **References**
 

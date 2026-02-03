@@ -1,0 +1,146 @@
+# Pre-commit hooks configuration for Manifold
+#
+# This file defines the automated quality checks that run before each commit.
+# Install hooks with: pre-commit install
+
+repos:
+  # Format Python code with Black
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
+    hooks:
+      - id: black
+        language_version: python3.10
+        args: [--line-length, "120", --target-version, "py310"]
+
+  # Sort Python imports with isort
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: [--line-length, "120", --profile, "black"]
+
+  # Check Python code for common mistakes with flake8
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.1.1
+    hooks:
+      - id: flake8
+        args: [
+          "--max-line-length=120",
+          "--extend-ignore=E203,E501,W503",
+          "--per-file-ignores=__init__.py:F401",
+          "src/",
+          "tests/"
+        ]
+
+  # Type checking with mypy
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [torch, numpy, types-PyYAML]
+        args: [
+          "--ignore-missing-imports",
+          "--strict-optional",
+          "--no-implicit-optional",
+          "--disallow-untyped-defs",
+          "--disallow-incomplete-defs",
+          "--check-untyped-defs",
+          "--warn-return-any",
+          "--warn-unused-ignores",
+          "src/"
+        ]
+
+  # Check for common security issues with bandit
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.10
+    hooks:
+      - id: bandit
+        args: ["-r", "src/", "-x", "tests/"]
+        additional_dependencies: [torch]
+
+  # Check YAML files for syntax errors
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+        args: [--unsafe]  # Allow custom tags in YAML files
+
+  # Check for trailing whitespace
+  - id: trailing-whitespace
+    name: Check trailing whitespace
+    entry: trailing-whitespace-fixer
+    language: system
+    types: [text]
+
+  # Check for files that should not be committed
+  - id: check-added-large-files
+    name: Check for large files
+    entry: check-added-large-files
+    language: system
+    args: ['--maxkb=1000']
+
+  # Ensure commit messages meet standards
+  - id: commitizen
+    name: Validate commit message format
+    entry: commitizen check
+    language: system
+    stages: [commit-msg]
+    always_run: true
+
+  # Check that requirements.txt is sorted correctly
+  - repo: https://github.com/MoOx/fix-requirements
+    rev: 0.0.3
+    hooks:
+      - id: fix-requirements
+        files: ^requirements.*\.txt$
+        args: [--sort]
+
+  # Check docstrings with pydocstyle
+  - repo: https://github.com/pycqa/pydocstyle
+    rev: 6.3.0
+    hooks:
+      - id: pydocstyle
+        args: [
+          "--convention=numpy",
+          "--add-ignore=D208,D213",
+          "--match-dir=src",
+          "--match=(?!test_).*\.py"
+        ]
+
+  # Check for debug statements
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: debug-statements
+        types: [python]
+
+  # Sort Python lists in configuration files
+  - repo: https://github.com/asottile/add-trailing-comma
+    rev: v2.8.0
+    hooks:
+      - id: add-trailing-comma
+        args: [--line-length, "120"]
+
+  # Replace or eliminate unsafe YAML constructs
+  - repo: https://github.com/asottile/yamlfix
+    rev: 1.18.0
+    hooks:
+      - id: yamlfix
+        args: [--line-length, "120"]
+
+  # Check for obsolete pre-commit hooks
+  - repo: https://github.com/asottile/pre-commit-obsolete
+    rev: 3.0.0
+    hooks:
+      - id: detect-private-key
+      - id: check-yaml
+        args: [--unsafe]
+
+# Configure which files are checked by default
+default_stages: [pre-commit]
+
+# Require all files to pass before committing
+fail_fast: false
+
+# Print hook failures to stderr
+verbose: true

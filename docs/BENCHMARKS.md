@@ -1,6 +1,6 @@
 # MANIFOLD Benchmarks
 
-**Version:** 2.6.2 "Symplectic Forgetting"
+
 **Last Updated:** January 27, 2026
 
 This document presents empirically verified performance benchmarks for the MANIFOLD architecture, demonstrating O(1) memory complexity, perfect generalization, and stable gradient flow.

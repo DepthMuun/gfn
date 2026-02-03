@@ -1,44 +1,287 @@
-# Git Attributes for GFN Project
-# ===============================
+# Git Attributes for Manifold Project
+# ====================================
+#
+# This file controls how Git handles various file types and operations,
+# including line ending normalization, binary file handling, and merge
+# strategies for the Manifold Geodesic Flow Networks project.
 
 # Auto-detect text files and normalize line endings
+# This automatically determines if a file is text and normalizes line endings
 * text=auto
 
-# Source code
+# ===============================================
+# Source Code Files
+# ===============================================
+# Python source files - use LF line endings for cross-platform compatibility
 *.py text eol=lf
+*.pyi text eol=lf
+
+# CUDA source files for GPU operations
 *.cu text eol=lf
+*.cuh text eol=lf
+
+# C++ source files
 *.cpp text eol=lf
+*.cc text eol=lf
+*.c text eol=lf
+
+# Header files
 *.h text eol=lf
 *.hpp text eol=lf
+*.hxx text eol=lf
 
-# Configuration files
+# ===============================================
+# Configuration Files
+# ===============================================
+# YAML configuration files (common in ML projects)
 *.yaml text eol=lf
 *.yml text eol=lf
+
+# JSON configuration and data files
 *.json text eol=lf
+
+# TOML configuration files
 *.toml text eol=lf
 
-# Scripts
-*.sh text eol=lf
-*.bat text eol=crlf
+# INI configuration files
+*.ini text eol=lf
+*.cfg text eol=lf
+*.conf text eol=lf
 
-# Documentation
+# ===============================================
+# Documentation Files
+# ===============================================
+# Markdown documentation (primary documentation format)
 *.md text eol=lf
+*.markdown text eol=lf
+
+# reStructuredText documentation
+*.rst text eol=lf
+
+# Plain text files
 *.txt text eol=lf
 
-# Binary files
-*.pth binary
+# ===============================================
+# Script Files
+# ===============================================
+# Shell scripts (Linux/macOS)
+*.sh text eol=lf
+
+# Batch scripts (Windows)
+*.bat text eol=crlf
+
+# PowerShell scripts
+*.ps1 text eol=lf
+
+# ===============================================
+# Model and Data Files
+# ===============================================
+# PyTorch model files (typically large binary files)
 *.pt binary
+*.pth binary
 *.ckpt binary
+
+# TensorFlow/Keras model files
+*.h5 binary
+*.hdf5 binary
+*.pb binary
+
+#ONNX model files
+*.onnx binary
+
+# Pickle data files
+*.pkl binary
+*.pickle binary
+
+# ===============================================
+# Binary Media Files
+# ===============================================
+# Image files for documentation and visualization
 *.png binary
 *.jpg binary
 *.jpeg binary
 *.gif binary
+*.bmp binary
+*.tiff binary
+*.tif binary
+*.webp binary
+*.svg binary
+
+# Document files
 *.pdf binary
+*.doc binary
+*.docx binary
+*.xls binary
+*.xlsx binary
+*.ppt binary
+*.pptx binary
+
+# ===============================================
+# Compiled and Library Files
+# ===============================================
+# Shared object files (Linux)
 *.so binary
-*.pyd binary
+
+# Dynamic link libraries (Windows)
 *.dll binary
 
-# Git LFS (if needed for large model files)
-# Uncomment if using Git LFS:
-# *.pth filter=lfs diff=lfs merge=lfs -text
+# Python extension modules
+*.pyd binary
+*.so binary
+
+# Static libraries
+*.a binary
+*.lib binary
+*.o binary
+*.obj binary
+
+# ===============================================
+# Archive Files
+# ===============================================
+# Compressed archive files
+*.zip binary
+*.tar binary
+*.gz binary
+*.bz2 binary
+*.xz binary
+*.7z binary
+*.tar.gz binary
+*.tar.bz2 binary
+
+# ===============================================
+# Build and Cache Directories
+# ===============================================
+# Python cache directories (excluded from version control)
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Build output directories
+build/
+dist/
+*.egg-info/
+*.egg
+*.whl
+
+# Test cache and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.coverage.*
+*.cover
+
+# Type checking cache
+.mypy_cache/
+.pytype/
+
+# ruff linter cache
+.ruff_cache/
+
+# IDE and editor directories
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ===============================================
+# Documentation Build Artifacts
+# ===============================================
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.nav
+*.out
+*.snm
+*.toc
+*.vrb
+
+# Sphinx build artifacts
+docs/_build/
+docs/.doctrees/
+
+# ===============================================
+# Data and Results Files
+# ===============================================
+# Structured data files
+*.csv text eol=lf
+*.tsv text eol=lf
+*.parquet binary
+*.feather binary
+
+# Benchmark results (typically not committed)
+results/
+benchmarks/results/
+*.log
+*.out
+*.tmp
+*.temp
+
+# ===============================================
+# Secret and Credential Files
+# ===============================================
+# Configuration files that may contain secrets
+# These should never be committed
+.env
+*.env
+*.secrets
+credentials.json
+*.pem
+*.key
+
+# ===============================================
+# Git LFS Configuration
+# ===============================================
+# Uncomment the following lines if using Git LFS for large files:
 # *.pt filter=lfs diff=lfs merge=lfs -text
+# *.pth filter=lfs diff=lfs merge=lfs -text
+# *.ckpt filter=lfs diff=lfs merge=lfs -text
+# *.h5 filter=lfs diff=lfs merge=lfs -text
+# *.hdf5 filter=lfs diff=lfs merge=lfs -text
+# *.onnx filter=lfs diff=lfs merge=lfs -text
+
+# ===============================================
+# Language Detection
+# ===============================================
+# Help GitHub correctly identify the project language
+*.py linguist-detectable=true
+*.py linguist-language=Python
+
+# Documentation files for language statistics
+*.md linguist-documentation=true
+*.rst linguist-documentation=true
+
+# Exclude certain directories from language statistics
+docs/ linguist-documentation=true
+tests/ linguist-documentation=false
+
+# ===============================================
+# Custom Merge Drivers (Optional)
+# ===============================================
+# Uncomment and configure if needed:
+
+# [merge "ours"]
+#     driver = true
+
+# [merge "yaml"]
+#     driver = merge-yaml %O %A %B %L %P
+
+# [merge "python"]
+#     driver = merge-python %O %A %B
+
+# ===============================================
+# Export Ignore
+# ===============================================
+# Files and directories to exclude when exporting the repository
+# Similar to .gitignore but for archive exports
+.gitattributes
+.gitignore

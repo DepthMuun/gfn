@@ -6,7 +6,7 @@
 **Abstract**  
 Contemporary neural network architectures depend on discrete embedding layers whose memory complexity scales linearly with vocabulary size ($O(V)$). This scaling imposes a critical bottleneck for models operating with massive multilingual vocabularies or high-resolution scientific data. We present **Implicit Neural Embeddings (INF)**, a framework where the discrete lookup table is replaced by a continuous neural field $\Psi$ defined on a low-dimensional manifold. Using Sinusoidal Representation Networks (SIREN), we demonstrate that large-scale vocabularies can be compressed into a constant number of parameters $O(1)$ with respect to $V$, while inducing a smooth metric topology between symbols. This approach not only drastically reduces the memory footprint but enables semantic interpolation and reasoning over unseen symbols through the continuity of the functional field.
 
----
+
 
 ## 1. Introduction: The Problem of Symbolic Discretization
 
@@ -14,7 +14,7 @@ In traditional deep learning, each symbol or token $i$ in a vocabulary $\mathcal
 
 We propose a paradigm shift: treating the vocabulary as a **Continuous Semantic Field**. Instead of storing vectors, we learn a function $\Psi$ that maps coordinates $\mathbf{c} \in \mathcal{C}$ in a low-dimensional space to dense vector representations.
 
----
+
 
 ## 2. Mathematical Framework of Implicit Neural Fields
 
@@ -32,7 +32,7 @@ $$ \phi(x) = \sin(\omega_0 \cdot x) $$
 
 where $\omega_0$ is a frequency factor controlling the field's bandwidth. SIREN networks enable the neural field to capture high-frequency details and represent complex functions with superior accuracy compared to traditional architectures, maintaining the high-order differentiability required for physics-based optimizations.
 
----
+
 
 ## 3. Numerical Stability and Spectral Initialization
 
@@ -42,7 +42,7 @@ $$ W \sim \mathcal{U}\left(-\frac{\sqrt{6/n}}{\omega_0}, \frac{\sqrt{6/n}}{\omeg
 
 This initialization prevents phase collapse and allows the neural field to distribute uniformly over the coordinate space, maximizing the model's expressive capacity to represent the complete vocabulary.
 
----
+
 
 ## 4. Metric Topology and Semantic Interpolation
 
@@ -53,7 +53,7 @@ This property enables:
 2.  **Noise Robustness**: Small perturbations in coordinates result in smooth embedding changes, improving training stability.
 3.  **Zero-Shot Synthesis**: The ability to generate representations for new symbols simply by assigning them a position in the existing coordinate landscape.
 
----
+
 
 ## 5. Implicit Readout Mechanisms
 
@@ -65,7 +65,7 @@ $$ P(i | \mathbf{h}) \propto \exp\left( -\frac{\| \text{MLP}(\mathbf{h}) - \math
 
 As temperature $\tau$ decreases during training, the distribution becomes sharper, enabling a smooth transition from continuous exploration regime to discrete symbol selection.
 
----
+
 
 ## 6. Complexity Analysis and Parameter Efficiency
 
@@ -75,13 +75,13 @@ Consider a vocabulary of $V = 100,000$ tokens with an embedding dimension $D = 5
 
 The INF achieves an approximately **30x parameter reduction**, decoupling vocabulary growth from model complexity. In the limit, if coordinates are derived from hash functions or fixed structures, the embedding memory complexity becomes $O(1)$.
 
----
+
 
 ## 7. Conclusion
 
 Implicit Neural Fields represent a fundamental shift in symbolic information management. By treating the vocabulary as a continuous field, we not only optimize computational resource utilization but endow the model with an intrinsic geometric understanding of semantics. This approach lays the foundation for architectures capable of processing vocabularies of unlimited scale with unprecedented efficiency.
 
----
+
 
 **References**  
 

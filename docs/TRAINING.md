@@ -1,6 +1,6 @@
 # MANIFOLD Training Guide
 
-**Version:** 2.6.2 "Symplectic Forgetting"
+
 **Last Updated:** January 27, 2026
 
 Complete guide for training MANIFOLD models, from quick start to advanced optimization.

@@ -31,9 +31,6 @@ class EulerIntegrator(nn.Module):
                 U = getattr(self.christoffel, 'U', None)
                 W = getattr(self.christoffel, 'W', None)
                 if U is not None and W is not None:
-                    # Euler fused wrapper needs to handle kwargs if we update it, 
-                    # but for now we just pass standard args.
-                    # Note: euler_fused signature might need check.
                     topology = getattr(self.christoffel, 'topology_id', 0)
                     if hasattr(self.christoffel, 'is_torus') and self.christoffel.is_torus: topology = 1
                     
@@ -41,8 +38,9 @@ class EulerIntegrator(nn.Module):
                     r = getattr(self.christoffel, 'r', 1.0)
                     
                     return euler_fused(x, v, force, U, W, self.dt, dt_scale, steps=steps, topology=topology, R=R, r=r)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[GFN:WARN] CUDA euler_fused failed: {e}, falling back to PyTorch")
+                # Fall through to PyTorch implementation
 
         curr_x, curr_v = x, v
         for _ in range(steps):

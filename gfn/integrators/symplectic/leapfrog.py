@@ -42,8 +42,8 @@ class LeapfrogIntegrator(nn.Module):
                         bf = bf[0]
                     return leapfrog_fused(x, v, force, U, W, self.dt, dt_scale, steps=steps, topology=topology_id, Wf=Wf, bf=bf)
             except Exception as e:
-                print(f"[GFN:WARN] Leapfrog CUDA Kernel execution failed: {e}")
-                pass
+                print(f"[GFN:WARN] CUDA leapfrog_fused failed: {e}, falling back to PyTorch")
+                # Fall through to PyTorch implementation
 
         curr_x, curr_v = x, v
         # Tell Christoffel to return friction separately for implicit update

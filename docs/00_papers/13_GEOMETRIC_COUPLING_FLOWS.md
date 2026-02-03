@@ -6,7 +6,7 @@
 **Abstract**  
 Standard symplectic integrators, while stable, are typically restricted to separable Hamiltonian systems where the kinetic energy is a simple quadratic form of momentum. We introduce **Symplectic Coupling Flows**, a hybrid architecture that reformulates the numerical integration of geodesic flows as a sequence of volume-preserving coupling transformations. By borrowing the triangular structure of Normalizing Flows (e.g., NICE/RealNVP), we decouple the evolution of position and velocity into a series of shear mappings. This formulation guarantees a strictly unit Jacobian determinant ($\det J = 1$) regardless of the complexity of the learned force fields or the non-linear "drift" functions. We demonstrate that this approach enables the learning of **Intrinsic Kinematics**, where the relationship between velocity and coordinate updates is no longer fixed by Newtonian physics but is instead an optimized neural mapping, providing a flexible yet conservative foundation for Geodesic Flow Networks (GFN).
 
----
+
 
 ## 1. The Coupling Transformation in Phase Space
 
@@ -49,7 +49,7 @@ Because the wrapping is a local isometry (except at the boundary which is a null
 ## 4. Comparative Advantages
 
 | Feature | Standard Symplectic | Normalizing Flows | Symplectic Coupling Flow |
-| :--- | :--- | :--- | :--- |
+| : | : | : | : |
 | **Physics** | Fixed Hamiltonian | None (General) | **Learnable Hamiltonian** |
 | **Volume** | Preserved ($O(\Delta t^n)$) | Exact ($\det J = 1$) | **Exact ($\det J = 1$)** |
 | **Invertibility** | Semi-analytical | Analytical | **Analytical** |
@@ -63,7 +63,7 @@ By training the Drift Network, we observe the emergence of **Semantic Inertia**:
 
 Symplectic Coupling Flows provide a mathematically rigorous way to inject learnable neural components into the heart of a geometric integrator. By framing the update as a series of shear transformations, we gain the flexibility of deep neural networks while retaining the exact conservation laws required for stable, long-horizon sequence modeling in Geodesic Flow Networks.
 
----
+
 
 **References**
 

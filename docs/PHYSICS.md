@@ -1,6 +1,5 @@
 # MANIFOLD Physics and Mathematics
 
-**Version:** 2.6.2
 **Last Updated:** January 27, 2026
 
 This document presents the mathematical foundations of the MANIFOLD architecture, derived from differential geometry and Hamiltonian mechanics. The formulation establishes a bridge between symbolic reasoning (discrete logic) and geometric dynamics (continuous flow).

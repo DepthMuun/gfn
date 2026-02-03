@@ -6,7 +6,7 @@
 **Abstract**  
 Hamiltonian latent dynamics preserve phase-space volume, enabling long-horizon persistence of information. Yet strict conservation impedes contextual switching: a purely conservative system cannot relax into new semantic attractors without oscillation. We introduce **Thermodynamic Gating**, a mechanism that couples Hamiltonian geodesic flow to a learned dissipative field and a dynamic time gate. A state- and input-dependent friction coefficient $\mu(x,u)$ implements selective irreversibility (the “clutch”), while a curvature-informed gate scales the effective time step $\Delta t_{\text{eff}} = g(x)\,\Delta t$. The result is a conformal-symplectic update that supports both persistent memory (coasting) and decisive rewriting (damping), verified in the reference implementation by an implicit friction Leapfrog scheme and toroidal topology features for periodic computation.
 
----
+
 
 ## 1. Motivation: Conservation, Updating, and Selective Irreversibility
 
@@ -14,7 +14,7 @@ Hamiltonian latent dynamics preserve phase-space volume, enabling long-horizon p
 - Intelligent behavior requires switching between an **Isolated Regime** (conservative flow) and an **Open Regime** (entropy-producing update).  
 - Thermodynamic Gating provides a physical basis for the forget gate: dissipation is produced only where and when information must be rewritten.
 
----
+
 
 ## 2. Continuous-Time Model
 
@@ -29,7 +29,7 @@ where $F$ is an external force embedding (token-driven), $\Gamma$ is the Christo
 
 Additionally, a learned gate $g(x)\in(0,1]$ scales the effective step size, shrinking time in “hard” regions (high curvature) and expanding it in “flat” regions (skip-like behavior).
 
----
+
 
 ## 3. Discrete-Time: Conformal Symplectic Leapfrog with Implicit Friction
 
@@ -51,7 +51,7 @@ Properties:
 - Energy production/consumption is localized to transitions, enabling “dash-and-stop” behavior.  
 - The dynamic time gate $g(x)$ preserves qualitative trajectories by shrinking steps near strong curvature.
 
----
+
 
 ## 4. Implementation Summary (Architecture-Level)
 
@@ -63,7 +63,7 @@ Properties:
 
 These elements compose a geodesic layer that performs learned physics-informed computation without violating manifold constraints.
 
----
+
 
 ## 5. Topology and Periodic Features
 
@@ -71,7 +71,7 @@ These elements compose a geodesic layer that performs learned physics-informed c
 - Periodic features [sin(x), cos(x)] are used both in friction gating and dynamic time gating to preserve continuity across $2\pi$ boundaries.  
 - Position updates apply wrap(·) to maintain coordinates on the manifold; training losses include toroidal distance terms to avoid boundary artifacts.
 
----
+
 
 ## 6. Training and Regularization
 
@@ -80,7 +80,7 @@ These elements compose a geodesic layer that performs learned physics-informed c
 - Geodesic regularization encourages curvature smoothness and reduces instability under strong gates.  
 - Velocity saturation (tanh) limits runaway speeds while keeping gradients well-behaved.
 
----
+
 
 ## 7. Information-Theoretic Perspective
 
@@ -91,7 +91,7 @@ Thermodynamic Gating realizes **Landauer’s Principle**: erasure requires dissi
 
 This yields precise state changes without sacrificing long-horizon persistence.
 
----
+
 
 ## 8. Practical Notes
 
@@ -100,13 +100,13 @@ This yields precise state changes without sacrificing long-horizon persistence.
 - CUDA fused paths accelerate integration and gating; Python fallbacks preserve correctness where fused kernels are unavailable.  
 - Toroidal wrapping is applied after position updates; gating features remain periodic to avoid discontinuities.
 
----
+
 
 ## 9. Conclusion
 
 Thermodynamic Gating unifies conservative memory and decisive updating within a single geometric computation layer. By combining a conformal-symplectic integrator with learned friction and dynamic time gating, Geodesic Flow Networks achieve stability, persistence, and controllability on compact manifolds—enabling symbolic trajectory formation and robust reasoning over long horizons.
 
----
+
 **References**
 
 [1] Prigogine, I. (1955). Introduction to Thermodynamics of Irreversible Processes. Thomas.  

@@ -1,5 +1,3 @@
-# WORK IN PROGRESS
-
 # Manifold: Geometric Sequence Modeling via Symplectic Flows
 
 > **Infinite Context. Constant Memory. Hamiltonian Dynamics.**
@@ -13,6 +11,51 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Framework](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
 [![Status](https://img.shields.io/badge/Status-Research%20Preview-orange.svg)]()
+
+---
+
+## Documentation
+
+Manifold provides comprehensive documentation to help users understand, implement, and extend the Geometric Flow Network architecture. The documentation is organized into several guides covering different aspects of the system.
+
+### Getting Started
+
+| Guide | Description |
+|-------|-------------|
+| [Getting Started](docs/getting-started.md) | Complete guide to installing, configuring, and running your first Manifold model. Covers environment setup, basic configuration, and quick-start examples. |
+| [Tutorial](docs/tutorial.md) | Step-by-step tutorial demonstrating how to build a complete sequence modeling project using Manifold. Includes practical code examples and best practices. |
+
+### Core Concepts
+
+| Guide | Description |
+|-------|-------------|
+| [Mathematical Foundations](docs/mathematical-foundations.md) | In-depth exploration of the geometric mechanics principles underlying Manifold. Covers Hamiltonian dynamics, symplectic flows, Riemannian geometry, and the physical interpretation of sequence modeling. |
+| [Architecture](docs/architecture.md) | Comprehensive technical reference describing the system architecture, components, data flow, and implementation details. Essential for understanding how Manifold processes sequences internally. |
+
+### Reference & Advanced Topics
+
+| Guide | Description |
+|-------|-------------|
+| [API Reference](docs/API.md) | Complete API documentation for all Manifold modules, classes, and functions. Includes parameter descriptions, return values, and usage examples for integration into production systems. |
+| [Benchmarking](docs/benchmarking.md) | Detailed documentation of performance evaluations and comparison studies. Covers methodology, metrics, datasets, and results comparing Manifold against Transformers, Mamba, and other state space models. |
+| [Troubleshooting](docs/troubleshooting.md) | Solutions to common issues, numerical instability guides, performance optimization tips, and frequently asked questions. Essential for debugging and production deployment. |
+
+### Documentation Map
+
+```
+├── Getting Started
+│   ├── Installation & Setup
+│   └── Quick Start Tutorial
+│
+├── Core Concepts
+│   ├── Mathematical Foundations
+│   └── Architecture Deep Dive
+│
+├── Reference
+│   ├── API Documentation
+│   ├── Benchmarking Results
+│   └── Troubleshooting Guide
+```
 
 ---
 
@@ -202,9 +245,9 @@ for input_ids, targets in dataloader:
 Manifold is an active research project. If you utilize this framework or its findings in your research, please cite:
 
 ```bibtex
-@article{manifold2026,
+@article{sturtz2026manifold,
   title={Manifold: Geometric Sequence Modeling via Symplectic Flows},
-  author={Manifold Laboratory},
+  author={Stürtz, Joaquín},
   journal={arXiv preprint},
   year={2026}
 }
@@ -213,6 +256,6 @@ Manifold is an active research project. If you utilize this framework or its fin
 ---
 
 <div align="center">
-  <b>joaquín Stürtz</b><br>
-  <i>Geometric Intelligence via Physical Principles</i>
+  <b>Joaquín Stürtz</b><br>
+  <i>Manifold Laboratory</i>
 </div>

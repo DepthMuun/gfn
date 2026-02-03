@@ -1,6 +1,6 @@
 # MANIFOLD Technical Handbook
 
-**Version:** 2.6.2
+
 **Status:** Unified Reference
 **Last Updated:** January 27, 2026
 
