@@ -43,7 +43,7 @@ class CUDAFusionManager:
             return False
         if collect_christ:
             return False
-        if self.model.integrator_type == 'leapfrog':
+        if self.model.integrator_type not in ['heun', 'leapfrog']:
             return False
         
         # Check CUDA availability
@@ -73,12 +73,65 @@ class CUDAFusionManager:
             b_forget_list = []
             W_potential_list = []
             b_potential_list = []
+            mix_x_list = []
+            mix_v_list = []
+            mix_x_bias_list = []
+            mix_v_bias_list = []
+            norm_x_weight_list = []
+            norm_x_bias_list = []
+            norm_v_weight_list = []
+            norm_v_bias_list = []
+            gate_W1_list = []
+            gate_b1_list = []
+            gate_W2_list = []
+            gate_b2_list = []
+            dt_scales_list = []
             
             for layer in self.model.layers:
+                device = next(self.model.parameters()).device
                 # Handle fractal wrapper
                 target_layer = layer
                 if hasattr(layer, 'macro_manifold'):
                     target_layer = layer.macro_manifold
+
+                dt_scales_list.append(torch.nn.functional.softplus(target_layer.dt_params))
+
+                if self.model.heads > 1 and hasattr(target_layer, 'out_proj_x'):
+                    mix_x_list.append(target_layer.out_proj_x.weight)
+                    mix_v_list.append(target_layer.out_proj_v.weight)
+                    mix_x_bias_list.append(target_layer.out_proj_x.bias)
+                    mix_v_bias_list.append(target_layer.out_proj_v.bias)
+                    norm_x_weight_list.append(target_layer.mixed_norm_x.weight)
+                    norm_x_bias = getattr(target_layer.mixed_norm_x, 'bias', None)
+                    norm_x_bias_list.append(norm_x_bias if norm_x_bias is not None else torch.empty(0, device=device))
+                    
+                    norm_v_weight_list.append(target_layer.mixed_norm_v.weight)
+                    norm_v_bias = getattr(target_layer.mixed_norm_v, 'bias', None)
+                    norm_v_bias_list.append(norm_v_bias if norm_v_bias is not None else torch.empty(0, device=device))
+                else:
+                    mix_x_list.append(torch.empty(0, device=device))
+                    mix_v_list.append(torch.empty(0, device=device))
+                    mix_x_bias_list.append(torch.empty(0, device=device))
+                    mix_v_bias_list.append(torch.empty(0, device=device))
+                    norm_x_weight_list.append(torch.empty(0, device=device))
+                    norm_x_bias_list.append(torch.empty(0, device=device))
+                    norm_v_weight_list.append(torch.empty(0, device=device))
+                    norm_v_bias_list.append(torch.empty(0, device=device))
+
+                gate_W1_layer = []
+                gate_b1_layer = []
+                gate_W2_layer = []
+                gate_b2_layer = []
+                if hasattr(target_layer, 'gatings'):
+                    for g in target_layer.gatings:
+                        gate_W1_layer.append(g.curvature_net[0].weight)
+                        gate_b1_layer.append(g.curvature_net[0].bias)
+                        gate_W2_layer.append(g.curvature_net[2].weight)
+                        gate_b2_layer.append(g.curvature_net[2].bias)
+                gate_W1_list.append(torch.stack(gate_W1_layer) if gate_W1_layer else torch.empty(0, device=next(self.model.parameters()).device))
+                gate_b1_list.append(torch.stack(gate_b1_layer) if gate_b1_layer else torch.empty(0, device=next(self.model.parameters()).device))
+                gate_W2_list.append(torch.stack(gate_W2_layer) if gate_W2_layer else torch.empty(0, device=next(self.model.parameters()).device))
+                gate_b2_list.append(torch.stack(gate_b2_layer) if gate_b2_layer else torch.empty(0, device=next(self.model.parameters()).device))
                 
                 for head_idx in range(self.model.heads):
                     head_geo = target_layer.christoffels[head_idx]
@@ -134,11 +187,19 @@ class CUDAFusionManager:
             
             # Get mixing weights
             device = next(self.model.parameters()).device
-            mix_x = torch.empty(0, device=device)
-            mix_v = torch.empty(0, device=device)
-            if self.model.heads > 1 and hasattr(self.model.layers[0], 'out_proj_x'):
-                mix_x = self.model.layers[0].out_proj_x.weight
-                mix_v = self.model.layers[0].out_proj_v.weight
+            mix_x = torch.stack(mix_x_list) if mix_x_list else torch.empty(0, device=device)
+            mix_v = torch.stack(mix_v_list) if mix_v_list else torch.empty(0, device=device)
+            mix_x_bias = torch.stack(mix_x_bias_list) if mix_x_bias_list else torch.empty(0, device=device)
+            mix_v_bias = torch.stack(mix_v_bias_list) if mix_v_bias_list else torch.empty(0, device=device)
+            norm_x_weight = torch.stack(norm_x_weight_list) if norm_x_weight_list else torch.empty(0, device=device)
+            norm_x_bias = torch.stack(norm_x_bias_list) if norm_x_bias_list else torch.empty(0, device=device)
+            norm_v_weight = torch.stack(norm_v_weight_list) if norm_v_weight_list else torch.empty(0, device=device)
+            norm_v_bias = torch.stack(norm_v_bias_list) if norm_v_bias_list else torch.empty(0, device=device)
+            gate_W1 = torch.stack(gate_W1_list) if gate_W1_list else torch.empty(0, device=device)
+            gate_b1 = torch.stack(gate_b1_list) if gate_b1_list else torch.empty(0, device=device)
+            gate_W2 = torch.stack(gate_W2_list) if gate_W2_list else torch.empty(0, device=device)
+            gate_b2 = torch.stack(gate_b2_list) if gate_b2_list else torch.empty(0, device=device)
+            dt_scales_stack = torch.stack(dt_scales_list) if dt_scales_list else torch.empty(0, device=device)
             
             # Get base dt
             first_layer = self.model.layers[0]
@@ -169,6 +230,17 @@ class CUDAFusionManager:
                 'b_p_stack': b_p_stack,
                 'mix_x': mix_x,
                 'mix_v': mix_v,
+                'mix_x_bias': mix_x_bias,
+                'mix_v_bias': mix_v_bias,
+                'norm_x_weight': norm_x_weight,
+                'norm_x_bias': norm_x_bias,
+                'norm_v_weight': norm_v_weight,
+                'norm_v_bias': norm_v_bias,
+                'gate_W1': gate_W1,
+                'gate_b1': gate_b1,
+                'gate_W2': gate_W2,
+                'gate_b2': gate_b2,
+                'dt_scales_stack': dt_scales_stack,
                 'base_dt': base_dt,
                 'plasticity': plasticity,
                 'sing_thresh': sing_thresh,
@@ -205,8 +277,8 @@ class CUDAFusionManager:
             f_layer = self.model.layers[0]
             if hasattr(f_layer, 'macro_manifold'):
                 f_layer = f_layer.macro_manifold
-            
-            dt_scales = torch.nn.functional.softplus(f_layer.dt_params)
+
+            dt_scales = params['dt_scales_stack']
             forget_rates = torch.sigmoid(f_layer.christoffels[0].forget_gate.bias.mean())
             if forget_rates.numel() == 1:
                 forget_rates = forget_rates.expand(self.model.heads)
@@ -215,20 +287,31 @@ class CUDAFusionManager:
                 # Use autograd wrapper
                 res = recurrent_manifold_fused_autograd(
                     x=x, v=v, f=forces * mask,
-                    U=params['U_stack'], W=params['W_stack'],
+                    U_stack=params['U_stack'], W_stack=params['W_stack'],
                     dt=params['base_dt'], dt_scales=dt_scales, forget_rates=forget_rates,
                     num_heads=self.model.heads,
                     plasticity=params['plasticity'],
                     sing_thresh=params['sing_thresh'],
                     sing_strength=params['sing_strength'],
                     mix_x=params['mix_x'], mix_v=params['mix_v'],
-                    W_forget_stack=params['W_f_stack'],
-                    W_input_stack=params['W_i_stack'],
-                    b_forget_stack=params['b_f_stack'],
-                    W_potential_stack=params['W_p_stack'],
-                    b_potential_stack=params['b_p_stack'],
+                    Wf=params['W_f_stack'],
+                    Wi=params['W_i_stack'],
+                    bf=params['b_f_stack'],
+                    Wp=params['W_p_stack'],
+                    bp=params['b_p_stack'],
                     topology=params['topology_id'],
-                    R=params['major_R'], r=params['minor_r']
+                    R=params['major_R'], r=params['minor_r'],
+                    mix_x_bias=params['mix_x_bias'],
+                    mix_v_bias=params['mix_v_bias'],
+                    norm_x_weight=params['norm_x_weight'],
+                    norm_x_bias=params['norm_x_bias'],
+                    norm_v_weight=params['norm_v_weight'],
+                    norm_v_bias=params['norm_v_bias'],
+                    gate_W1=params['gate_W1'],
+                    gate_b1=params['gate_b1'],
+                    gate_W2=params['gate_W2'],
+                    gate_b2=params['gate_b2'],
+                    integrator_type=1 if self.model.integrator_type == 'leapfrog' else 0
                 )
             else:
                 # Use direct kernel
@@ -247,7 +330,18 @@ class CUDAFusionManager:
                     Wp=params['W_p_stack'],
                     bp=params['b_p_stack'],
                     topology=params['topology_id'],
-                    R=params['major_R'], r=params['minor_r']
+                    R=params['major_R'], r=params['minor_r'],
+                    mix_x_bias=params['mix_x_bias'],
+                    mix_v_bias=params['mix_v_bias'],
+                    norm_x_weight=params['norm_x_weight'],
+                    norm_x_bias=params['norm_x_bias'],
+                    norm_v_weight=params['norm_v_weight'],
+                    norm_v_bias=params['norm_v_bias'],
+                    gate_W1=params['gate_W1'],
+                    gate_b1=params['gate_b1'],
+                    gate_W2=params['gate_W2'],
+                    gate_b2=params['gate_b2'],
+                    integrator_type=1 if self.model.integrator_type == 'leapfrog' else 0
                 )
             
             return res

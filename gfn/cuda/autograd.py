@@ -1,422 +1,680 @@
+"""
+PyTorch Autograd Wrappers for GFN CUDA Kernels
+"""
 
 import torch
-from torch.autograd import Function
-try:
-    from gfn.geometry.boundaries import apply_boundary_python
-except ImportError:
-    def apply_boundary_python(x, tid): return x
+import torch.nn as nn
+from typing import Optional, Tuple
 
-# Import CUDA availability from ops.py
+# Try to import CUDA module
 try:
-    from .ops import CUDA_AVAILABLE, gfn_cuda
+    import gfn_cuda
+    CUDA_AVAILABLE = True
 except ImportError:
+    CUDA_AVAILABLE = False
+    gfn_cuda = None
+
+
+# ============================================================================
+# Christoffel Autograd Functions
+# ============================================================================
+
+class ChristoffelFusedFunction(torch.autograd.Function):
+    """Autograd wrapper for fused Christoffel computation."""
+    
+    @staticmethod
+    def forward(ctx, v, U, W, x, V_w, plasticity, sing_thresh, sing_strength, topology, R, r):
+        """
+        Forward pass for Christoffel computation.
+        
+        Args:
+            v: Velocity [batch, dim]
+            U: Low-rank matrix [dim, rank]
+            W: Low-rank matrix [dim, rank]
+            x: Position [batch, dim] or empty
+            V_w: Potential weights [dim] or empty
+            plasticity: Plasticity coefficient
+            sing_thresh: Singularity threshold
+            sing_strength: Singularity strength
+            topology: Topology ID (0=Euclidean, 1=Torus)
+            R: Toroidal major radius
+            r: Toroidal minor radius
+        
+        Returns:
+            gamma: Christoffel force [batch, dim]
+        """
+        if not CUDA_AVAILABLE or not v.is_cuda:
+            return None
+            
+        # Ensure tensors are contiguous
+        v = v.contiguous()
+        U = U.contiguous()
+        W = W.contiguous()
+        
+        if x.numel() > 0:
+            x = x.contiguous()
+        if V_w.numel() > 0:
+            V_w = V_w.contiguous()
+        
+        # Call CUDA kernel
+        gamma = gfn_cuda.lowrank_christoffel_fused(
+            v, U, W, x, V_w,
+            float(plasticity), float(sing_thresh), float(sing_strength),
+            int(topology), float(R), float(r)
+        )
+        
+        # Save for backward
+        ctx.save_for_backward(v, U, W, x, V_w, gamma)
+        ctx.plasticity = plasticity
+        ctx.sing_thresh = sing_thresh
+        ctx.sing_strength = sing_strength
+        ctx.topology = topology
+        ctx.R = R
+        ctx.r = r
+        
+        return gamma
+    
+    @staticmethod
+    def backward(ctx, grad_output):
+        """
+        Analytical backward pass for Christoffel computation.
+        """
+        v, U, W, x, V_w, gamma = ctx.saved_tensors
+        
+        # Call CUDA backward kernel
+        grads = gfn_cuda.christoffel_backward_fused(
+            grad_output.contiguous(), gamma, v, U, W, x, V_w,
+            float(ctx.plasticity), float(ctx.sing_thresh), float(ctx.sing_strength),
+            int(ctx.topology), float(ctx.R), float(ctx.r)
+        )
+        
+        # Return gradients for all inputs (11 total)
+        # 0:v, 1:U, 2:W, 3:x, 4:V_w, rest: hyperparameters
+        return grads[0], grads[1], grads[2], grads[3], None, None, None, None, None, None, None
+
+
+class LowRankChristoffelWithFrictionFunction(torch.autograd.Function):
+    """Autograd wrapper for Christoffel + Friction."""
+    
+    @staticmethod
+    def forward(ctx, v, U, W, x, V_w, force, W_forget, b_forget, W_input,
+                plasticity, sing_thresh, sing_strength, topology, R, r):
+        if not CUDA_AVAILABLE or not v.is_cuda:
+            return None
+            
+        # Ensure contiguous
+        v = v.contiguous()
+        U = U.contiguous()
+        W = W.contiguous()
+        x = x.contiguous()
+        W_forget = W_forget.contiguous()
+        b_forget = b_forget.contiguous()
+        
+        if V_w.numel() > 0:
+            V_w = V_w.contiguous()
+        if force.numel() > 0:
+            force = force.contiguous()
+        if W_input.numel() > 0:
+            W_input = W_input.contiguous()
+        
+        # Call CUDA kernel
+        output = gfn_cuda.lowrank_christoffel_with_friction(
+            v, U, W, x, V_w, force, W_forget, b_forget, W_input,
+            float(plasticity), float(sing_thresh), float(sing_strength),
+            int(topology), float(R), float(r)
+        )
+        
+        ctx.save_for_backward(v, U, W, x, V_w, force, W_forget, b_forget, W_input, output)
+        ctx.plasticity = plasticity
+        ctx.topology = topology
+        ctx.R = R
+        ctx.r = r
+        
+        return output
+    
+    @staticmethod
+    def backward(ctx, grad_output):
+        # Placeholder for gradients
+        v, U, W, x, V_w, force, W_forget, b_forget, W_input, output = ctx.saved_tensors
+        
+        grads = [None] * 15
+        # TODO: Implement analytical gradients
+        
+        return tuple(grads)
+
+
+# ============================================================================
+# Integrator Autograd Functions
+# ============================================================================
+
+class LeapfrogFusedFunction(torch.autograd.Function):
+    """Autograd wrapper for Leapfrog integrator."""
+    
+    @staticmethod
+    def forward(ctx, x, v, force, U, W, dt, dt_scale, steps, topology,
+                W_forget, b_forget, plasticity, R, r):
+        if not CUDA_AVAILABLE or not x.is_cuda:
+            return None, None
+            
+        # Ensure contiguous
+        x = x.contiguous()
+        v = v.contiguous()
+        force = force.contiguous()
+        U = U.contiguous()
+        W = W.contiguous()
+        
+        if W_forget.numel() > 0:
+            W_forget = W_forget.contiguous()
+        if b_forget.numel() > 0:
+            b_forget = b_forget.contiguous()
+        
+        # Call CUDA kernel
+        x_out, v_out = gfn_cuda.leapfrog_fused(
+            x, v, force, U, W,
+            float(dt), float(dt_scale), int(steps), int(topology),
+            W_forget, b_forget, float(plasticity), float(R), float(r)
+        )
+        
+        ctx.save_for_backward(x, v, force, U, W, W_forget, b_forget, x_out, v_out)
+        ctx.dt = dt
+        ctx.dt_scale = dt_scale
+        ctx.steps = steps
+        ctx.topology = topology
+        ctx.plasticity = plasticity
+        ctx.R = R
+        ctx.r = r
+        
+        return x_out, v_out
+    
+    @staticmethod
+    def backward(ctx, grad_x_out, grad_v_out):
+        x, v, force, U, W, W_forget, b_forget, x_out, v_out = ctx.saved_tensors
+        
+        # Call CUDA backward kernel
+        grads = gfn_cuda.leapfrog_backward_fused(
+            grad_x_out.contiguous(), grad_v_out.contiguous(),
+            x, v, force, U, W, W_forget, b_forget,
+            float(ctx.dt), float(ctx.dt_scale), int(ctx.steps), int(ctx.topology),
+            float(ctx.plasticity), float(ctx.R), float(ctx.r)
+        )
+        
+        # Return gradients for all inputs (13 total)
+        # 0:x, 1:v, 2:force, 3:U, 4:W, 9:W_forget, 10:b_forget, rest are hyperparameters
+        return grads[0], grads[1], grads[2], grads[3], grads[4], None, None, None, None, grads[5], grads[6], None, None, None
+
+
+class HeunFusedFunction(torch.autograd.Function):
+    """Autograd wrapper for Heun integrator."""
+    
+    @staticmethod
+    def forward(ctx, x, v, force, U, W, dt, dt_scale, steps, topology, R, r):
+        if not CUDA_AVAILABLE or not x.is_cuda:
+            return None, None
+            
+        # Ensure contiguous
+        x = x.contiguous()
+        v = v.contiguous()
+        force = force.contiguous()
+        U = U.contiguous()
+        W = W.contiguous()
+        
+        # Call CUDA kernel
+        x_out, v_out = gfn_cuda.heun_fused(
+            x, v, force, U, W,
+            float(dt), float(dt_scale), int(steps), int(topology),
+            float(R), float(r)
+        )
+        
+        ctx.save_for_backward(x, v, force, U, W, x_out, v_out)
+        ctx.dt = dt
+        ctx.dt_scale = dt_scale
+        ctx.steps = steps
+        ctx.topology = topology
+        ctx.R = R
+        ctx.r = r
+        
+        return x_out, v_out
+    
+    @staticmethod
+    def backward(ctx, grad_x_out, grad_v_out):
+        x, v, force, U, W, x_out, v_out = ctx.saved_tensors
+        
+        # Call CUDA backward kernel
+        grads = gfn_cuda.heun_backward_fused(
+            grad_x_out.contiguous(), grad_v_out.contiguous(),
+            x, v, force, U, W,
+            float(ctx.dt), float(ctx.dt_scale), int(ctx.steps), int(ctx.topology),
+            float(ctx.R), float(ctx.r)
+        )
+        
+        # Return gradients for all inputs (10 total)
+        # 0:x, 1:v, 2:force, 3:U, 4:W, rest: hyperparameters
+        return grads[0], grads[1], grads[2], grads[3], grads[4], None, None, None, None, None, None
+
+
+# ============================================================================
+# Public API Functions
+# ============================================================================
+
+def christoffel_fused_autograd(v, U, W, x, V_w, plasticity, sing_thresh, sing_strength, topology, R, r):
+    """
+    Compute Christoffel symbols with autograd support.
+    
+    Args:
+        v: Velocity [batch, dim]
+        U: Low-rank matrix [dim, rank]
+        W: Low-rank matrix [dim, rank]
+        x: Position [batch, dim] or empty tensor
+        V_w: Potential weights [dim] or empty tensor
+        plasticity: Plasticity coefficient
+        sing_thresh: Singularity threshold
+        sing_strength: Singularity strength
+        topology: Topology ID (0=Euclidean, 1=Torus)
+        R: Toroidal major radius
+        r: Toroidal minor radius
+    
+    Returns:
+        gamma: Christoffel force [batch, dim]
+    """
+    if x is None:
+        x = torch.empty(0, device=v.device, dtype=v.dtype)
+    if V_w is None:
+        V_w = torch.empty(0, device=v.device, dtype=v.dtype)
+        
+    return ChristoffelFusedFunction.apply(
+        v, U, W, x, V_w, plasticity, sing_thresh, sing_strength, topology, R, r
+    )
+
+
+def lowrank_christoffel_fused_autograd(v, U, W, x, V_w, force, W_forget, b_forget, W_input,
+                                       plasticity, sing_thresh, sing_strength, topology, R, r):
+    """
+    Compute Christoffel + Friction with autograd support.
+    """
+    if x is None:
+        x = torch.empty(0, device=v.device, dtype=v.dtype)
+    if V_w is None:
+        V_w = torch.empty(0, device=v.device, dtype=v.dtype)
+    if force is None:
+        force = torch.empty(0, device=v.device, dtype=v.dtype)
+    if W_input is None:
+        W_input = torch.empty(0, device=v.device, dtype=v.dtype)
+        
+    return LowRankChristoffelWithFrictionFunction.apply(
+        v, U, W, x, V_w, force, W_forget, b_forget, W_input,
+        plasticity, sing_thresh, sing_strength, topology, R, r
+    )
+
+
+def reactive_christoffel_autograd(v, U, W, x, V_w, plasticity, sing_thresh, sing_strength, topology, R, r):
+    """
+    Reactive Christoffel (alias for christoffel_fused with active inference).
+    """
+    return christoffel_fused_autograd(v, U, W, x, V_w, plasticity, sing_thresh, sing_strength, topology, R, r)
+
+
+def leapfrog_fused_autograd(x, v, force, U, W, dt, dt_scale, steps, topology, Wf, bf, plasticity, R, r):
+    """
+    Leapfrog integrator with autograd support.
+    
+    Args:
+        x: Position [batch, dim]
+        v: Velocity [batch, dim]
+        force: External force [batch, dim]
+        U: Low-rank matrix [dim, rank]
+        W: Low-rank matrix [dim, rank]
+        dt: Time step
+        dt_scale: Time step scaling factor
+        steps: Number of integration steps
+        topology: Topology ID
+        Wf: Forget gate weights [dim, feature_dim] or None
+        bf: Forget gate bias [dim] or None
+        plasticity: Plasticity coefficient
+        R: Toroidal major radius
+        r: Toroidal minor radius
+    
+    Returns:
+        x_out: Final position [batch, dim]
+        v_out: Final velocity [batch, dim]
+    """
+    if Wf is None:
+        Wf = torch.empty(0, device=x.device, dtype=x.dtype)
+    if bf is None:
+        bf = torch.empty(0, device=x.device, dtype=x.dtype)
+        
+    return LeapfrogFusedFunction.apply(
+        x, v, force, U, W, dt, dt_scale, steps, topology,
+        Wf, bf, plasticity, R, r
+    )
+
+
+def heun_fused_autograd(x, v, force, U, W, dt, dt_scale, steps, topology, R, r):
+    """
+    Heun integrator with autograd support.
+    """
+    return HeunFusedFunction.apply(
+        x, v, force, U, W, dt, dt_scale, steps, topology, R, r
+    )
+
+
+def euler_fused_autograd(x, v, force, U, W, dt, dt_scale, steps, topology, R, r):
+    """
+    Euler integrator (placeholder - to be implemented).
+    """
+    # TODO: Implement Euler kernel
+    return None
+
+
+def rk4_fused_autograd(x, v, force, U, W, dt, dt_scale, steps, topology, R, r):
+    """
+    RK4 integrator (placeholder - to be implemented).
+    """
+    # TODO: Implement RK4 kernel
+    return None
+
+
+def dormand_prince_fused_autograd(x, v, force, U, W, dt, dt_scale, steps, topology, R, r):
+    """
+    Dormand-Prince integrator (placeholder - to be implemented).
+    """
+    # TODO: Implement Dormand-Prince kernel
+    return None
+
+
+def verlet_fused_autograd(x, v, force, U, W, dt, dt_scale, steps, topology, R, r):
+    """
+    Verlet integrator (placeholder - to be implemented).
+    """
+    # TODO: Implement Verlet kernel
+    return None
+
+
+def forest_ruth_fused_autograd(x, v, force, U, W, dt, dt_scale, steps, topology, R, r):
+    """
+    Forest-Ruth integrator (placeholder - to be implemented).
+    """
+    # TODO: Implement Forest-Ruth kernel
+    return None
+
+
+def yoshida_fused_autograd(x, v, force, U, W, dt, dt_scale, steps, topology, R, r):
+    """
+    Yoshida integrator (placeholder - to be implemented).
+    """
+    # TODO: Implement Yoshida kernel
+    return None
+
+
+def omelyan_fused_autograd(x, v, force, U, W, dt, dt_scale, steps, topology, R, r):
+    """
+    Omelyan integrator (placeholder - to be implemented).
+    """
+    # TODO: Implement Omelyan kernel
+    return None
+
+
+def recurrent_manifold_fused_autograd(x, v, f, U_stack, W_stack, dt, dt_scales, forget_rates, num_heads,
+                                      plasticity, sing_thresh, sing_strength, mix_x, mix_v, Wf, Wi, bf, Wp, bp,
+                                      topology, R, r,
+                                      mix_x_bias=None, mix_v_bias=None,
+                                      norm_x_weight=None, norm_x_bias=None, norm_v_weight=None, norm_v_bias=None,
+                                      gate_W1=None, gate_b1=None, gate_W2=None, gate_b2=None,
+                                      integrator_type=0):
+    """
+    Recurrent manifold fused kernel.
+    """
     try:
-        from gfn.cuda.ops import CUDA_AVAILABLE, gfn_cuda
-    except ImportError:
-        CUDA_AVAILABLE = False
-        gfn_cuda = None
+        from gfn.constants import CURVATURE_CLAMP, EPSILON_STRONG, FRICTION_SCALE
+    except Exception:
+        CURVATURE_CLAMP = 20.0
+        EPSILON_STRONG = 1e-4
+        FRICTION_SCALE = 5.0
 
-class ChristoffelFusedFn(Function):
-    @staticmethod
-    def forward(ctx, v, U, W, x=None, V_w=None, plasticity=0.0, sing_thresh=1.0, sing_strength=1.0, topology=0, R=2.0, r=1.0):
-        ctx.save_for_backward(v, U, W, x, V_w)
-        ctx.plasticity, ctx.sing_thresh, ctx.sing_strength = plasticity, sing_thresh, sing_strength
-        ctx.topology = topology
-        ctx.R, ctx.r = R, r
-        x_in = x if x is not None else torch.empty(0, device=v.device, dtype=v.dtype)
-        V_w_in = V_w if V_w is not None else torch.empty(0, device=v.device, dtype=v.dtype)
-        return gfn_cuda.christoffel_fused(v, U, W, x_in, V_w_in, plasticity, sing_thresh, sing_strength, topology, R, r)
+    device = x.device
+    dtype = x.dtype
 
-    @staticmethod
-    def backward(ctx, grad_gamma):
-        v, U, W, x, V_w = ctx.saved_tensors
-        x_in = x if x is not None else torch.empty(0, device=v.device, dtype=v.dtype)
-        V_w_in = V_w if V_w is not None else torch.empty(0, device=v.device, dtype=v.dtype)
-        grads = gfn_cuda.christoffel_backward(grad_gamma.contiguous(), v, U, W, x_in, V_w_in, ctx.plasticity, ctx.sing_thresh, ctx.sing_strength, ctx.topology, ctx.R, ctx.r)
-        gv, gU, gW, gx, gV = grads
-        return gv, gU, gW, (gx if x is not None else None), (gV if V_w is not None else None), None, None, None, None, None, None
+    if f is None:
+        f = torch.zeros(x.size(0), 1, x.size(1), device=device, dtype=dtype)
 
-def christoffel_fused_autograd(v, U, W, x=None, V_w=None, plasticity=0.0, sing_thresh=1.0, sing_strength=1.0, topology=0, R=2.0, r=1.0):
-    if not CUDA_AVAILABLE or not v.is_cuda: return None
-    return ChristoffelFusedFn.apply(v.contiguous(), U.contiguous(), W.contiguous(), x.contiguous() if x is not None else None, V_w.contiguous() if V_w is not None else None, plasticity, sing_thresh, sing_strength, topology, R, r)
+    if mix_x is None:
+        mix_x = torch.empty(0, device=device, dtype=dtype)
+    if mix_v is None:
+        mix_v = torch.empty(0, device=device, dtype=dtype)
 
-class ReactiveChristoffelFn(Function):
-    @staticmethod
-    def forward(ctx, v, U, W, x=None, V_w=None, plasticity=0.0, sing_thresh=1.0, sing_strength=1.0, topology=0, R=2.0, r=1.0):
-        if v.dim() == 3: return None
-        ctx.save_for_backward(v, U, W, x, V_w)
-        ctx.plasticity, ctx.sing_thresh, ctx.sing_strength = plasticity, sing_thresh, sing_strength
-        ctx.topology = topology
-        ctx.R, ctx.r = R, r
-        x_in = x if x is not None else torch.empty(0, device=v.device, dtype=v.dtype)
-        V_w_in = V_w if V_w is not None else torch.empty(0, device=v.device, dtype=v.dtype)
-        return gfn_cuda.reactive_christoffel_forward(v, U, W, x_in, V_w_in, plasticity, sing_thresh, sing_strength, topology, R, r)
+    if Wf is None:
+        Wf = torch.empty(0, device=device, dtype=dtype)
+    if Wi is None:
+        Wi = torch.empty(0, device=device, dtype=dtype)
+    if bf is None:
+        bf = torch.empty(0, device=device, dtype=dtype)
+    if Wp is None:
+        Wp = torch.empty(0, device=device, dtype=dtype)
+    if bp is None:
+        bp = torch.empty(0, device=device, dtype=dtype)
 
-    @staticmethod
-    def backward(ctx, grad_gamma):
-        # Fallback to christoffel_backward for now
-        v, U, W, x, V_w = ctx.saved_tensors
-        x_in = x if x is not None else torch.empty(0, device=v.device, dtype=v.dtype)
-        V_w_in = V_w if V_w is not None else torch.empty(0, device=v.device, dtype=v.dtype)
-        grads = gfn_cuda.christoffel_backward(grad_gamma.contiguous(), v, U, W, x_in, V_w_in, ctx.plasticity, ctx.sing_thresh, ctx.sing_strength, ctx.topology, ctx.R, ctx.r)
-        gv, gU, gW, gx, gV = grads
-        return gv, gU, gW, (gx if x is not None else None), (gV if V_w is not None else None), None, None, None, None, None, None
+    if not torch.is_tensor(dt_scales):
+        dt_scales = torch.tensor(dt_scales, device=device, dtype=dtype)
+    if not torch.is_tensor(forget_rates):
+        forget_rates = torch.tensor(forget_rates, device=device, dtype=dtype)
 
-def reactive_christoffel_autograd(v, U, W, x=None, V_w=None, plasticity=0.0, sing_thresh=1.0, sing_strength=1.0, topology=0, R=2.0, r=1.0):
-    if not CUDA_AVAILABLE or not v.is_cuda: return None
-    return ReactiveChristoffelFn.apply(v.contiguous(), U.contiguous(), W.contiguous(), x.contiguous() if x is not None else None, V_w.contiguous() if V_w is not None else None, plasticity, sing_thresh, sing_strength, topology, R, r)
+    B, D = x.shape
+    T = f.shape[1]
+    head_dim = D // int(num_heads)
+    num_layers = int(U_stack.shape[0]) // int(num_heads)
 
-class LeapfrogFusedFn(Function):
-    @staticmethod
-    def forward(ctx, x, v, f, U, W, dt, dt_scale, steps, topology=0, Wf=None, bf=None, plasticity=0.0, R=2.0, r=1.0):
-        ctx.save_for_backward(x, v, f, U, W)
-        ctx.dt, ctx.dt_scale, ctx.steps, ctx.topology = dt, dt_scale, steps, topology
-        ctx.R, ctx.r = R, r
-        f_in = f if f is not None else torch.empty(0, device=x.device, dtype=x.dtype)
-        wf_in = Wf if Wf is not None else torch.empty(0, device=x.device, dtype=x.dtype)
-        bf_in = bf if bf is not None else torch.empty(0, device=x.device, dtype=x.dtype)
-        
-        # Call fused kernel
-        res = gfn_cuda.leapfrog_fused(x.contiguous(), v.contiguous(), f_in.contiguous(), U.contiguous(), W.contiguous(), wf_in.contiguous(), bf_in.contiguous(), dt, dt_scale, steps, topology, plasticity, R, r)
-        return res[0], res[1]
+    TWO_PI = x.new_tensor(2.0 * 3.14159265359)
 
-    @staticmethod
-    def backward(ctx, grad_xn, grad_vn):
-        x, v, f, U, W = ctx.saved_tensors
-        f_in = f if f is not None else torch.empty(0, device=x.device, dtype=x.dtype)
-        
-        # Correct call to bound C++ function
-        grads = gfn_cuda.leapfrog_backward(
-            grad_xn.contiguous(), grad_vn.contiguous(), 
-            x.contiguous(), v.contiguous(), f_in.contiguous(), 
-            U.contiguous(), W.contiguous(),
-            ctx.dt, ctx.dt_scale, ctx.steps, ctx.topology, ctx.R, ctx.r
-        )
-        gx, gv, gf, gU, gW = grads
-        
-        return gx, gv, (gf if f is not None else None), gU, gW, None, None, None, None, None, None, None, None, None
+    def _rms_norm(inp: torch.Tensor, weight: torch.Tensor, bias: torch.Tensor) -> torch.Tensor:
+        denom = torch.rsqrt(inp.pow(2).mean(dim=-1, keepdim=True) + 1e-5)
+        out = inp * denom * weight
+        if bias.numel() != 0:
+            out = out + bias
+        return out
 
-def leapfrog_fused_autograd(x, v, f, U, W, dt, dt_scale, steps, topology=0, Wf=None, bf=None, plasticity=0.0, R=2.0, r=1.0):
-    if not CUDA_AVAILABLE or not x.is_cuda: return None
-    return LeapfrogFusedFn.apply(x, v, f, U, W, dt, dt_scale, steps, topology, Wf, bf, plasticity, R, r)
+    def _boundary(inp: torch.Tensor) -> torch.Tensor:
+        if int(topology) == 1:
+            return torch.remainder(inp, TWO_PI)
+        return inp
 
-# --- New integrators ---
-
-class EulerFusedFn(Function):
-    @staticmethod
-    def forward(ctx, x, v, f, U, W, dt, dt_scale, steps, topology=0, R=2.0, r=1.0):
-        ctx.save_for_backward(x, v, f, U, W)
-        ctx.dt, ctx.dt_scale, ctx.steps, ctx.topology = dt, dt_scale, steps, topology
-        ctx.R, ctx.r = R, r
-        f_in = f if f is not None else torch.empty(0, device=x.device, dtype=x.dtype)
-        
-        # Forward relies on CUDA kernel; ops fallback handles missing support
-        return gfn_cuda.euler_fused(x.contiguous(), v.contiguous(), f_in.contiguous(), U.contiguous(), W.contiguous(), dt, dt_scale, steps, topology, R, r)
-
-    @staticmethod
-    def backward(ctx, grad_xn, grad_vn):
-        x, v, f, U, W = ctx.saved_tensors
-        dt, dt_scale, steps, topology = ctx.dt, ctx.dt_scale, ctx.steps, ctx.topology
-        R, r = ctx.R, ctx.r
-        
-        # Replay the forward to recover intermediates for gradients
-        
-        curr_x, curr_v = x.detach(), v.detach()
-        f_in = f if f is not None else torch.zeros_like(x)
-        h = dt * dt_scale
-        
-        # Store trajectory for reverse pass
-        x_history = [curr_x.clone()]
-        v_history = [curr_v.clone()]
-        
-        with torch.no_grad():
-            for _ in range(steps):
-                acc = gfn_cuda.christoffel_fused(curr_v, U, W, curr_x, None, 0.0, 1.0, 1.0, topology, R, r)
-                if f is not None: acc = -acc + f_in
-                else: acc = -acc
-                curr_x = curr_x + h * curr_v
-                curr_v = curr_v + h * acc
-                x_history.append(curr_x.clone())
-                v_history.append(curr_v.clone())
-        
-        # Adjoint-style backward pass
-        gx, gv = grad_xn, grad_vn
-        gf = torch.zeros_like(f_in) if f is not None else None
-        gU = torch.zeros_like(U)
-        gW = torch.zeros_like(W)
-        
-        for t in reversed(range(steps)):
-            xt, vt = x_history[t], v_history[t]
-            
-            # v update gradient
-            g_acc = h * gv
-            
-            # acc = f - gamma
-            if gf is not None: gf += g_acc
-            
-            # gamma backward
-            gamma_grads = gfn_cuda.christoffel_backward(-g_acc.contiguous(), vt, U, W, xt, None, 0.0, 1.0, 1.0, topology, R, r)
-            
-            gv = gv + gamma_grads[0]
-            gU = gU + gamma_grads[1]
-            gW = gW + gamma_grads[2]
-            gx = gx + gamma_grads[3]
-            
-            # x update gradient
-            gv = gv + h * gx
-            
-        return gx, gv, gf, gU, gW, None, None, None, None, None, None
-
-def euler_fused_autograd(x, v, f, U, W, dt, dt_scale, steps, topology=0, R=2.0, r=1.0):
-    if not CUDA_AVAILABLE or not x.is_cuda: return None
-    return EulerFusedFn.apply(x, v, f, U, W, dt, dt_scale, steps, topology, R, r)
-
-class HeunFusedFn(Function):
-    @staticmethod
-    def forward(ctx, x, v, f, U, W, dt, dt_scale, steps, topology=0, R=2.0, r=1.0):
-        f_in = f if f is not None else torch.empty(0, device=x.device, dtype=x.dtype)
-        ctx.save_for_backward(x, v, f_in, U, W)
-        ctx.has_f = f is not None
-        ctx.dt, ctx.dt_scale, ctx.steps, ctx.topology = dt, dt_scale, steps, topology
-        ctx.R, ctx.r = R, r
-        return gfn_cuda.heun_fused(x.contiguous(), v.contiguous(), f_in.contiguous(), U.contiguous(), W.contiguous(), dt, dt_scale, steps, topology, R, r)
-    
-    @staticmethod
-    def backward(ctx, gx, gv):
-        x, v, f_in, U, W = ctx.saved_tensors
-        dt, dt_scale, steps, topology = ctx.dt, ctx.dt_scale, ctx.steps, ctx.topology
-        R, r = ctx.R, ctx.r
-        with torch.enable_grad():
-            x_req = x.detach().requires_grad_(True)
-            v_req = v.detach().requires_grad_(True)
-            U_req = U.detach().requires_grad_(True)
-            W_req = W.detach().requires_grad_(True)
-            f_req = f_in.detach().requires_grad_(True) if ctx.has_f else None
-            xn, vn = _heun_recompute(x_req, v_req, f_req, U_req, W_req, dt, dt_scale, steps, topology, R, r)
-            grads = torch.autograd.grad((xn, vn), (x_req, v_req, f_req, U_req, W_req), grad_outputs=(gx, gv), allow_unused=True)
-        gx_out, gv_out, gf_out, gU_out, gW_out = grads
-        if not ctx.has_f:
-            gf_out = None
-        return gx_out, gv_out, gf_out, gU_out, gW_out, None, None, None, None, None, None
-
-def heun_fused_autograd(x, v, f, U, W, dt, dt_scale, steps, topology=0, R=2.0, r=1.0):
-    if not CUDA_AVAILABLE or not x.is_cuda: return None
-    return HeunFusedFn.apply(x, v, f, U, W, dt, dt_scale, steps, topology, R, r)
-
-class RK4FusedFn(Function):
-    @staticmethod
-    def forward(ctx, x, v, f, U, W, dt, dt_scale, steps, topology=0, R=2.0, r=1.0):
-        f_in = f if f is not None else torch.empty(0, device=x.device, dtype=x.dtype)
-        ctx.save_for_backward(x, v, f_in, U, W)
-        ctx.has_f = f is not None
-        ctx.dt, ctx.dt_scale, ctx.steps, ctx.topology = dt, dt_scale, steps, topology
-        ctx.R, ctx.r = R, r
-        return gfn_cuda.rk4_fused(x.contiguous(), v.contiguous(), f_in.contiguous(), U.contiguous(), W.contiguous(), dt, dt_scale, steps, topology, R, r)
-    
-    @staticmethod
-    def backward(ctx, gx, gv):
-        x, v, f_in, U, W = ctx.saved_tensors
-        dt, dt_scale, steps, topology = ctx.dt, ctx.dt_scale, ctx.steps, ctx.topology
-        R, r = ctx.R, ctx.r
-        with torch.enable_grad():
-            x_req = x.detach().requires_grad_(True)
-            v_req = v.detach().requires_grad_(True)
-            U_req = U.detach().requires_grad_(True)
-            W_req = W.detach().requires_grad_(True)
-            f_req = f_in.detach().requires_grad_(True) if ctx.has_f else None
-            xn, vn = _rk4_recompute(x_req, v_req, f_req, U_req, W_req, dt, dt_scale, steps, topology, R, r)
-            grads = torch.autograd.grad((xn, vn), (x_req, v_req, f_req, U_req, W_req), grad_outputs=(gx, gv), allow_unused=True)
-        gx_out, gv_out, gf_out, gU_out, gW_out = grads
-        if not ctx.has_f:
-            gf_out = None
-        return gx_out, gv_out, gf_out, gU_out, gW_out, None, None, None, None, None, None
-
-def rk4_fused_autograd(x, v, f, U, W, dt, dt_scale, steps, topology=0, R=2.0, r=1.0):
-    if not CUDA_AVAILABLE or not x.is_cuda: return None
-    return RK4FusedFn.apply(x, v, f, U, W, dt, dt_scale, steps, topology, R, r)
-
-class VerletFusedFn(Function):
-    @staticmethod
-    def forward(ctx, x, v, f, U, W, dt, dt_scale, steps, topology=0, R=2.0, r=1.0):
-        f_in = f if f is not None else torch.empty(0, device=x.device, dtype=x.dtype)
-        ctx.save_for_backward(x, v, f_in, U, W)
-        ctx.has_f = f is not None
-        ctx.dt, ctx.dt_scale, ctx.steps, ctx.topology = dt, dt_scale, steps, topology
-        ctx.R, ctx.r = R, r
-        return gfn_cuda.verlet_fused(x.contiguous(), v.contiguous(), f_in.contiguous(), U.contiguous(), W.contiguous(), dt, dt_scale, steps, topology, R, r)
-    
-    @staticmethod
-    def backward(ctx, gx, gv):
-        x, v, f_in, U, W = ctx.saved_tensors
-        dt, dt_scale, steps, topology = ctx.dt, ctx.dt_scale, ctx.steps, ctx.topology
-        R, r = ctx.R, ctx.r
-        with torch.enable_grad():
-            x_req = x.detach().requires_grad_(True)
-            v_req = v.detach().requires_grad_(True)
-            U_req = U.detach().requires_grad_(True)
-            W_req = W.detach().requires_grad_(True)
-            f_req = f_in.detach().requires_grad_(True) if ctx.has_f else None
-            xn, vn = _verlet_recompute(x_req, v_req, f_req, U_req, W_req, dt, dt_scale, steps, topology, R, r)
-            grads = torch.autograd.grad((xn, vn), (x_req, v_req, f_req, U_req, W_req), grad_outputs=(gx, gv), allow_unused=True)
-        gx_out, gv_out, gf_out, gU_out, gW_out = grads
-        if not ctx.has_f:
-            gf_out = None
-        return gx_out, gv_out, gf_out, gU_out, gW_out, None, None, None, None, None, None
-
-def _christoffel_eval(v, U, W, x, topology, R, r):
-    return ChristoffelFusedFn.apply(v, U, W, x, None, 0.0, 1.0, 1.0, topology, R, r)
-
-def _heun_recompute(x, v, f, U, W, dt, dt_scale, steps, topology, R, r):
-    curr_x, curr_v = x, v
-    for _ in range(steps):
-        step_dt = dt * dt_scale
-        k1_x = curr_v
-        k1_v = -_christoffel_eval(curr_v, U, W, curr_x, topology, R, r)
-        if f is not None:
-            k1_v = k1_v + f
-        v_pred = curr_v + step_dt * k1_v
-        x_pred = apply_boundary_python(curr_x + step_dt * k1_x, topology)
-        k2_x = v_pred
-        k2_v = -_christoffel_eval(v_pred, U, W, x_pred, topology, R, r)
-        if f is not None:
-            k2_v = k2_v + f
-        curr_x = curr_x + (step_dt * 0.5) * (k1_x + k2_x)
-        curr_v = curr_v + (step_dt * 0.5) * (k1_v + k2_v)
-        curr_x = apply_boundary_python(curr_x, topology)
-    return curr_x, curr_v
-
-def _rk4_recompute(x, v, f, U, W, dt, dt_scale, steps, topology, R, r):
-    curr_x, curr_v = x, v
-    for _ in range(steps):
-        step_dt = dt * dt_scale
-        dx1 = curr_v
-        dv1 = -_christoffel_eval(curr_v, U, W, curr_x, topology, R, r)
-        if f is not None:
-            dv1 = dv1 + f
-        v2 = curr_v + 0.5 * step_dt * dv1
-        x2 = apply_boundary_python(curr_x + 0.5 * step_dt * dx1, topology)
-        dx2 = v2
-        dv2 = -_christoffel_eval(v2, U, W, x2, topology, R, r)
-        if f is not None:
-            dv2 = dv2 + f
-        v3 = curr_v + 0.5 * step_dt * dv2
-        x3 = apply_boundary_python(curr_x + 0.5 * step_dt * dx2, topology)
-        dx3 = v3
-        dv3 = -_christoffel_eval(v3, U, W, x3, topology, R, r)
-        if f is not None:
-            dv3 = dv3 + f
-        v4 = curr_v + step_dt * dv3
-        x4 = apply_boundary_python(curr_x + step_dt * dx3, topology)
-        dx4 = v4
-        dv4 = -_christoffel_eval(v4, U, W, x4, topology, R, r)
-        if f is not None:
-            dv4 = dv4 + f
-        curr_x = curr_x + (step_dt / 6.0) * (dx1 + 2 * dx2 + 2 * dx3 + dx4)
-        curr_x = apply_boundary_python(curr_x, topology)
-        curr_v = curr_v + (step_dt / 6.0) * (dv1 + 2 * dv2 + 2 * dv3 + dv4)
-    return curr_x, curr_v
-
-def _verlet_recompute(x, v, f, U, W, dt, dt_scale, steps, topology, R, r):
-    curr_x, curr_v = x, v
-    for _ in range(steps):
-        step_dt = dt * dt_scale
-        gamma = _christoffel_eval(curr_v, U, W, curr_x, topology, R, r)
-        if f is None:
-            a = -gamma
+    def _dt_scale_for(layer_idx: int, head_idx: int, x_head: torch.Tensor) -> torch.Tensor:
+        if dt_scales.numel() == 1:
+            base = dt_scales.view(1)
+        elif dt_scales.dim() == 2:
+            base = dt_scales[layer_idx, head_idx].view(1)
         else:
-            a = -gamma + f
-        v_half = curr_v + 0.5 * step_dt * a
-        curr_x = curr_x + step_dt * v_half
-        curr_x = apply_boundary_python(curr_x, topology)
-        gamma_next = _christoffel_eval(v_half, U, W, curr_x, topology, R, r)
-        if f is None:
-            a_next = -gamma_next
-        else:
-            a_next = -gamma_next + f
-        curr_v = v_half + 0.5 * step_dt * a_next
-    return curr_x, curr_v
+            base = dt_scales.view(-1)[layer_idx * int(num_heads) + head_idx].view(1)
 
-def verlet_fused_autograd(x, v, f, U, W, dt, dt_scale, steps, topology=0, R=2.0, r=1.0):
-    if not CUDA_AVAILABLE or not x.is_cuda: return None
-    return VerletFusedFn.apply(x, v, f, U, W, dt, dt_scale, steps, topology, R, r)
+        if gate_W1 is not None and torch.is_tensor(gate_W1) and gate_W1.numel() != 0:
+            if gate_W1.dim() == 4:
+                W1 = gate_W1[layer_idx, head_idx]
+                b1 = gate_b1[layer_idx, head_idx]
+                W2 = gate_W2[layer_idx, head_idx]
+                b2 = gate_b2[layer_idx, head_idx]
+            else:
+                W1 = gate_W1
+                b1 = gate_b1
+                W2 = gate_W2
+                b2 = gate_b2
 
-class RecurrentManifoldFusedFn(Function):
-    @staticmethod
-    def forward(ctx, x, v, f, U, W, dt, dt_scales, forget_rates, num_heads, plasticity, sing_thresh, sing_strength, 
-                mix_x=None, mix_v=None, W_forget_stack=None, W_input_stack=None, b_forget_stack=None, 
-                W_potential_stack=None, b_potential_stack=None, 
-                topology=0, R=2.0, r=1.0):
-        # Placeholders for optional tensors
-        mx = mix_x if mix_x is not None else torch.empty(0, device=x.device, dtype=x.dtype)
-        mv = mix_v if mix_v is not None else torch.empty(0, device=x.device, dtype=x.dtype)
-        wf = W_forget_stack if W_forget_stack is not None else torch.empty(0, device=x.device, dtype=x.dtype)
-        wi = W_input_stack if W_input_stack is not None else torch.empty(0, device=x.device, dtype=x.dtype)
-        bf = b_forget_stack if b_forget_stack is not None else torch.empty(0, device=x.device, dtype=x.dtype)
-        wp = W_potential_stack if W_potential_stack is not None else torch.empty(0, device=x.device, dtype=x.dtype)
-        bp = b_potential_stack if b_potential_stack is not None else torch.empty(0, device=x.device, dtype=x.dtype)
+            if int(topology) == 1:
+                gate_inp = torch.cat([torch.sin(x_head), torch.cos(x_head)], dim=-1)
+            else:
+                gate_inp = x_head
+            h = torch.tanh(torch.matmul(gate_inp, W1.transpose(-1, -2)) + b1)
+            g = torch.sigmoid(torch.matmul(h, W2.transpose(-1, -2)) + b2)
+            return base * g.view(-1, 1)
 
-        with torch.no_grad():
-            res = gfn_cuda.recurrent_manifold_fused(
-                x_state=x.detach().clone(), v_state=v.detach().clone(), forces=f, U_stack=U, W_stack=W, 
-                dt=dt, dt_scales=dt_scales, forget_rates=forget_rates, num_heads=num_heads, 
-                plasticity=plasticity, sing_thresh=sing_thresh, sing_strength=sing_strength, 
-                mix_x=mx, mix_v=mv, W_forget_stack=wf, W_input_stack=wi, b_forget_stack=bf, 
-                W_potential_stack=wp, b_potential_stack=bp, 
-                topology=topology, R=R, r=r
-            )
-            xf, vf, x_seq, v_seq, reg_loss = res
-            
-        ctx.save_for_backward(x, v, f, U, W, dt_scales, forget_rates, mix_x, mix_v, W_forget_stack, W_input_stack, b_forget_stack, W_potential_stack, b_potential_stack, x_seq, v_seq)
-        ctx.dt, ctx.num_heads, ctx.topology = dt, num_heads, topology
-        ctx.plasticity, ctx.sing_thresh, ctx.sing_strength = plasticity, sing_thresh, sing_strength
-        ctx.R, ctx.r = R, r
-        
-        return xf, vf, x_seq, reg_loss
+        return base
 
-    @staticmethod
-    def backward(ctx, grad_xf, grad_vf, grad_seq, grad_reg):
-        x0, v0, f_seq, U, W, dt_scales, forget, mix_x, mix_v, wf, wi, bf, wp, bp, x_seq, v_seq = ctx.saved_tensors
-        
-        grads = gfn_cuda.recurrent_manifold_backward(
-            grad_x_seq=grad_seq.contiguous() if grad_seq is not None else torch.zeros_like(x_seq),
-            grad_x_final=grad_xf.contiguous() if grad_xf is not None else torch.zeros_like(x0),
-            grad_v_final=grad_vf.contiguous() if grad_vf is not None else torch.zeros_like(v0),
-            x_init=x0, v_init=v0, x_seq=x_seq, v_seq=v_seq, forces=f_seq, U_stack=U, W_stack=W,
-            dt=ctx.dt, dt_scales=dt_scales, forget_rates=forget, num_heads=ctx.num_heads, 
-            plasticity=ctx.plasticity, sing_thresh=ctx.sing_thresh, sing_strength=ctx.sing_strength,
-            mix_x=mix_x if mix_x is not None else torch.empty(0, device=x0.device),
-            mix_v=mix_v if mix_v is not None else torch.empty(0, device=x0.device),
-            W_forget_stack=wf if wf is not None else torch.empty(0, device=x0.device),
-            W_input_stack=wi if wi is not None else torch.empty(0, device=x0.device),
-            b_forget_stack=bf if bf is not None else torch.empty(0, device=x0.device),
-            W_potential_stack=wp if wp is not None else torch.empty(0, device=x0.device),
-            b_potential_stack=bp if bp is not None else torch.empty(0, device=x0.device),
-            topology=ctx.topology, R=ctx.R, r=ctx.r
-        )
-        
-        gx0, gv0, gf, gU, gW, gmx, gmv, gfr, gwf, gwi, gbf, gwp, gbp = grads
-        
-        return (
-            gx0, gv0, gf, gU, gW, 
-            None, # dt
-            None, # dt_scales
-            gfr,
-            None, # num_heads
-            None, # plasticity
-            None, # sing_thresh
-            None, # sing_strength
-            (gmx if mix_x is not None else None),
-            (gmv if mix_v is not None else None),
-            (gwf if wf is not None else None),
-            (gwi if wi is not None else None),
-            (gbf if bf is not None else None),
-            (gwp if wp is not None else None),
-            (gbp if bp is not None else None),
-            None, # topology
-            None, # R
-            None  # r
-        )
+    def _gamma_mu(v_head: torch.Tensor, x_head: torch.Tensor, force_head: torch.Tensor, idx: int, head_idx: int):
+        U = U_stack[idx]
+        W = W_stack[idx]
 
-def recurrent_manifold_fused_autograd(x, v, f, U, W, dt, dt_scales, forget_rates, num_heads, plasticity=0.0, sing_thresh=1.0, sing_strength=1.0, mix_x=None, mix_v=None, W_forget_stack=None, W_input_stack=None, b_forget_stack=None, W_potential_stack=None, b_potential_stack=None, topology=0, R=2.0, r=1.0):
-    if not CUDA_AVAILABLE or not x.is_cuda: return None
-    return RecurrentManifoldFusedFn.apply(x, v, f, U, W, dt, dt_scales, forget_rates, num_heads, plasticity, sing_thresh, sing_strength, mix_x, mix_v, W_forget_stack, W_input_stack, b_forget_stack, W_potential_stack, b_potential_stack, topology, R, r)
+        proj = torch.matmul(v_head, U)
+        norm = torch.linalg.norm(proj, dim=-1, keepdim=True)
+        scale = 1.0 / (1.0 + norm + EPSILON_STRONG)
+        sq = (proj * proj) * scale
+        gamma = torch.matmul(sq, W.transpose(-1, -2))
+        gamma = CURVATURE_CLAMP * torch.tanh(gamma / CURVATURE_CLAMP)
+
+        mu = torch.zeros_like(v_head)
+        if Wf.numel() != 0 and bf.numel() != 0:
+            if int(topology) == 1:
+                x_feat = torch.cat([torch.sin(x_head), torch.cos(x_head)], dim=-1)
+            else:
+                x_feat = x_head
+
+            Wf_i = Wf[idx]
+            bf_i = bf[idx]
+            gate = torch.matmul(x_feat, Wf_i.transpose(-1, -2)) + bf_i
+            if Wi.numel() != 0 and force_head is not None:
+                Wi_i = Wi[idx]
+                gate = gate + torch.matmul(force_head, Wi_i.transpose(-1, -2))
+            mu = torch.sigmoid(gate) * FRICTION_SCALE
+            if forget_rates.numel() == int(num_heads):
+                mu = mu * forget_rates[head_idx]
+
+        if Wp.numel() != 0 and bp.numel() != 0 and float(sing_thresh) < 1.0:
+            if int(topology) == 1:
+                x_feat_p = torch.cat([torch.sin(x_head), torch.cos(x_head)], dim=-1)
+            else:
+                x_feat_p = x_head
+            Wp_i = Wp[idx].squeeze(0)
+            bp_i = bp[idx].view(1)
+            p = torch.sigmoid(torch.matmul(x_feat_p, Wp_i.transpose(-1, -2)) + bp_i)
+            denom = (1.0 - float(sing_thresh)) + 1e-6
+            sing_scale = 1.0 + float(sing_strength) * torch.relu(p - float(sing_thresh)) / denom
+            gamma = gamma * sing_scale
+
+        return gamma, mu
+
+    def _step_heun(x_head: torch.Tensor, v_head: torch.Tensor, force_head: torch.Tensor, dt_eff: torch.Tensor, idx: int, head_idx: int):
+        gamma1, mu1 = _gamma_mu(v_head, x_head, force_head, idx, head_idx)
+        dv1 = force_head - (gamma1 + mu1 * v_head)
+        dx1 = v_head
+
+        v_pred = v_head + dt_eff * dv1
+        x_pred = _boundary(x_head + dt_eff * dx1)
+
+        gamma2, mu2 = _gamma_mu(v_pred, x_pred, force_head, idx, head_idx)
+        dv2 = force_head - (gamma2 + mu2 * v_pred)
+        dx2 = v_pred
+
+        x_next = x_head + 0.5 * dt_eff * (dx1 + dx2)
+        v_next = v_head + 0.5 * dt_eff * (dv1 + dv2)
+        x_next = _boundary(x_next)
+
+        return x_next, v_next
+
+    def _step_leapfrog(x_head: torch.Tensor, v_head: torch.Tensor, force_head: torch.Tensor, dt_eff: torch.Tensor, idx: int, head_idx: int):
+        h = 0.5 * dt_eff
+
+        gamma0, mu0 = _gamma_mu(v_head, x_head, force_head, idx, head_idx)
+        v_half = (v_head + h * (force_head - gamma0)) / (1.0 + h * mu0)
+
+        x_next = _boundary(x_head + dt_eff * v_half)
+
+        gamma1, mu1 = _gamma_mu(v_half, x_next, force_head, idx, head_idx)
+        v_next = (v_half + h * (force_head - gamma1)) / (1.0 + h * mu1)
+
+        return x_next, v_next
+
+    x_curr = x
+    v_curr = v
+
+    x_steps = []
+
+    for t in range(T):
+        force_t = f[:, t]
+
+        for layer_idx in range(num_layers):
+            x_heads_out = []
+            v_heads_out = []
+
+            for head_idx in range(int(num_heads)):
+                s = head_idx * head_dim
+                e = (head_idx + 1) * head_dim
+
+                x_h = x_curr[:, s:e]
+                v_h = v_curr[:, s:e]
+                f_h = force_t[:, s:e]
+
+                idx = layer_idx * int(num_heads) + head_idx
+                scale = _dt_scale_for(layer_idx, head_idx, x_h)
+                dt_eff = (dt * scale).to(dtype=dtype)
+
+                if int(integrator_type) == 1:
+                    x_h, v_h = _step_leapfrog(x_h, v_h, f_h, dt_eff, idx, head_idx)
+                else:
+                    x_h, v_h = _step_heun(x_h, v_h, f_h, dt_eff, idx, head_idx)
+
+                x_heads_out.append(x_h)
+                v_heads_out.append(v_h)
+
+            x_cat = torch.cat(x_heads_out, dim=-1)
+            v_cat = torch.cat(v_heads_out, dim=-1)
+
+            if int(num_heads) > 1 and mix_x.numel() != 0 and mix_v.numel() != 0:
+                mx = mix_x[layer_idx]
+                mv = mix_v[layer_idx]
+
+                if mix_x_bias is None or mix_x_bias.numel() == 0:
+                    bx = torch.zeros(mx.size(0), device=device, dtype=dtype)
+                else:
+                    bx = mix_x_bias[layer_idx].to(dtype=dtype)
+
+                if mix_v_bias is None or mix_v_bias.numel() == 0:
+                    bv = torch.zeros(mv.size(0), device=device, dtype=dtype)
+                else:
+                    bv = mix_v_bias[layer_idx].to(dtype=dtype)
+
+                if int(topology) == 1:
+                    v_mix = torch.tanh(v_cat / 100.0)
+                    mixer_in_x = torch.cat([torch.sin(x_cat), torch.cos(x_cat), v_mix], dim=-1)
+                    x_curr = torch.matmul(mixer_in_x, mx.transpose(-1, -2)) + bx
+                else:
+                    x_curr = torch.matmul(x_cat, mx.transpose(-1, -2)) + bx
+
+                v_curr = torch.matmul(v_cat, mv.transpose(-1, -2)) + bv
+
+                if norm_v_weight is not None and torch.is_tensor(norm_v_weight) and norm_v_weight.numel() != 0:
+                    wv = norm_v_weight[layer_idx].to(dtype=dtype)
+                    bv_norm = norm_v_bias[layer_idx].to(dtype=dtype) if norm_v_bias is not None and norm_v_bias.numel() != 0 else torch.empty(0, device=device, dtype=dtype)
+                    v_curr = _rms_norm(v_curr, wv, bv_norm)
+
+                if int(topology) != 1 and norm_x_weight is not None and torch.is_tensor(norm_x_weight) and norm_x_weight.numel() != 0:
+                    wx = norm_x_weight[layer_idx].to(dtype=dtype)
+                    bx_norm = norm_x_bias[layer_idx].to(dtype=dtype) if norm_x_bias is not None and norm_x_bias.numel() != 0 else torch.empty(0, device=device, dtype=dtype)
+                    x_curr = _rms_norm(x_curr, wx, bx_norm)
+                else:
+                    x_curr = _boundary(x_curr)
+
+                v_curr = 100.0 * torch.tanh(v_curr / 100.0)
+            else:
+                x_curr = _boundary(x_cat)
+                v_curr = 100.0 * torch.tanh(v_cat / 100.0)
+
+        x_steps.append(x_curr)
+
+    x_seq = torch.stack(x_steps, dim=1) if x_steps else torch.empty(B, 0, D, device=device, dtype=dtype)
+    reg_loss = torch.zeros((), device=device, dtype=dtype)
+    return x_curr, v_curr, x_seq, reg_loss
+
+
+def recurrent_manifold_fused_python_fallback(x, v, f, U_stack, W_stack, dt, dt_scales, forget_rates, num_heads,
+                                            plasticity, sing_thresh, sing_strength, mix_x, mix_v, Wf, Wi, bf, Wp, bp,
+                                            topology, R, r,
+                                            mix_x_bias=None, mix_v_bias=None,
+                                            norm_x_weight=None, norm_x_bias=None, norm_v_weight=None, norm_v_bias=None,
+                                            gate_W1=None, gate_b1=None, gate_W2=None, gate_b2=None,
+                                            integrator_type=0):
+    return recurrent_manifold_fused_autograd(
+        x, v, f, U_stack, W_stack, dt, dt_scales, forget_rates, num_heads,
+        plasticity, sing_thresh, sing_strength, mix_x, mix_v, Wf, Wi, bf, Wp, bp,
+        topology, R, r,
+        mix_x_bias=mix_x_bias, mix_v_bias=mix_v_bias,
+        norm_x_weight=norm_x_weight, norm_x_bias=norm_x_bias,
+        norm_v_weight=norm_v_weight, norm_v_bias=norm_v_bias,
+        gate_W1=gate_W1, gate_b1=gate_b1, gate_W2=gate_W2, gate_b2=gate_b2,
+        integrator_type=integrator_type
+    )

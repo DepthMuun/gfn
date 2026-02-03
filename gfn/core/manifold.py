@@ -215,6 +215,12 @@ class Manifold(nn.Module):
                         if not self.holographic:
                             out_seq = self.readout_norm(x_seq)
                         logits = self.readout(out_seq)
+                        
+                        # Log fusion success (only once)
+                        if not hasattr(self, '_fusion_logged'):
+                            print(f"[GFN:PERF] ✓ CUDA Fusion ACTIVE - Integrator: {self.integrator_type}")
+                            self._fusion_logged = True
+                        
                         return logits, (x_final, v_final), [reg_loss], [], x_seq, all_forces
 
             v_seq = []

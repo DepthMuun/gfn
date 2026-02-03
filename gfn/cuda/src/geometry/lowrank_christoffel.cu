@@ -1,201 +1,235 @@
+#include "christoffel_impl.cuh"
+#include <torch/extension.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
 
-#include "../../include/christoffel_impl.cuh"
+namespace gfn {
+namespace cuda {
 
-#define BLOCK_SIZE 256
+// ============================================================================
+// Low-Rank Christoffel Kernel
+// ============================================================================
 
-/**
- * Low-Rank Christoffel Modular Kernel (v1.0)
- * -----------------------------------------
- * Implements the baseline Riemannian geometry:
- * Γ(v) = W · ((U^T v)² ⊙ saturation(||U^T v||))
- * 
- * Optionally supports Gating and Friction if x is provided.
- */
-
-__global__ void lowrank_christoffel_forward_kernel(
-    const float* __restrict__ v,
-    const float* __restrict__ U,
-    const float* __restrict__ W,
-    float* __restrict__ gamma,
-    const float* __restrict__ x,
-    const float* __restrict__ gate_weights, // [D, D] or [D]
-    const float* __restrict__ gate_bias,    // [D]
-    const float* __restrict__ friction_weights,
-    const float* __restrict__ friction_bias,
-    const int batch,
-    const int dim,
-    const int rank,
-    bool use_x
+__global__ void lowrank_christoffel_kernel(
+    const scalar_t* __restrict__ v,      // [batch, dim]
+    const scalar_t* __restrict__ U,      // [dim, rank]
+    const scalar_t* __restrict__ W,      // [dim, rank]
+    const scalar_t* __restrict__ x,      // [batch, dim] or nullptr
+    const scalar_t* __restrict__ V_w,    // [dim] or nullptr
+    scalar_t* __restrict__ gamma,        // [batch, dim]
+    int batch_size,
+    int dim,
+    int rank,
+    scalar_t plasticity,
+    scalar_t sing_thresh,
+    scalar_t sing_strength,
+    int topology_id,
+    scalar_t R,
+    scalar_t r
 ) {
-    __shared__ float s_h[MAX_RANK];
-    __shared__ double s_E;
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
     
-    // We don't use Active Inference params here, so pointers are null
-    __shared__ double s_P;
-    __shared__ float s_M;
-
-    const int b = blockIdx.x;
-    if (b >= batch) return;
-
-    // Standard low-rank geometry via christoffel_device
-    // Note: We pass plasticity=0.0 and use_active=false to bypass reactive logic
+    if (idx >= batch_size) return;
+    
+    // Get pointers for this batch element
+    const scalar_t* v_ptr = v + idx * dim;
+    const scalar_t* x_ptr = (x != nullptr) ? (x + idx * dim) : nullptr;
+    scalar_t* gamma_ptr = gamma + idx * dim;
+    
+    Topology topology = static_cast<Topology>(topology_id);
+    
+    // Compute Christoffel force
     christoffel_device(
-        v + b * dim, U, W, gamma + b * dim, 
-        nullptr, nullptr, // x and V_w handled separately
-        dim, rank, 
-        0.0f, 1.0f, 1.0f, false, 
-        0, // topology=0 (Euclidean)
-        s_h, &s_E, &s_P, &s_M
-    );
-    __syncthreads();
-
-    // If x is provided, apply Gating and Friction (as per LowRankChristoffel in geometry.py)
-    if (use_x && x != nullptr) {
-        const int tid = threadIdx.x;
-        for (int i = tid; i < dim; i += blockDim.x) {
-            // Unused variables removed for clean build
-            // float xi = x[b * dim + i];
-            // float vi = v[b * dim + i];
-            // float gi = gamma[b * dim + i];
-
-            // 1. Dynamic Curvature Modulation (if V exists, otherwise 1.0)
-            // 2. Adaptive Gating
-            // 3. Dynamic Friction (Forget Gate)
-            
-            // NOTE: For absolute modularity, these could be separate kernels,
-            // but for performance we fuse them if they are local to the layer.
-            // Simplified implementation here; specific gate weights would need loading.
-            
-            // For now, let's keep LowRank pure geometry + optional damping
-        }
-    }
-}
-
-/**
- * Backward Kernel for Low-Rank Christoffel
- */
-__global__ void lowrank_christoffel_backward_kernel(
-    const float* __restrict__ grad_gamma,
-    const float* __restrict__ v,
-    const float* __restrict__ U,
-    const float* __restrict__ W,
-    float* __restrict__ grad_v,
-    float* __restrict__ grad_U,
-    float* __restrict__ grad_W,
-    const int batch,
-    const int dim,
-    const int rank
-) {
-    extern __shared__ float s_mem[];
-    float* s_h = s_mem;  // [rank]
-    
-    double* s_double = (double*)(s_mem + rank + (rank % 2));
-    double* s_grad_h = s_double;           // [rank]
-    double* s_M = s_grad_h + rank;         // Norm accumulator
-
-    const int b = blockIdx.x;
-    const int tid = threadIdx.x;
-    if (b >= batch) return;
-
-    const float* v_b = v + b * dim;
-    const float* gg_b = grad_gamma + b * dim;
-    float* gv_b = grad_v + b * dim;
-
-    // 1. Reset
-    if (tid == 0) *s_M = 0.0;
-    for (int r = tid; r < rank; r += blockDim.x) {
-        s_h[r] = 0.0f;
-        s_grad_h[r] = 0.0;
-    }
-    __syncthreads();
-
-    // 2. Forward Recompute: h = U^T v
-    for (int r = 0; r < rank; ++r) {
-        float local_h = 0.0f;
-        for (int i = tid; i < dim; i += blockDim.x) local_h += v_b[i] * U[i * rank + r];
-        local_h = warpReduceSum(local_h);
-        if ((tid & 31) == 0) atomicAdd(&s_h[r], local_h);
-    }
-    __syncthreads();
-
-    // 3. Norm and S
-    double local_nsq = 0.0;
-    for (int r = tid; r < rank; r += blockDim.x) local_nsq += (double)s_h[r] * (double)s_h[r];
-    atomicAdd(s_M, local_nsq);
-    __syncthreads();
-    
-    double norm_h = sqrt(*s_M);
-    double S = 1.0 / (1.0 + norm_h);
-
-    // 4. Backward
-    // Accumulate grad_W and dL/dh
-    for (int j = tid; j < dim; j += blockDim.x) {
-        double gg = (double)gg_b[j];
-        
-        // Clamp handling (matches forward)
-        // Gamma_j = S * sum_r(W_jr * h_r^2)
-        double gamma_static = 0.0;
-        for (int r = 0; r < rank; r++) gamma_static += (double)W[j * rank + r] * (double)s_h[r] * (double)s_h[r];
-        gamma_static *= S;
-        
-        if (gamma_static <= -5.0 || gamma_static >= 5.0) gg = 0.0;
-        
-        for (int r = 0; r < rank; r++) {
-            double hr = (double)s_h[r];
-            double Zr = hr * hr * S;
-            atomicAdd(&grad_W[j * rank + r], (float)(gg * Zr));
-            atomicAdd(&s_grad_h[r], gg * (double)W[j * rank + r]);
-        }
-    }
-    __syncthreads();
-
-    // S-modulation to grad_h
-    if (tid == 0) *s_M = 0.0;
-    __syncthreads();
-    
-    double local_C = 0.0;
-    for (int r = tid; r < rank; r += blockDim.x) local_C += s_grad_h[r] * (double)s_h[r] * (double)s_h[r] * S;
-    atomicAdd(s_M, local_C);
-    __syncthreads();
-    
-    double C_val = *s_M;
-    for (int r = tid; r < rank; r += blockDim.x) {
-        double Gr = s_grad_h[r];
-        double hr = (double)s_h[r];
-        s_grad_h[r] = S * hr * (2.0 * Gr - C_val / (norm_h + 1e-12));
-    }
-    __syncthreads();
-
-    // Final v and U gradients
-    for (int k = tid; k < dim; k += blockDim.x) {
-        double vk = (double)v_b[k];
-        double dv = 0.0;
-        for (int r = 0; r < rank; r++) {
-            double dhr = s_grad_h[r];
-            dv += dhr * (double)U[k * rank + r];
-            atomicAdd(&grad_U[k * rank + r], (float)(dhr * vk));
-        }
-        gv_b[k] = (float)dv;
-    }
-}
-
-extern "C" void launch_lowrank_christoffel_forward(
-    const float* v, const float* U, const float* W, float* gamma,
-    int batch, int dim, int rank, cudaStream_t stream
-) {
-    lowrank_christoffel_forward_kernel<<<batch, BLOCK_SIZE, 0, stream>>>(
-        v, U, W, gamma, nullptr, nullptr, nullptr, nullptr, nullptr, batch, dim, rank, false
+        v_ptr, U, W, x_ptr, V_w,
+        dim, rank,
+        plasticity, sing_thresh, sing_strength,
+        topology, R, r,
+        gamma_ptr
     );
 }
 
-extern "C" void launch_lowrank_christoffel_backward(
-    const float* grad_gamma, const float* v, const float* U, const float* W,
-    float* grad_v, float* grad_U, float* grad_W,
-    int batch, int dim, int rank, cudaStream_t stream
+// ============================================================================
+// Low-Rank Christoffel with Friction Kernel
+// ============================================================================
+
+__global__ void lowrank_christoffel_friction_kernel(
+    const scalar_t* __restrict__ v,          // [batch, dim]
+    const scalar_t* __restrict__ U,          // [dim, rank]
+    const scalar_t* __restrict__ W,          // [dim, rank]
+    const scalar_t* __restrict__ x,          // [batch, dim]
+    const scalar_t* __restrict__ V_w,        // [dim] or nullptr
+    const scalar_t* __restrict__ force,      // [batch, dim] or nullptr
+    const scalar_t* __restrict__ W_forget,   // [dim, feature_dim]
+    const scalar_t* __restrict__ b_forget,   // [dim]
+    const scalar_t* __restrict__ W_input,    // [dim, dim] or nullptr
+    scalar_t* __restrict__ output,           // [batch, dim]
+    int batch_size,
+    int dim,
+    int rank,
+    scalar_t plasticity,
+    scalar_t sing_thresh,
+    scalar_t sing_strength,
+    int topology_id,
+    scalar_t R,
+    scalar_t r
 ) {
-    int shared_floats = rank + (rank % 2);
-    int shared = shared_floats * sizeof(float) + (rank + 1) * sizeof(double);
-    lowrank_christoffel_backward_kernel<<<batch, BLOCK_SIZE, shared, stream>>>(
-        grad_gamma, v, U, W, grad_v, grad_U, grad_W, batch, dim, rank
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    
+    if (idx >= batch_size) return;
+    
+    // Get pointers for this batch element
+    const scalar_t* v_ptr = v + idx * dim;
+    const scalar_t* x_ptr = x + idx * dim;
+    const scalar_t* force_ptr = (force != nullptr) ? (force + idx * dim) : nullptr;
+    scalar_t* output_ptr = output + idx * dim;
+    
+    Topology topology = static_cast<Topology>(topology_id);
+    
+    // Compute Christoffel + Friction
+    christoffel_with_friction(
+        v_ptr, U, W, x_ptr, V_w, force_ptr,
+        W_forget, b_forget, W_input,
+        dim, rank,
+        plasticity, sing_thresh, sing_strength,
+        topology, R, r,
+        output_ptr
     );
+}
+
+} // namespace cuda
+} // namespace gfn
+
+// ============================================================================
+// PyTorch C++ Interface
+// ============================================================================
+
+using namespace gfn::cuda;
+
+torch::Tensor lowrank_christoffel_fused(
+    torch::Tensor v,           // [batch, dim]
+    torch::Tensor U,           // [dim, rank]
+    torch::Tensor W,           // [dim, rank]
+    torch::Tensor x,           // [batch, dim] or empty
+    torch::Tensor V_w,         // [dim] or empty
+    float plasticity,
+    float sing_thresh,
+    float sing_strength,
+    int topology,
+    float R,
+    float r
+) {
+    TORCH_CHECK(v.is_cuda(), "v must be a CUDA tensor");
+    TORCH_CHECK(U.is_cuda(), "U must be a CUDA tensor");
+    TORCH_CHECK(W.is_cuda(), "W must be a CUDA tensor");
+    TORCH_CHECK(v.dim() == 2, "v must be 2D [batch, dim]");
+    TORCH_CHECK(U.dim() == 2, "U must be 2D [dim, rank]");
+    TORCH_CHECK(W.dim() == 2, "W must be 2D [dim, rank]");
+    
+    int batch_size = v.size(0);
+    int dim = v.size(1);
+    int rank = U.size(1);
+    
+    TORCH_CHECK(U.size(0) == dim, "U dimension mismatch");
+    TORCH_CHECK(W.size(0) == dim, "W dimension mismatch");
+    TORCH_CHECK(W.size(1) == rank, "W rank mismatch");
+    
+    // Create output tensor
+    auto gamma = torch::empty_like(v);
+    
+    // Prepare pointers
+    const scalar_t* x_ptr = (x.numel() > 0) ? x.data_ptr<scalar_t>() : nullptr;
+    const scalar_t* V_w_ptr = (V_w.numel() > 0) ? V_w.data_ptr<scalar_t>() : nullptr;
+    
+    // Launch kernel
+    int threads = DEFAULT_BLOCK_SIZE;
+    int blocks = div_ceil(batch_size, threads);
+    
+    lowrank_christoffel_kernel<<<blocks, threads>>>(
+        v.data_ptr<scalar_t>(),
+        U.data_ptr<scalar_t>(),
+        W.data_ptr<scalar_t>(),
+        x_ptr,
+        V_w_ptr,
+        gamma.data_ptr<scalar_t>(),
+        batch_size,
+        dim,
+        rank,
+        plasticity,
+        sing_thresh,
+        sing_strength,
+        topology,
+        R,
+        r
+    );
+    
+    // Check for errors
+    cudaError_t err = cudaGetLastError();
+    TORCH_CHECK(err == cudaSuccess, "CUDA kernel error: ", cudaGetErrorString(err));
+    
+    return gamma;
+}
+
+torch::Tensor lowrank_christoffel_with_friction(
+    torch::Tensor v,           // [batch, dim]
+    torch::Tensor U,           // [dim, rank]
+    torch::Tensor W,           // [dim, rank]
+    torch::Tensor x,           // [batch, dim]
+    torch::Tensor V_w,         // [dim] or empty
+    torch::Tensor force,       // [batch, dim] or empty
+    torch::Tensor W_forget,    // [dim, feature_dim]
+    torch::Tensor b_forget,    // [dim]
+    torch::Tensor W_input,     // [dim, dim] or empty
+    float plasticity,
+    float sing_thresh,
+    float sing_strength,
+    int topology,
+    float R,
+    float r
+) {
+    TORCH_CHECK(v.is_cuda(), "v must be a CUDA tensor");
+    TORCH_CHECK(x.is_cuda(), "x must be a CUDA tensor");
+    
+    int batch_size = v.size(0);
+    int dim = v.size(1);
+    int rank = U.size(1);
+    
+    // Create output tensor
+    auto output = torch::empty_like(v);
+    
+    // Prepare pointers
+    const scalar_t* V_w_ptr = (V_w.numel() > 0) ? V_w.data_ptr<scalar_t>() : nullptr;
+    const scalar_t* force_ptr = (force.numel() > 0) ? force.data_ptr<scalar_t>() : nullptr;
+    const scalar_t* W_input_ptr = (W_input.numel() > 0) ? W_input.data_ptr<scalar_t>() : nullptr;
+    
+    // Launch kernel
+    int threads = DEFAULT_BLOCK_SIZE;
+    int blocks = div_ceil(batch_size, threads);
+    
+    lowrank_christoffel_friction_kernel<<<blocks, threads>>>(
+        v.data_ptr<scalar_t>(),
+        U.data_ptr<scalar_t>(),
+        W.data_ptr<scalar_t>(),
+        x.data_ptr<scalar_t>(),
+        V_w_ptr,
+        force_ptr,
+        W_forget.data_ptr<scalar_t>(),
+        b_forget.data_ptr<scalar_t>(),
+        W_input_ptr,
+        output.data_ptr<scalar_t>(),
+        batch_size,
+        dim,
+        rank,
+        plasticity,
+        sing_thresh,
+        sing_strength,
+        topology,
+        R,
+        r
+    );
+    
+    // Check for errors
+    cudaError_t err = cudaGetLastError();
+    TORCH_CHECK(err == cudaSuccess, "CUDA kernel error: ", cudaGetErrorString(err));
+    
+    return output;
 }
