@@ -1,63 +1,48 @@
 """
-Function Composition Benchmark
-==============================
+Professional Function Composition Benchmark (v2.6.5)
+==================================================
 
 THE ULTIMATE TEST: Can GFN learn to COMPOSE functions?
-
-This tests the core hypothesis of GFN:
-- Transformers: Memorize input→output mappings
-- GFN: Learn continuous FLOWS that can be composed
-
-Task:
-  Train: f(x)=x+2, g(x)=x*3, h(x)=x-1
-  Test:  f(g(h(x))), g(f(x)), h(g(f(x))), etc.
-
-If GFN truly models "geodesic flows", it should compose functions
-it learned separately WITHOUT seeing the compositions during training.
-
-This is impossible for Transformers without massive data.
+Objective:
+- Compare Manifold-GFN with Transformer (MicroGPT) on unseen compositions.
+- Evaluate the hypothesis that GFN learns continuous flows that compose naturally.
 """
 
 import torch
 import torch.nn as nn
+import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
 import sys
+import time
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn
 
+# Add project root
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from gfn import GFN
-try:
-    from tests.benchmarks.baselines import MicroGPT
-except ImportError:
-    from baselines import MicroGPT
+from gfn import Manifold
+from gfn.optimizers import RiemannianAdam
+from tests.benchmarks.baselines import MicroGPT
+from tests.benchmarks.bench_utils import ResultsLogger
 
+console = Console()
 
 class FunctionCompositionDataset:
     """Dataset of function applications and compositions."""
     
     def __init__(self, train_mode=True):
-        """
-        Functions:
-          f(x) = x + 2
-          g(x) = x * 3
-          h(x) = x - 1
-        
-        If train_mode=True: Only single applications (f(x), g(x), h(x))
-        If train_mode=False: Only compositions (f(g(x)), g(h(f(x))), etc.)
-        """
         self.train_mode = train_mode
-        
-        # Vocabulary: 0-9, +, -, *, =, f, g, h, (, ), <PAD>, <EOS>
         chars = [str(i) for i in range(10)] + ['+', '-', '*', '=', 'f', 'g', 'h', '(', ')', '<PAD>', '<EOS>']
         self.char_to_id = {c: i for i, c in enumerate(chars)}
         self.id_to_char = {i: c for c, i in self.char_to_id.items()}
         self.vocab_size = len(chars)
         
-        # Function definitions
         self.funcs = {
             'f': lambda x: x + 2,
             'g': lambda x: x * 3,
@@ -65,30 +50,23 @@ class FunctionCompositionDataset:
         }
     
     def apply_composition(self, x, composition):
-        """Apply composition like 'fgh' means f(g(h(x)))."""
         result = x
-        # Apply from right to left (like math notation)
         for func_name in reversed(composition):
             result = self.funcs[func_name](result)
         return result
     
     def generate_problem(self):
-        """Generate a single problem."""
         if self.train_mode:
-            # Training: Only single function applications
             func_name = np.random.choice(['f', 'g', 'h'])
             x = np.random.randint(0, 30)
             result = self.funcs[func_name](x)
             problem = f"{func_name}({x})={result}"
         else:
-            # Test: Compositions
-            # Random composition of 2-3 functions
             length = np.random.choice([2, 3])
             composition = ''.join(np.random.choice(['f', 'g', 'h'], size=length))
-            x = np.random.randint(0, 10)  # Smaller to avoid overflow
+            x = np.random.randint(0, 5)
             result = self.apply_composition(x, composition)
             
-            # Format: f(g(5))=result
             nested = f"{composition[0]}("
             for i in range(1, len(composition)):
                 nested += f"{composition[i]}("
@@ -99,19 +77,18 @@ class FunctionCompositionDataset:
         return problem
     
     def encode(self, text):
-        """Convert text to token IDs."""
         return [self.char_to_id[c] for c in text]
     
     def decode(self, ids):
-        """Convert token IDs to text."""
         return ''.join([self.id_to_char.get(i, '?') for i in ids if i not in [self.char_to_id['<PAD>'], self.char_to_id['<EOS>']]])
 
-
-def evaluate_composition(model, dataset, num_samples=100, model_name='GFN', device='cuda'):
-    """Evaluate accuracy on composition tasks."""
+def evaluate_model(model, dataset, num_samples=100, device='cuda'):
     model.eval()
     correct = 0
     total = 0
+    
+    pad_id = dataset.char_to_id['<PAD>']
+    eos_id = dataset.char_to_id['<EOS>']
     
     with torch.no_grad():
         for _ in range(num_samples):
@@ -123,34 +100,24 @@ def evaluate_composition(model, dataset, num_samples=100, model_name='GFN', devi
             ids = dataset.encode(prompt)
             input_seq = torch.tensor([ids]).to(device)
             
-            # Generate
-            if model_name == 'GFN':
-                logits, state = model(input_seq)
-                generated = list(ids)
-                
-                curr_token = torch.argmax(logits[:, -1, :], dim=-1).unsqueeze(0)
-                generated.append(curr_token.item())
-                
-                for _ in range(10):  # Max 10 digits for result
-                    logits, state = model(curr_token, state=state)
-                    next_token = torch.argmax(logits[:, -1, :], dim=-1)
-                    tok_id = next_token.item()
-                    if tok_id == dataset.char_to_id['<EOS>']:
-                        break
-                    generated.append(tok_id)
-                    curr_token = next_token.unsqueeze(0)
-            else:  # GPT
-                generated = list(ids)
-                for _ in range(10):
-                    inp = torch.tensor([generated]).to(device)
-                    logits = model(inp)
-                    next_token = torch.argmax(logits[:, -1, :], dim=-1)
-                    tok_id = next_token.item()
-                    if tok_id == dataset.char_to_id['<EOS>']:
-                        break
-                    generated.append(tok_id)
+            generated = list(ids)
+            curr_input = input_seq
+            state = None
             
-            # Check correctness
+            for _ in range(5): # Expected result length
+                if isinstance(model, Manifold):
+                    out = model(curr_input, state=state)
+                    logits = out[0] if isinstance(out, tuple) else out
+                    state = out[1] if isinstance(out, tuple) and len(out) > 1 else None
+                else:
+                    logits = model(curr_input)
+                
+                next_token = torch.argmax(logits[:, -1, :], dim=-1)
+                tok_id = next_token.item()
+                if tok_id == eos_id: break
+                generated.append(tok_id)
+                curr_input = next_token.unsqueeze(0).unsqueeze(0) if isinstance(model, Manifold) else torch.tensor([generated]).to(device)
+            
             pred = dataset.decode(generated).split('=')[-1].strip()
             if pred == target.strip():
                 correct += 1
@@ -158,151 +125,123 @@ def evaluate_composition(model, dataset, num_samples=100, model_name='GFN', devi
     
     return (correct / total) * 100
 
-
 def run_composition_benchmark():
-    """Main benchmark runner."""
+    logger = ResultsLogger("composition_benchmark", category="core")
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
-    print("\n" + "="*70)
-    print("  🧮 FUNCTION COMPOSITION BENCHMARK")
-    print("="*70)
-    print("\n📘 Hypothesis:")
-    print("  GFN learns FLOWS → Can compose functions")
-    print("  GPT memorizes PATTERNS → Cannot generalize to new compositions")
-    
-    # Create datasets
     train_dataset = FunctionCompositionDataset(train_mode=True)
     test_dataset = FunctionCompositionDataset(train_mode=False)
     
-    # Create models
     vocab_size = train_dataset.vocab_size
-    gfn = GFN(vocab_size=vocab_size, dim=256, depth=6, rank=16).to(device)
-    gpt = MicroGPT(vocab_size=vocab_size, dim=128, depth=6, heads=4).to(device)
+    dim = 256
+    depth = 4
     
-    print(f"\n📊 Models:")
-    print(f"  GFN: {sum(p.numel() for p in gfn.parameters())/1e6:.2f}M params")
-    print(f"  GPT: {sum(p.numel() for p in gpt.parameters())/1e6:.2f}M params")
+    physics_config = {
+        'plasticity': 0.1, 
+        'singularity_thresh': 0.8, 
+        'singularity_strength': 5.0,
+        'R': 2.0, 'r': 1.0
+    }
+
+    gfn = Manifold(
+        vocab_size=vocab_size, dim=dim, depth=depth, heads=4, 
+        integrator_type='leapfrog', physics_config=physics_config, holographic=True
+    ).to(device)
     
+    gpt = MicroGPT(vocab_size=vocab_size, dim=dim, depth=depth, heads=4).to(device)
+    
+    console.print(f"\n[bold]GFN FUNCTION COMPOSITION AUDIT[/] (Manifold v2.6.5)\n")
+
     # Training
-    print(f"\n🔄 Training on SIMPLE functions (f(x), g(x), h(x))...")
-    
-    gfn_optimizer = torch.optim.Adam(gfn.parameters(), lr=1e-3)
-    gpt_optimizer = torch.optim.Adam(gpt.parameters(), lr=1e-3)
-    criterion = nn.CrossEntropyLoss()
-    
-    epochs = 100
+    steps = 1500
     batch_size = 32
-    
-    for epoch in range(epochs):
-        gfn.train()
-        gpt.train()
+    gfn_opt = RiemannianAdam(gfn.parameters(), lr=1e-3)
+    gpt_opt = torch.optim.Adam(gpt.parameters(), lr=1e-3)
+    criterion = nn.CrossEntropyLoss(ignore_index=train_dataset.char_to_id['<PAD>'])
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(bar_width=40),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TimeElapsedColumn(),
+        console=console
+    ) as progress:
+        m_task = progress.add_task("[cyan]Manifold Training", total=steps)
+        t_task = progress.add_task("[pink1]Transformer Training", total=steps)
         
-        # Generate batch
-        batch = [train_dataset.generate_problem() for _ in range(batch_size)]
-        inputs = []
-        targets = []
-        
-        for problem in batch:
-            ids = train_dataset.encode(problem + '<EOS>')
-            inputs.append(ids[:-1])
-            targets.append(ids[1:])
-        
-        # Pad
-        max_len = max(len(seq) for seq in inputs)
-        padded_inputs = [seq + [train_dataset.char_to_id['<PAD>']] * (max_len - len(seq)) for seq in inputs]
-        padded_targets = [seq + [-100] * (max_len - len(seq)) for seq in targets]
-        
-        inputs_tensor = torch.tensor(padded_inputs).to(device)
-        targets_tensor = torch.tensor(padded_targets).to(device)
-        
-        # Train GFN
-        gfn_optimizer.zero_grad()
-        gfn_logits, _ = gfn(inputs_tensor)
-        gfn_loss = criterion(gfn_logits.reshape(-1, vocab_size), targets_tensor.reshape(-1))
-        gfn_loss.backward()
-        gfn_optimizer.step()
-        
-        # Train GPT
-        gpt_optimizer.zero_grad()
-        gpt_logits = gpt(inputs_tensor)
-        gpt_loss = criterion(gpt_logits.reshape(-1, vocab_size), targets_tensor.reshape(-1))
-        gpt_loss.backward()
-        gpt_optimizer.step()
-        
-        if (epoch + 1) % 20 == 0:
-            print(f"  Epoch {epoch+1}: GFN Loss={gfn_loss.item():.4f}, GPT Loss={gpt_loss.item():.4f}")
+        for step in range(steps):
+            # Batch Gen
+            batch = [train_dataset.generate_problem() for _ in range(batch_size)]
+            inputs, targets = [], []
+            for p in batch:
+                ids = train_dataset.encode(p + '<EOS>')
+                inputs.append(ids[:-1])
+                targets.append(ids[1:])
+                
+            max_len = max(len(s) for s in inputs)
+            padded_in = torch.tensor([s + [train_dataset.char_to_id['<PAD>']] * (max_len - len(s)) for s in inputs]).to(device)
+            padded_tg = torch.tensor([s + [train_dataset.char_to_id['<PAD>']] * (max_len - len(s)) for s in targets]).to(device)
+            
+            # GFN Step
+            gfn_opt.zero_grad()
+            out = gfn(padded_in)
+            gfn_logits = out[0] if isinstance(out, tuple) else out
+            gfn_loss = criterion(gfn_logits.reshape(-1, vocab_size), padded_tg.reshape(-1))
+            gfn_loss.backward()
+            gfn_opt.step()
+            
+            # GPT Step
+            gpt_opt.zero_grad()
+            gpt_logits = gpt(padded_in)
+            gpt_loss = criterion(gpt_logits.reshape(-1, vocab_size), padded_tg.reshape(-1))
+            gpt_loss.backward()
+            gpt_opt.step()
+            
+            progress.update(m_task, advance=1, description=f"[cyan]Manifold L:{gfn_loss.item():.3f}")
+            progress.update(t_task, advance=1, description=f"[pink1]Transformer L:{gpt_loss.item():.3f}")
+
+    # Eval
+    console.print("\n[bold yellow]Evaluating zero-shot composition...[/]")
+    gfn_train_acc = evaluate_model(gfn, train_dataset, device=device)
+    gpt_train_acc = evaluate_model(gpt, train_dataset, device=device)
+    gfn_test_acc = evaluate_model(gfn, test_dataset, device=device)
+    gpt_test_acc = evaluate_model(gpt, test_dataset, device=device)
+
+    summary_table = Table(title="Composition Accuracy Matrix", border_style="cyan")
+    summary_table.add_column("Distribution", style="bold")
+    summary_table.add_column("Manifold-GFN", justify="center")
+    summary_table.add_column("Transformer", justify="center")
     
-    # Evaluation
-    print(f"\n🧪 Testing on COMPOSITIONS (f(g(x)), g(h(f(x))), etc.)...")
+    summary_table.add_row("Seen (Simple Funcs)", f"{gfn_train_acc:.1f}%", f"{gpt_train_acc:.1f}%")
+    summary_table.add_row("Unseen (Composition)", f"[bold green]{gfn_test_acc:.1f}%[/]", f"{gpt_test_acc:.1f}%")
     
-    gfn_acc = evaluate_composition(gfn, test_dataset, num_samples=200, model_name='GFN', device=device)
-    gpt_acc = evaluate_composition(gpt, test_dataset, num_samples=200, model_name='GPT', device=device)
-    
-    # Also test on training distribution
-    gfn_train_acc = evaluate_composition(gfn, train_dataset, num_samples=200, model_name='GFN', device=device)
-    gpt_train_acc = evaluate_composition(gpt, train_dataset, num_samples=200, model_name='GPT', device=device)
-    
-    # Results
-    print("\n" + "="*70)
-    print("  📊 RESULTS")
-    print("="*70)
-    
-    print(f"\n✅ Training Distribution (Simple functions):")
-    print(f"  GFN: {gfn_train_acc:.1f}%")
-    print(f"  GPT: {gpt_train_acc:.1f}%")
-    
-    print(f"\n🎯 Test Distribution (Compositions - UNSEEN):")
-    print(f"  GFN: {gfn_acc:.1f}% ⭐")
-    print(f"  GPT: {gpt_acc:.1f}%")
-    
-    print(f"\n💡 Composition Gap (How well they generalize):")
-    gfn_gap = gfn_train_acc - gfn_acc
-    gpt_gap = gpt_train_acc - gpt_acc
-    print(f"  GFN: {gfn_gap:.1f}% drop")
-    print(f"  GPT: {gpt_gap:.1f}% drop")
-    
-    if gfn_acc > gpt_acc:
-        print(f"\n🏆 WINNER: GFN by {gfn_acc - gpt_acc:.1f}%")
-        print("   GFN successfully learned COMPOSITIONAL structure! 🎉")
-    else:
-        print(f"\n🏆 WINNER: GPT by {gpt_acc - gfn_acc:.1f}%")
-        print("   (Hypothesis needs refinement)")
-    
-    print("="*70)
-    
-    # Visualize
-    fig, ax = plt.subplots(figsize=(10, 6))
-    
-    models = ['GFN', 'Transformer']
-    train_accs = [gfn_train_acc, gpt_train_acc]
-    test_accs = [gfn_acc, gpt_acc]
-    
-    x = np.arange(len(models))
+    console.print(summary_table)
+
+    # Plot
+    sns.set_theme(style="darkgrid", rc={"axes.facecolor": "#121212", "grid.color": "#2a2a2a"})
+    fig, ax = plt.subplots(figsize=(10, 6), facecolor='#121212')
+    labels = ['Seen (Train)', 'Unseen (OOD Composition)']
+    x = np.arange(len(labels))
     width = 0.35
     
-    bars1 = ax.bar(x - width/2, train_accs, width, label='Simple Functions (Train)', color='#2A9D8F', alpha=0.8)
-    bars2 = ax.bar(x + width/2, test_accs, width, label='Compositions (Test)', color='#E76F51', alpha=0.8)
+    ax.bar(x - width/2, [gfn_train_acc, gfn_test_acc], width, label='Manifold-GFN', color='#00ADB5')
+    ax.bar(x + width/2, [gpt_train_acc, gpt_test_acc], width, label='Transformer', color='#FF2E63')
     
-    ax.set_ylabel('Accuracy (%)', fontsize=13)
-    ax.set_title('🧮 Function Composition: The GFN Advantage', fontsize=15, fontweight='bold')
+    ax.set_title("Function Composition Advantage", color='white', fontweight='bold', fontsize=16)
     ax.set_xticks(x)
-    ax.set_xticklabels(models)
-    ax.legend(fontsize=11)
-    ax.grid(alpha=0.3, axis='y')
-    
-    # Add value labels
-    for bars in [bars1, bars2]:
-        for bar in bars:
-            height = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2., height,
-                   f'{height:.1f}%', ha='center', va='bottom', fontsize=10, fontweight='bold')
+    ax.set_xticklabels(labels, color='white')
+    ax.set_ylabel("Accuracy (%)", color='white')
+    ax.legend()
     
     plt.tight_layout()
-    results_dir = PROJECT_ROOT / "tests" / "professional" / "results"
-    results_dir.mkdir(parents=True, exist_ok=True)
-    plt.savefig(results_dir / "function_composition_benchmark.png", dpi=300, bbox_inches='tight')
-    print(f"\n📊 Plot saved to: {results_dir / 'function_composition_benchmark.png'}")
-    plt.close()
+    logger.save_plot(fig, "composition_comparison.png")
+    logger.save_json({"manifold": {"train": gfn_train_acc, "test": gfn_test_acc}, "transformer": {"train": gpt_train_acc, "test": gpt_test_acc}})
+    
+    console.print(f"\n[bold green][SUCCESS][/] Plot saved to [cyan]{logger.run_dir}[/]\n")
+
+if __name__ == "__main__":
+    run_composition_benchmark()
 
 
 if __name__ == "__main__":

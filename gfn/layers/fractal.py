@@ -62,7 +62,7 @@ class FractalMLayer(nn.Module):
         # tunnel_gate = 0.3 + 0.7 * torch.sigmoid((curvature_r - self.threshold) * 5.0)
         # LEVEL 42: SURGICAL NOISE REMOVAL
         # Removing the 0.3 bias ensures that flat regions (R=0) don't inject micro-manifold noise.
-        tunnel_gate = torch.sigmoid((curvature_r - self.threshold) * 10.0) 
+        tunnel_gate = torch.sigmoid((curvature_r - self.threshold) * 1.0) 
         
         # 4. Micro-evolution (Zooming in)
         # We use the macro-updated state as input to the sub-manifold

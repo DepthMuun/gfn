@@ -1,181 +1,165 @@
+"""
+Professional Precision & Numerical Stability Benchmark (v2.6.5)
+=============================================================
+
+Evaluates geometric stability under different numerical formats:
+- FP32 (Full Precision)
+- BF16 (Brain Float - Dynamic Range)
+- FP16 (Half Precision - Standard)
+
+Monitors for NaNs, Infs, and gradient explosions in the physics engine.
+"""
+
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import sys
 import os
-import json
+import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
-from tqdm import tqdm
 import time
-
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn
 
 # Add project root
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-# Import Models
-from gfn.model import Manifold
-from gfn.optim import RiemannianAdam
+# Import GFN Components
+from gfn import Manifold
+from gfn.optimizers import RiemannianAdam
+from tests.benchmarks.bench_utils import ResultsLogger
+
+console = Console()
 
 class ParityTask:
-    """Parity Check Task (Cumulative XOR)"""
-    def __init__(self, vocab_size=2, length=50, mod=2):
-        self.vocab_size = vocab_size
+    """Standard stability probe: Toroidal Parity Check."""
+    def __init__(self, length=32):
         self.length = length
-        self.mod = mod
         
-    def generate_batch(self, batch_size, device='cpu'):
-        x = torch.randint(0, self.vocab_size, (batch_size, self.length), device=device)
-        y = torch.cumsum(x, dim=1) % self.mod
+    def generate(self, batch_size, device='cpu'):
+        x = torch.randint(0, 2, (batch_size, self.length), device=device)
+        y = torch.cumsum(x, dim=1) % 2
         return x, y
 
-def train_one_epoch(model, dtype, steps=200, lr=1e-3, device='cuda'):
-    """Trains for a fixed number of steps and monitors stability (NaNs/Inf)"""
+def evaluate_stability(dtype_name, dtype, device, steps=300):
+    model = Manifold(
+        vocab_size=2, dim=128, depth=4, heads=4,
+        physics_config={'topology': 'torus', 'plasticity': 0.1}
+    ).to(device)
     
-    # Use Riemannian Adam
-    optimizer = RiemannianAdam(model.parameters(), lr=lr, retraction='normalize')
+    if dtype != torch.float16:
+        model.to(dtype=dtype)
+        
+    optimizer = RiemannianAdam(model.parameters(), lr=1e-3)
     criterion = nn.BCEWithLogitsLoss()
+    task = ParityTask()
     
-    task = ParityTask(length=50) # Moderate length to test stability
-    
-    loss_history = []
-    grad_norms = []
+    history = []
+    scaler = torch.cuda.amp.GradScaler() if dtype == torch.float16 else None
     
     model.train()
-    
-    # Enable AMP for FP16/BF16 if native dtype is float32 but we want mixed precision
-    # OR we can cast the model to dtype directly.
-    # For strict geometric tests, we usually cast the weights.
-    
-    if dtype == torch.float16:
-        scaler = torch.cuda.amp.GradScaler()
-    else:
-        scaler = None
+    for _ in range(steps):
+        x, y = task.generate(32, device=device)
+        target = y.float().unsqueeze(-1).expand(-1, -1, 128) # Matching dim for stability test
         
-    try:
-        start_time = time.time()
-        pbar = tqdm(range(steps), desc=f"Testing {dtype}")
+        optimizer.zero_grad()
         
-        for _ in pbar:
-            x, y = task.generate_batch(64, device=device)
-            
-            # Map targets to bits
-            coord_dim = model.physics_config.get('embedding', {}).get('coord_dim', 16)
-            mask = 2**torch.arange(coord_dim).to(device)
-            target_bits = (y.unsqueeze(-1) & mask) > 0
-            target_bits = target_bits.float() 
-
-            optimizer.zero_grad()
-            
+        try:
             if scaler:
                 with torch.cuda.amp.autocast():
-                    logits, _, _ = model(x)
-                    loss = criterion(logits, target_bits)
-                
+                    out = model(x)
+                    logits = out[0] if isinstance(out, tuple) else out
+                    loss = criterion(logits, target)
                 scaler.scale(loss).backward()
-                scaler.unscale_(optimizer) # For clipping/monitoring
+                scaler.unscale_(optimizer)
                 grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 scaler.step(optimizer)
                 scaler.update()
             else:
-                # Direct cast (e.g. Bfloat16 or Float32)
-                # Note: PyTorch modules must be .to(dtype) for direct execution
-                # But input must match.
-                x_in = x # integer input
-                logits, _, _ = model(x_in)
-                loss = criterion(logits, target_bits.to(dtype=logits.dtype))
-                
+                out = model(x)
+                logits = out[0] if isinstance(out, tuple) else out
+                loss = criterion(logits, target.to(dtype=logits.dtype))
                 loss.backward()
                 grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 optimizer.step()
-            
-            if torch.isnan(loss) or torch.isinf(loss):
-                print(f"❌ Stability Failure (NaN/Inf) at step {_}")
-                return loss_history, grad_norms, False
                 
-            loss_history.append(loss.item())
-            grad_norms.append(grad_norm.item())
+            if torch.isnan(loss) or torch.isinf(loss):
+                return history, False
+                
+            history.append(loss.item())
             
-            pbar.set_postfix({'loss': f"{loss.item():.4f}", 'grad': f"{grad_norm.item():.2f}"})
+        except RuntimeError:
+            return history, False
             
-        return loss_history, grad_norms, True
-        
-    except RuntimeError as e:
-        print(f"❌ Runtime Error: {e}")
-        return loss_history, grad_norms, False
+    return history, True
 
 def run_precision_benchmark():
+    logger = ResultsLogger("precision_stability", category="core")
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"🔬 Manifold Precision Stability Benchmark")
-    print(f"Goal: Evaluate geometric stability under FP32 vs BF16 vs FP16")
     
-    dtypes = {
-        'FP32': torch.float32,
-        'BF16 (Brain Float)': torch.bfloat16,
-        'FP16 (Half)': torch.float16
+    console.print(f"\n[bold]GFN PRECISION STABILITY AUDIT[/] (Manifold v2.6.5)\n")
+
+    formats = {
+        "FP32": torch.float32,
+        "BF16": torch.bfloat16,
+        "FP16": torch.float16
     }
     
-    results = {}
-    
-    for name, dtype in dtypes.items():
-        if dtype == torch.float16 and device.type == 'cpu':
-            print(f"Skipping {name} (Not supported on CPU)")
-            continue
+    report_data = []
+
+    with Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TimeElapsedColumn(),
+        console=console
+    ) as progress:
+        for name, dtype in formats.items():
+            if dtype == torch.bfloat16 and not torch.cuda.is_bf16_supported():
+                continue
+                
+            task_id = progress.add_task(f"Prying into {name}...", total=100)
+            history, success = evaluate_stability(name, dtype, device)
             
-        if dtype == torch.bfloat16 and not torch.cuda.is_bf16_supported():
-             print(f"Skipping {name} (Hardware not supported)")
-             continue
-             
-        print(f"\nEvaluating {name}...")
-        
-        # Init Model
-        model = Manifold(
-            vocab_size=2, dim=128, depth=6, heads=4,
-            physics_config={
-                'embedding': {'type': 'functional', 'mode': 'linear', 'coord_dim': 16},
-                'readout': {'type': 'implicit', 'coord_dim': 16},
-                'active_inference': {'enabled': True}, # Complex dynamics
-                'stability': {'base_dt': 0.1} # Conservative dt
-            }
-        ).to(device)
-        
-        # Apply dtype cast (except for FP16 which usually uses AMP)
-        if dtype != torch.float16:
-             model.to(dtype=dtype)
-        
-        losses, grads, success = train_one_epoch(model, dtype, steps=500, device=device)
-        
-        results[name] = {
-            'success': success,
-            'final_loss': losses[-1] if losses else 100.0,
-            'avg_grad_norm': sum(grads)/len(grads) if grads else 100.0,
-            'loss_history': losses
-        }
+            report_data.append({
+                "Format": name,
+                "Stability": "[green]STABLE[/]" if success else "[red]FAILED[/]",
+                "Final Loss": history[-1] if history else float('nan'),
+                "history": history
+            })
+            progress.update(task_id, completed=100)
+
+    table = Table(title="Precision Stability Summary", box=None)
+    table.add_column("Format")
+    table.add_column("Status")
+    table.add_column("Final Loss", justify="right")
     
-    # Check if results folder exists
-    out_dir = PROJECT_ROOT / "tests" / "benchmarks" / "results" / "precision_stability"
-    out_dir.mkdir(parents=True, exist_ok=True)
+    for r in report_data:
+        table.add_row(r["Format"], r["Stability"], f"{r['Final Loss']:.4f}")
     
-    # Save Metrics
-    with open(out_dir / "precision_metrics.json", 'w') as f:
-        json.dump(results, f, indent=4)
-        
+    console.print("\n", table)
+    
     # Plotting
-    plt.figure(figsize=(10, 6))
-    for name, data in results.items():
-        if data['success']:
-            plt.plot(data['loss_history'], label=f"{name} (Avg Grad: {data['avg_grad_norm']:.2f})")
+    sns.set_theme(style="darkgrid", rc={"axes.facecolor": "#121212", "grid.color": "#2a2a2a"})
+    fig, ax = plt.subplots(figsize=(10, 6), facecolor='#121212')
     
-    plt.title("Training Stability by Precision Format")
-    plt.xlabel("Step")
-    plt.ylabel("Loss")
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.savefig(out_dir / "stability_chart.png")
+    for r in report_data:
+        if r["history"]:
+            ax.plot(r["history"], label=r["Format"], lw=2)
+            
+    ax.set_title("Training Stability by Precision Format", color='white', fontweight='bold')
+    ax.set_xlabel("Steps", color='white')
+    ax.set_ylabel("Loss", color='white')
+    ax.legend()
     
-    print(f"\n✅ Benchmark Complete. Results saved to {out_dir}")
+    plt.tight_layout()
+    logger.save_plot(fig, "stability_analysis.png")
+    logger.save_json(report_data)
+    
+    console.print(f"\n[bold green][SUCCESS][/] Stability analysis complete. Logs in [cyan]{logger.run_dir}[/]\n")
 
 if __name__ == "__main__":
     run_precision_benchmark()

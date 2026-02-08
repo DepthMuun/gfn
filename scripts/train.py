@@ -24,11 +24,9 @@ import sys
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from gfn import Manifold, GFNLoss, RiemannianAdam
-from gfn.losses import hamiltonian_loss, curiosity_loss, geodesic_regularization
-from gfn.math_dataset import MathDataset
-from gfn.mixed_dataset import MixedHFDataset
-from gfn.safety import GPUMonitor
+from gfn import Manifold, GFNLoss, RiemannianAdam, GPUMonitor
+from gfn.losses import hamiltonian_loss, curiosity_loss, geodesic_regularization, ToroidalDistanceLoss
+from gfn.datasets import MathDataset, MixedHFDataset
 
 
 
@@ -61,7 +59,8 @@ def build_model(model_cfg: dict, device: torch.device) -> nn.Module:
         },
         "fractal": {"enabled": True, "threshold": 0.5},
         "singularities": {"enabled": True, "strength": 5.0},
-        "symmetries": {"enabled": True}
+        "symmetries": {"enabled": True},
+        "topology": {"type": "torus"}
     }
     
     if 'physics_config' in cfg:
@@ -149,7 +148,7 @@ def train(model_cfg: dict, train_cfg: dict, hw_cfg: dict):
         max_norm=10.0
     )
     
-    task_criterion = nn.MSELoss()
+    toroidal_criterion = ToroidalDistanceLoss()
     
     lambda_h = train_params.get('lambda_h', 0.01)
     lambda_c = train_params.get('lambda_c', 0.05)
@@ -190,19 +189,54 @@ def train(model_cfg: dict, train_cfg: dict, hw_cfg: dict):
                 
                 optimizer.zero_grad()
                 
-                logits, (x_final, v_final), christoffels = model(inputs)
+                # COMPONENT 5 FIX: Model now returns 6-tuple including x_seq
+                # logits: [batch, seq_len, vocab_size] - readout MLP output (for auxiliary CE loss if needed)
+                # (x_final, v_final): final manifold state
+                # christoffels: list of Christoffel symbols
+                # v_seq: velocity sequence (or None)
+                # x_seq: [batch, seq_len, dim] - MANIFOLD POSITION SEQUENCE (for toroidal loss)
+                # all_forces: force sequence
+                output = model(inputs)
+                logits, (x_final, v_final), christoffels, v_seq, x_seq, all_forces = output
                 
-                # Align predictions (t -> t+1)
-                pred_valid = logits[:, :-1, :]
-                targ_valid = target_coords[:, :-1, :]
+                # COMPONENT 5 FIX: Apply toroidal loss to MANIFOLD POSITIONS, not readout logits
+                # This restores physics-supervised gradients directly to the manifold
+                # x_seq: [batch, seq_len, dim] - manifold positions at each timestep
+                pred_positions = x_seq[:, :-1, :]  # [batch, seq-1, dim] aligned for next-token prediction
                 
-                loss_mse = task_criterion(pred_valid, targ_valid)
-                total_loss = loss_mse
+                # Map binary targets {-1, +1} to toroidal angles {-π/2, +π/2}
+                PI = 3.14159265359
+                half_pi = PI * 0.5
+                angle_targets = torch.where(
+                    target_coords > 0,
+                    torch.full_like(target_coords, half_pi),
+                    torch.full_like(target_coords, -half_pi)
+                )
+                targ_valid = angle_targets[:, :-1, :]
+                
+                # Mask out PAD/EOS targets to avoid noisy supervision
+                PAD = dataset.char_to_id['<PAD>']
+                EOS = dataset.char_to_id['<EOS>']
+                valid_mask = (target_tokens[:, :-1] != PAD) & (target_tokens[:, :-1] != EOS)
+                mask_exp = valid_mask.unsqueeze(-1).float().expand_as(targ_valid)
+                
+                # COMPONENT 5: Compute toroidal distance loss on manifold positions
+                # pred_positions are the ACTUAL manifold coordinates, not readout logits
+                from gfn.geometry.boundaries import toroidal_dist_python
+                dist = toroidal_dist_python(pred_positions, targ_valid)
+                loss_torus = (dist.pow(2) * mask_exp).sum() / torch.clamp(mask_exp.sum() * targ_valid.size(-1), min=1.0)
+                total_loss = loss_torus
                 
                 # Physics regularization
                 loss_phy = 0.0
                 if christoffels:
-                    loss_phy += geodesic_regularization(None, christoffels, lambda_g)
+                    # AUDIT FIX: Correct signature - christoffels first, velocities second
+                    loss_phy += geodesic_regularization(
+                        christoffels, 
+                        velocities=None, 
+                        lambda_g=lambda_g, 
+                        mode='structural'
+                    )
                     
                 if v_final is not None:
                     loss_phy += curiosity_loss([v_final], lambda_c)
@@ -218,7 +252,7 @@ def train(model_cfg: dict, train_cfg: dict, hw_cfg: dict):
                 if batch_idx % train_params.get('log_interval', 10) == 0:
                     dt = time.time() - epoch_t0
                     speed = (batch_idx * inputs.shape[0]) / max(dt, 0.01)
-                    print(f"Ep {epoch} | Step {batch_idx} | Total Loss: {loss.item():.4f} | MSE: {loss_mse.item():.4f} | Speed: {speed:.1f} tok/s")
+                    print(f"Ep {epoch} | Step {batch_idx} | Total Loss: {loss.item():.4f} | Toroidal: {loss_torus.item():.4f} | Speed: {speed:.1f} tok/s")
             
             avg_loss = epoch_loss / train_params.get('steps_per_epoch', 1000)
             print(f"Epoch {epoch} Completed. Avg Loss: {avg_loss:.4f}")

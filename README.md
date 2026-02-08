@@ -1,3 +1,5 @@
+# THIS IS A PROJECT IN DEVELOPMENT, WE DO NOT RECOMMEND USING IT FOR PRODUCTION YET.
+
 # Manifold: Geometric Sequence Modeling via Symplectic Flows
 
 > **Infinite Context. Constant Memory. Hamiltonian Dynamics.**

@@ -56,6 +56,49 @@ class Manifold(nn.Module):
         else:
             self.embedding = nn.Embedding(vocab_size, dim)
         
+        # --- Hysteresis / Self-Gravity (Manifold Memory) ---
+        # IMPORTANT NOTES FROM AUDITORIA LOGICA (2026-02-06):
+        #
+        # 1. HYSTERESIS VIOLATES ENERGY CONSERVATION:
+        #    The ghost force is NOT derived from a potential. This means
+        #    the system can gain/lose energy arbitrarily through hysteresis.
+        #    Use only when modeling systems with inherent dissipation.
+        #
+        # 2. GHOST FORCE INTERPRETATION:
+        #    f_ghost = hysteresis_readout(hysteresis_state)
+        #    This is a "memory force" that depends on accumulated history,
+        #    not a physical force from any potential energy function.
+        #
+        # 3. RECOMMENDATION:
+        #    For strict energy conservation, set hysteresis.enabled = False
+        #
+        # 1. Check root level
+        hyst_cfg = self.physics_config.get('hysteresis', None)
+        # 2. Check inside active_inference (where math.py puts it)
+        if hyst_cfg is None:
+            hyst_cfg = self.physics_config.get('active_inference', {}).get('hysteresis', {})
+            
+        self.hysteresis_enabled = hyst_cfg.get('enabled', False)
+        
+        if self.hysteresis_enabled:
+            # "Mass" -> Deformation Map
+            # If torus, input is sin(x), cos(x), v [3*dim]
+            # Else, input is x, v [2*dim]
+            in_dim = (3 * dim) if (self.physics_config.get('topology', {}).get('type') == 'torus') else (2 * dim)
+            
+            self.hysteresis_update = nn.Linear(in_dim, dim)
+            self.hysteresis_readout = nn.Linear(dim, dim)   # Ghost Force field
+            
+            # Learnable decay (memory retention)
+            # Init around 0.9 (long term memory)
+            self.hysteresis_decay = nn.Parameter(torch.tensor(0.9))
+            
+            # Initialize readout with small weights to avoid disrupting initial training dynamics
+            nn.init.uniform_(self.hysteresis_readout.weight, -0.001, 0.001)
+            nn.init.zeros_(self.hysteresis_readout.bias)
+            
+            print(f"[GFN] Hysteresis Memory ENABLED (In: {in_dim}, Decay: Learnable)")
+
         self.layers = nn.ModuleList()
         for idx in range(depth):
             if use_scan:
@@ -76,11 +119,13 @@ class Manifold(nn.Module):
         
         if readout_type == 'implicit' or readout_type == 'binary':
              coord_dim = emb_cfg.get('coord_dim', 16) 
+             topo_type = self.physics_config.get('topology', {}).get('type', 'euclidean').lower()
+             topology_id = 1 if topo_type == 'torus' else 0
              # Implicit readout uses temperature-annealed sigmoid MLP
              if self.holographic:
                  self.readout = nn.Identity()
              else:
-                 self.readout = ImplicitReadout(dim, coord_dim)
+                 self.readout = ImplicitReadout(dim, coord_dim, topology=topology_id)
         else:
              self.readout = nn.Linear(dim, vocab_size)
         
@@ -174,6 +219,11 @@ class Manifold(nn.Module):
         state_obj = ManifoldState.from_tuple(state, self.x0, self.v0, batch_size)
         x, v = state_obj.x, state_obj.v
         
+        # [DEBUG] Verify Hysteresis State
+        if not hasattr(self, '_hysteresis_debug_printed'):
+            print(f"[DEBUG] Manifold.forward: Hysteresis Enabled = {self.hysteresis_enabled}")
+            self._hysteresis_debug_printed = True
+        
         if self.use_scan:
             x_scan = self.x0.expand(batch_size, seq_len, -1)
             
@@ -186,12 +236,19 @@ class Manifold(nn.Module):
                 
                 curr_input = out_x # Use position as input to next layer
                 
-            x_final = curr_input 
+            x_seq = curr_input # The sequence of positions after all layers
             if not self.holographic:
-                x_final = self.readout_norm(x_final)
-            logits = self.readout(x_final) # [batch, seq_len, vocab_size]
+                x_seq = self.readout_norm(x_seq)
+            logits = self.readout(x_seq)  # [batch, seq_len, vocab_size]
             
-            return logits, (x_final[:, -1], None), all_christoffels
+            # COMPONENT 5 FIX: Return x_seq for toroidal loss on manifold positions
+            # logits: [batch, seq_len, vocab_size] - readout MLP output
+            # x_seq: [batch, seq_len, dim] - manifold position sequence 
+            # x, v: final state
+            # all_christoffels: list of christoffel symbols
+            # v_seq: velocity sequence (if enabled)
+            # all_forces: force sequence
+            return logits, (x_seq[:, -1], None), all_christoffels, None, x_seq, all_forces
 
         else:
             if attention_mask is not None:
@@ -205,12 +262,46 @@ class Manifold(nn.Module):
             context = None
             
             # Try CUDA fusion using manager
-            if self.fusion_manager.can_fuse(collect_christ):
+            should_fuse = self.fusion_manager.can_fuse(collect_christ)
+            
+            # Hysteresis now works with CUDA fusion by updating state AFTER kernel execution
+            
+            if should_fuse:
                 params = self.fusion_manager.prepare_parameters()
                 if params is not None:
-                    result = self.fusion_manager.execute_fused_forward(x, v, all_forces, mask, params)
+                    # --- Hysteresis: Initialize state if needed ---
+                    if self.hysteresis_enabled:
+                        # Reset hysteresis state when switching from eval to train
+                        if not self.training and hasattr(self, '_hysteresis_state'):
+                            # Keep state during eval, but could reset on next train call
+                            pass
+                        if not hasattr(self, '_hysteresis_state') or self._hysteresis_state.size(0) != batch_size:
+                            self._hysteresis_state = torch.zeros(batch_size, self.dim, device=all_forces.device)
+                    
+                    # Execute CUDA kernel with unified Hysteresis support
+                    result = self.fusion_manager.execute_fused_forward(
+                        x, v, all_forces, mask, params,
+                        hysteresis_state=self._hysteresis_state if self.hysteresis_enabled else None,
+                        hyst_update_w=self.hysteresis_update.weight if self.hysteresis_enabled else None,
+                        hyst_update_b=self.hysteresis_update.bias if self.hysteresis_enabled else None,
+                        hyst_readout_w=self.hysteresis_readout.weight if self.hysteresis_enabled else None,
+                        hyst_readout_b=self.hysteresis_readout.bias if self.hysteresis_enabled else None,
+                        hyst_decay=self.hysteresis_decay if self.hysteresis_enabled else 0.9,
+                        hyst_enabled=self.hysteresis_enabled
+                    )
+                    
                     if result is not None:
-                        x_final, v_final, x_seq, reg_loss = result
+                        # result is (x_final, v_final, x_seq, reg_loss, new_h_state)
+                        x_final, v_final, x_seq, reg_loss, new_h_state = result
+                        if self.hysteresis_enabled:
+                            # CRITICAL: Detach to avoid backward through previous iterations
+                            # Only update state during training to avoid carryover in eval
+                            if self.training:
+                                self._hysteresis_state = new_h_state.detach()
+                            else:
+                                # During eval, still update but track that it's eval mode
+                                self._hysteresis_state = new_h_state.detach()
+                        
                         out_seq = x_seq
                         if not self.holographic:
                             out_seq = self.readout_norm(x_seq)
@@ -225,15 +316,49 @@ class Manifold(nn.Module):
 
             v_seq = []
             x_seq = []
+            
+            # --- Hysteresis: Initialize Deformation "Potential" ---
+            if self.hysteresis_enabled:
+                # Reset hysteresis state when switching from eval to train
+                if not self.training and hasattr(self, '_hysteresis_state'):
+                    # Keep state during eval mode
+                    pass
+                if not hasattr(self, '_hysteresis_state') or self._hysteresis_state.size(0) != batch_size:
+                    self._hysteresis_state = torch.zeros(batch_size, self.dim, device=all_forces.device)
+                hysteresis_state = self._hysteresis_state
+            else:
+                hysteresis_state = None
+
             for t in range(seq_len):
                 # Force for current timestep
                 force = all_forces[:, t] * mask[:, t]
+                
+                # --- Hysteresis: Apply Ghost Force (Self-Gravity) ---
+                # AUDIT WARNING (2026-02-06):
+                # This ghost force does NOT derive from a potential energy function.
+                # Energy conservation is VIOLATED when hysteresis is enabled.
+                if self.hysteresis_enabled:
+                    f_ghost = self.hysteresis_readout(hysteresis_state)
+                    force = force + f_ghost
                 
                 # Evolve state through layers
                 for layer in self.layers:
                     x, v, context, layer_christoffels = layer(x, v, force, context, collect_christ=collect_christ)
                     if collect_christ:
                         all_christoffels.extend(layer_christoffels) 
+                
+                # --- Hysteresis: Update Deformation (Plasticity) ---
+                if self.hysteresis_enabled:
+                    # Input to memory update depends on topology
+                    is_torus = (self.physics_config.get('topology', {}).get('type') == 'torus')
+                    if is_torus:
+                        mem_input = torch.cat([torch.sin(x), torch.cos(x), v], dim=-1)
+                    else:
+                        mem_input = torch.cat([x, v], dim=-1)
+                        
+                    deformation_update = torch.tanh(self.hysteresis_update(mem_input))
+                    # Decay + New Deformation
+                    hysteresis_state = self.hysteresis_decay * hysteresis_state + deformation_update
                 
                 v_seq.append(v)
                 x_seq.append(x)
@@ -247,6 +372,10 @@ class Manifold(nn.Module):
             
             # Stack all logits
             logits = torch.cat(logits_list, dim=1)  # [batch, seq_len, vocab_size]
+            
+            # Persist state if using Python loop
+            if self.hysteresis_enabled:
+                self._hysteresis_state = hysteresis_state.detach()
             
             return logits, (x, v), all_christoffels, v_seq, x_seq, all_forces
     
@@ -267,14 +396,20 @@ class Manifold(nn.Module):
         self.eval()
         device = prompt_ids.device
         
-        # Process prompt
-        logits, state, _ = self(prompt_ids)
+        out0 = self(prompt_ids)
+        if isinstance(out0, tuple):
+            logits = out0[0]
+            state = out0[1] if len(out0) > 1 else None
+        else:
+            logits = out0
+            state = None
         
         # Start generation
         generated = prompt_ids.tolist()[0]
         
         def sample_next(logits, temp=1.0, k=None, p=None):
-            # Last timestep logits
+            if logits.dim() == 2:
+                logits = logits.unsqueeze(1)
             next_logit = logits[:, -1, :] / temp
             probs = torch.softmax(next_logit, dim=-1)
             
@@ -306,12 +441,16 @@ class Manifold(nn.Module):
                 probs = torch.softmax(next_logit, dim=-1)
                 return torch.multinomial(probs, num_samples=1)
 
-        # Initial sample
         curr_token = sample_next(logits, temperature, top_k, top_p)
         generated.append(curr_token.item())
         
         for _ in range(max_new_tokens - 1):
-            logits, state, _ = self(curr_token, state=state)
+            out = self(curr_token, state=state)
+            if isinstance(out, tuple):
+                logits = out[0]
+                state = out[1] if len(out) > 1 else state
+            else:
+                logits = out
             curr_token = sample_next(logits, temperature, top_k, top_p)
             generated.append(curr_token.item())
         

@@ -82,10 +82,11 @@ class TestGeodesicRegularization:
     
     def test_basic_regularization(self):
         """Test basic regularization computation."""
-        christoffels = [torch.randn(2, 64) for _ in range(5)]
+christoffels = [torch.randn(2, 64) for _ in range(5)]
         velocities = [torch.randn(2, 64) for _ in range(5)]
         
-        loss = geodesic_regularization(velocities, christoffels, lambda_g=0.001)
+        # AUDIT FIX: Correct argument order
+        loss = geodesic_regularization(christoffels, velocities=velocities, lambda_g=0.001, mode='structural')
         
         assert loss.item() >= 0, "Regularization should be non-negative"
         assert not torch.isnan(loss).any()
@@ -95,7 +96,8 @@ class TestGeodesicRegularization:
         christoffels = [torch.zeros(2, 64) for _ in range(5)]
         velocities = [torch.randn(2, 64) for _ in range(5)]
         
-        loss = geodesic_regularization(velocities, christoffels, lambda_g=0.001)
+        # AUDIT FIX: Correct argument order
+        loss = geodesic_regularization(christoffels, velocities=velocities, lambda_g=0.001, mode='structural')
         
         assert loss.item() < 1e-8, "Loss should be near zero for zero curvature"
     

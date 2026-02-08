@@ -102,7 +102,7 @@ def train_showcase():
         
         # Geodesic Reg (Penalize black holes)
         if christoffels:
-             l_g = geodesic_regularization(None, christoffels, lambda_g)
+             l_g = geodesic_regularization(christoffels, velocities=None, lambda_g=lambda_g, mode='structural')
              total_loss += l_g
              
         # Curiosity (Maximize Entropy of final velocity)

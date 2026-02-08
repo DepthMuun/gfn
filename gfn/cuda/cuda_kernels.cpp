@@ -52,13 +52,22 @@ std::vector<torch::Tensor> leapfrog_fused(
     torch::Tensor U, torch::Tensor W,
     float dt, float dt_scale, int steps, int topology,
     torch::Tensor W_forget, torch::Tensor b_forget,
-    float plasticity, float R, float r
+    float plasticity, float R, float r,
+    
+    torch::Tensor hysteresis_state,
+    torch::Tensor hyst_update_w,
+    torch::Tensor hyst_update_b,
+    torch::Tensor hyst_readout_w,
+    torch::Tensor hyst_readout_b,
+    float hyst_decay,
+    bool hyst_enabled
 );
 
 std::vector<torch::Tensor> heun_fused(
     torch::Tensor x, torch::Tensor v, torch::Tensor force,
     torch::Tensor U, torch::Tensor W,
     float dt, float dt_scale, int steps, int topology,
+    torch::Tensor W_forget, torch::Tensor b_forget,
     float R, float r
 );
 
@@ -67,7 +76,15 @@ std::vector<torch::Tensor> leapfrog_backward_cuda(
     torch::Tensor x_in, torch::Tensor v_in, torch::Tensor force,
     torch::Tensor U, torch::Tensor W, torch::Tensor W_forget, torch::Tensor b_forget,
     float dt, float dt_scale, int steps, int topology,
-    float plasticity, float R, float r
+    float plasticity, float R, float r,
+    // AUDIT FIX (Component 7): Hysteresis parameters
+    torch::Tensor hysteresis_state_in,
+    torch::Tensor hyst_update_w,
+    torch::Tensor hyst_update_b,
+    torch::Tensor hyst_readout_w,
+    torch::Tensor hyst_readout_b,
+    float hyst_decay,
+    bool hyst_enabled
 );
 
 std::vector<torch::Tensor> heun_backward_cuda(
@@ -126,13 +143,22 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
           py::arg("U"), py::arg("W"),
           py::arg("dt"), py::arg("dt_scale"), py::arg("steps"), py::arg("topology"),
           py::arg("W_forget"), py::arg("b_forget"),
-          py::arg("plasticity"), py::arg("R"), py::arg("r"));
+          py::arg("plasticity"), py::arg("R"), py::arg("r"),
+          
+          py::arg("hysteresis_state"),
+          py::arg("hyst_update_w"),
+          py::arg("hyst_update_b"),
+          py::arg("hyst_readout_w"),
+          py::arg("hyst_readout_b"),
+          py::arg("hyst_decay"),
+          py::arg("hyst_enabled"));
     
     m.def("heun_fused", &heun_fused,
           "Heun (RK2) integrator (CUDA)",
           py::arg("x"), py::arg("v"), py::arg("force"),
           py::arg("U"), py::arg("W"),
           py::arg("dt"), py::arg("dt_scale"), py::arg("steps"), py::arg("topology"),
+          py::arg("W_forget"), py::arg("b_forget"),
           py::arg("R"), py::arg("r"));
 
     m.def("leapfrog_backward_fused", &leapfrog_backward_cuda,
@@ -141,7 +167,15 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
           py::arg("x_in"), py::arg("v_in"), py::arg("force"),
           py::arg("U"), py::arg("W"), py::arg("W_forget"), py::arg("b_forget"),
           py::arg("dt"), py::arg("dt_scale"), py::arg("steps"), py::arg("topology"),
-          py::arg("plasticity"), py::arg("R"), py::arg("r"));
+          py::arg("plasticity"), py::arg("R"), py::arg("r"),
+          // AUDIT FIX (Component 7): Hysteresis parameters
+          py::arg("hysteresis_state_in"),
+          py::arg("hyst_update_w"),
+          py::arg("hyst_update_b"),
+          py::arg("hyst_readout_w"),
+          py::arg("hyst_readout_b"),
+          py::arg("hyst_decay"),
+          py::arg("hyst_enabled"));
 
     m.def("heun_backward_fused", &heun_backward_cuda,
           "Analytical backward pass for Heun (RK2) integrator (CUDA)",

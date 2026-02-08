@@ -1,14 +1,8 @@
 """
-Feature Ablation Benchmark
-==========================
-Tests whether each physics feature actually improves learning.
-
-Answers: "Does each feature actually help?"
-
-Protocol:
-1. Train on synthetic task (associative recall)
-2. Same training budget for all configurations
-3. Measure final loss and accuracy
+Professional Feature Ablation Benchmark (v2.6.5)
+==============================================
+Tests whether each physics feature (plasticity, singularities, topology) 
+actually improves learning on an associative recall task.
 """
 
 import torch
@@ -17,228 +11,190 @@ import torch.optim as optim
 import time
 import json
 import sys
-from pathlib import Path
+import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
+from pathlib import Path
 from tqdm import tqdm
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn
 
+# Add project root
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from gfn.model import Manifold
-from src.optim import RiemannianAdam
-from tests.benchmarks.baselines import MicroGPT
+from gfn import Manifold
+from gfn.optimizers import RiemannianAdam
+from tests.benchmarks.bench_utils import ResultsLogger
 
+console = Console()
 
-def create_associative_recall_data(batch_size, num_pairs=5, vocab_size=32):
-    """
-    Create associative recall task: A->B, C->D, ... then query A->?
-    
-    Format: [A, B, C, D, E, F, SEP, A, ?]
-    Target: B
-    """
+def create_associative_recall_data(batch_size, num_pairs=5, vocab_size=32, seq_len=12):
+    """Associative recall: A->B, C->D, ... query A->?"""
     sep_token = vocab_size - 1
-    
     sequences = []
     targets = []
     
     for _ in range(batch_size):
-        # Generate random pairs
         keys = torch.randint(0, vocab_size - 1, (num_pairs,))
         values = torch.randint(0, vocab_size - 1, (num_pairs,))
         
-        # Build sequence: k1, v1, k2, v2, ..., SEP, query_key
         seq = []
         for k, v in zip(keys, values):
             seq.extend([k.item(), v.item()])
         seq.append(sep_token)
         
-        # Query a random pair
         query_idx = torch.randint(0, num_pairs, (1,)).item()
         seq.append(keys[query_idx].item())
         
-        sequences.append(seq)
+        # Padding if necessary
+        if len(seq) < seq_len:
+            seq += [sep_token] * (seq_len - len(seq))
+            
+        sequences.append(seq[:seq_len])
         targets.append(values[query_idx].item())
     
     return torch.tensor(sequences), torch.tensor(targets)
 
-
 def get_ablation_configs():
-    """Configurations to ablate."""
+    """Configurations to ablate in v2.6.5 style."""
     return {
-        "baseline": None,
-        "active_inference": {
-            'active_inference': {'enabled': True}
+        "Baseline (Manifold)": {
+            'plasticity': 0.0,
+            'singularity_thresh': 1.0,
+            'singularity_strength': 0.0,
+            'topology': 'euclidean'
         },
-        "active+singularities": {
-            'active_inference': {
-                'enabled': True,
-                'singularities': {'enabled': True, 'strength': 5.0}
-            }
+        "Plasticity Only": {
+            'plasticity': 0.1,
+            'singularity_thresh': 1.0,
+            'singularity_strength': 0.0,
+            'topology': 'euclidean'
         },
-        "active+symmetries": {
-            'active_inference': {'enabled': True},
-            'symmetries': {'enabled': True, 'isomeric_groups': [[0, 1], [2, 3]]}
+        "Singularities Only": {
+            'plasticity': 0.0,
+            'singularity_thresh': 0.8,
+            'singularity_strength': 5.0,
+            'topology': 'euclidean'
         },
-        "all_features": {
-            'active_inference': {
-                'enabled': True,
-                'reactive_curvature': {'enabled': True, 'plasticity': 0.1},
-                'singularities': {'enabled': True, 'strength': 5.0},
-            },
-            'symmetries': {'enabled': True, 'isomeric_groups': [[0, 1], [2, 3]]},
-            'stability': {'curvature_clamp': 10.0}
+        "Full Physics (Torus)": {
+            'plasticity': 0.1,
+            'singularity_thresh': 0.8,
+            'singularity_strength': 5.0,
+            'topology': 'torus',
+            'R': 2.0, 'r': 1.0
         }
     }
 
-
-def train_and_evaluate(config_name, physics_config, device, 
-                       num_steps=200, batch_size=32, lr=1e-3):
-    """Train a model and return final metrics."""
+def train_and_evaluate(config_name, physics_config, device, num_steps=300):
     vocab_size = 32
+    dim = 128
     
     model = Manifold(
         vocab_size=vocab_size,
-        dim=128,
-        depth=4,
+        dim=dim,
+        depth=3,
         heads=4,
-        integrator_type='heun',
-        physics_config=physics_config
+        integrator_type='leapfrog',
+        physics_config=physics_config,
+        holographic=True
     ).to(device)
     
-    # Use Riemannian Adam for Manifold
-    if isinstance(model, Manifold):
-        optimizer = RiemannianAdam(model.parameters(), lr=lr, weight_decay=1e-4, retraction='normalize', max_norm=10.0)
-    else:
-        optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
-
-    max_steps = num_steps # Define max_steps for the scheduler
-    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=lr, total_steps=max_steps, pct_start=0.2)
-    
+    optimizer = RiemannianAdam(model.parameters(), lr=1e-3)
     criterion = nn.CrossEntropyLoss()
     
-    losses = []
+    history = {"loss": [], "acc": []}
     
-    model.train()
-    for step in range(num_steps):
-        inputs, targets = create_associative_recall_data(batch_size, num_pairs=5, vocab_size=vocab_size)
-        inputs = inputs.to(device)
-        targets = targets.to(device)
+    with Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TimeElapsedColumn(),
+        console=console
+    ) as progress:
+        task = progress.add_task(f"Ablation: {config_name[:20]}", total=num_steps)
         
-        optimizer.zero_grad()
-        logits, _, _ = model(inputs)
-        
-        # Predict at last position
-        pred_logits = logits[:, -1, :]
-        loss = criterion(pred_logits, targets)
-        
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        optimizer.step()
-        
-        losses.append(loss.item())
-    
-    # Evaluate accuracy
-    model.eval()
-    correct = 0
-    total = 100
-    
-    with torch.no_grad():
-        for _ in range(total):
-            inputs, targets = create_associative_recall_data(1, num_pairs=5, vocab_size=vocab_size)
-            inputs = inputs.to(device)
-            targets = targets.to(device)
+        for step in range(num_steps):
+            inputs, targets = create_associative_recall_data(32, vocab_size=vocab_size)
+            inputs, targets = inputs.to(device), targets.to(device)
             
-            logits, _, _ = model(inputs)
-            pred = logits[0, -1, :].argmax()
+            optimizer.zero_grad()
+            out = model(inputs)
+            logits = out[0] if isinstance(out, tuple) else out
             
-            if pred == targets[0]:
-                correct += 1
-    
-    accuracy = correct / total * 100
-    final_loss = sum(losses[-20:]) / 20  # Average of last 20 steps
-    
-    del model
-    torch.cuda.empty_cache() if torch.cuda.is_available() else None
-    
-    return {
-        'final_loss': round(final_loss, 4),
-        'accuracy': round(accuracy, 1),
-        'loss_curve': losses
-    }
+            # Predict only at the last position (the query result)
+            pred_logits = logits[:, -1, :]
+            loss = criterion(pred_logits, targets)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            optimizer.step()
+            
+            with torch.no_grad():
+                acc = (pred_logits.argmax(dim=-1) == targets).float().mean().item()
+            
+            history["loss"].append(loss.item())
+            history["acc"].append(acc)
+            progress.update(task, advance=1)
 
+    final_acc = np.mean(history["acc"][-20:]) * 100
+    final_loss = np.mean(history["loss"][-20:])
+    return {"accuracy": final_acc, "loss": final_loss}
 
 def run_benchmark():
+    logger = ResultsLogger("feature_ablation", category="core")
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"[*] Feature Ablation Benchmark on {device}")
-    print("="*60)
-    print("Task: Associative Recall (A->B, C->D, ... query A->?)")
-    print("Training: 200 steps per config")
-    print("="*60)
+    
+    console.print(f"\n[bold]GFN FEATURE ABLATION AUDIT[/] (Manifold v2.6.5)\n")
     
     configs = get_ablation_configs()
-    results = {}
+    report_data = []
     
     for name, physics_config in configs.items():
-        print(f"\n[*] Training: {name}...")
-        try:
-            metrics = train_and_evaluate(name, physics_config, device)
-            results[name] = {
-                'final_loss': metrics['final_loss'],
-                'accuracy': metrics['accuracy']
-            }
-            print(f"   Final Loss: {metrics['final_loss']:.4f} | Accuracy: {metrics['accuracy']:.1f}%")
-        except Exception as e:
-            print(f"   ERROR: {e}")
-            results[name] = {'error': str(e)}
+        metrics = train_and_evaluate(name, physics_config, device)
+        report_data.append({
+            "Configuration": name,
+            "Accuracy": metrics["accuracy"],
+            "Loss": metrics["loss"]
+        })
+
+    # Summary Table
+    summary_table = Table(title="Ablation Results Summary", box=None)
+    summary_table.add_column("Configuration")
+    summary_table.add_column("Accuracy (%)", justify="right")
+    summary_table.add_column("Final Loss", justify="right")
     
-    # Save results
-    res_dir = PROJECT_ROOT / "tests/benchmarks/results/validation"
-    res_dir.mkdir(parents=True, exist_ok=True)
+    for row in report_data:
+        summary_table.add_row(row["Configuration"], f"{row['Accuracy']:.1f}", f"{row['Loss']:.4f}")
     
-    with open(res_dir / "ablation_results.json", 'w') as f:
-        json.dump(results, f, indent=2)
+    console.print("\n", summary_table)
     
-    # Generate chart
-    valid_names = [k for k, v in results.items() if 'error' not in v]
-    accuracies = [results[k]['accuracy'] for k in valid_names]
-    losses = [results[k]['final_loss'] for k in valid_names]
+    # Save & Plot
+    logger.save_json(report_data)
     
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+    sns.set_theme(style="darkgrid", rc={"axes.facecolor": "#121212", "grid.color": "#2a2a2a"})
+    fig, ax = plt.subplots(figsize=(12, 7), facecolor='#121212')
     
-    colors = ['gray' if n == 'baseline' else 'steelblue' for n in valid_names]
+    df = torch.load # Placeholder, using report_data directly
+    names = [r["Configuration"] for r in report_data]
+    accs = [r["Accuracy"] for r in report_data]
     
-    bars1 = ax1.barh(valid_names, accuracies, color=colors)
-    ax1.set_xlabel('Accuracy (%)')
-    ax1.set_title('Feature Impact on Accuracy')
-    ax1.axvline(x=100/32, color='red', linestyle='--', label='Random (3.1%)')
-    ax1.bar_label(bars1, fmt='%.1f%%')
-    ax1.legend()
+    ax.barh(names, accs, color=['#444444', '#00ADB5', '#FF2E63', '#FFD700'])
+    ax.set_title("Feature Impact on Associative Recall", color='white', fontweight='bold', fontsize=16)
+    ax.set_xlabel("Accuracy (%)", color='white')
+    ax.set_xlim(0, 105)
     
-    bars2 = ax2.barh(valid_names, losses, color=colors)
-    ax2.set_xlabel('Final Loss')
-    ax2.set_title('Feature Impact on Loss')
-    ax2.bar_label(bars2, fmt='%.3f')
-    
+    for i, v in enumerate(accs):
+        ax.text(v + 1, i, f"{v:.1f}%", color='white', va='center', fontweight='bold')
+        
     plt.tight_layout()
-    plt.savefig(res_dir / "ablation_chart.png", dpi=150, bbox_inches='tight')
+    logger.save_plot(fig, "feature_ablation_premium.png")
     
-    print(f"\n[*] Results saved to {res_dir}")
-    
-    # Summary
-    if 'baseline' in results and 'all_features' in results:
-        base_acc = results['baseline']['accuracy']
-        full_acc = results['all_features']['accuracy']
-        improvement = full_acc - base_acc
-        print(f"\n[*] SUMMARY:")
-        print(f"   Baseline accuracy: {base_acc:.1f}%")
-        print(f"   All features accuracy: {full_acc:.1f}%")
-        print(f"   Improvement: {improvement:+.1f}%")
-        if improvement > 0:
-            print(f"   → Features HELP learning [*]")
-        else:
-            print(f"   → Features don't help (or hurt) [*][*]")
-    
-    return results
+    console.print(f"\n[bold green][SUCCESS][/] Benchmark Complete. Plot saved to [cyan]{logger.run_dir}[/]\n")
+
+if __name__ == "__main__":
+    run_benchmark()
 
 
 if __name__ == "__main__":

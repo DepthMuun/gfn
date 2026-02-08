@@ -52,11 +52,25 @@ GFN_DEVICE void christoffel_device(
     scalar_t r,
     scalar_t* gamma
 ) {
-    // Thread-local storage for intermediate computations
-    scalar_t h[64];  // Projection to rank space (max rank = 64)
-    scalar_t h_sq[64]; // Squared projections
-    
-    // 1. Project velocity to rank space: h = U^T * v
+    if (topology == Topology::TORUS && x != nullptr) {
+        for (int i = 0; i < dim; ++i) gamma[i] = 0.0f;
+        for (int i = 0; i < dim - 1; i += 2) {
+            scalar_t th = x[i];
+            scalar_t v_th = v[i];
+            scalar_t v_ph = v[i + 1];
+            scalar_t denom = fmax(R + r * cosf(th), CLAMP_MIN_STRONG);
+            scalar_t term_th = denom * sinf(th) / (r + EPSILON_SMOOTH);
+            gamma[i] = term_th * (v_ph * v_ph);
+            scalar_t term_ph = -(r * sinf(th)) / (denom + EPSILON_SMOOTH);
+            gamma[i + 1] = 2.0f * term_ph * v_ph * v_th;
+        }
+        for (int i = 0; i < dim; ++i) {
+            gamma[i] = soft_clamp(gamma[i] * TOROIDAL_CURVATURE_SCALE, CURVATURE_CLAMP);
+        }
+        return;
+    }
+    scalar_t h[64];
+    scalar_t h_sq[64];
     for (int i = 0; i < rank; ++i) {
         scalar_t sum = 0.0f;
         for (int j = 0; j < dim; ++j) {
@@ -64,57 +78,43 @@ GFN_DEVICE void christoffel_device(
         }
         h[i] = sum;
     }
-    
-    // 2. Compute energy and stabilization factor
-    // Match Python EXACTLY: scale = 1.0 / (1.0 + norm + 1e-4)
     scalar_t energy = 0.0f;
     for (int i = 0; i < rank; ++i) {
         energy += h[i] * h[i];
     }
+    // AUDIT FIX: Normalize energy by rank to match Python ops.py
+    if (rank > 0) energy /= static_cast<scalar_t>(rank);
     
     scalar_t norm = sqrt(energy);
-    scalar_t S = 1.0f / (1.0f + norm + 1e-4f);  // Exact Python epsilon
-    
-    // 3. Compute modulation factor M
+    scalar_t S = 1.0f / (1.0f + norm + EPSILON_STANDARD);
     scalar_t M = 1.0f;
-    
-    // 3a. Plasticity (energy-dependent curvature)
     if (plasticity != 0.0f) {
         scalar_t v_energy = 0.0f;
         for (int i = 0; i < dim; ++i) {
             v_energy += v[i] * v[i];
         }
         v_energy /= static_cast<scalar_t>(dim);
-        M *= (1.0 + plasticity * tanh(v_energy));
+        // AUDIT FIX: Add 0.1 factor to match Python ops.py
+        M *= (1.0f + plasticity * 0.1f * tanhf(v_energy));
     }
-    
-    // 3b. Singularities (position-dependent)
     if (x != nullptr && V_w != nullptr) {
         scalar_t pot = 0.0f;
-        
         if (topology == Topology::TORUS) {
-            // Use periodic features for torus
             for (int i = 0; i < dim; ++i) {
-                pot += sin(x[i]) * V_w[i];
+                pot += sinf(x[i]) * V_w[i];
             }
         } else {
-            // Linear potential for Euclidean
             for (int i = 0; i < dim; ++i) {
                 pot += x[i] * V_w[i];
             }
         }
-        
         scalar_t gate = sigmoid(pot);
-        scalar_t soft_m = sigmoid(10.0f * (gate - sing_thresh));
+        scalar_t soft_m = sigmoid(SINGULARITY_GATE_SLOPE * (gate - sing_thresh));
         M *= (1.0f + (sing_strength - 1.0f) * soft_m);
     }
-    
-    // 4. Compute h^2 * S * M
     for (int i = 0; i < rank; ++i) {
         h_sq[i] = h[i] * h[i] * S * M;
     }
-    
-    // 5. Project back to manifold space: gamma = W * h_sq
     for (int i = 0; i < dim; ++i) {
         scalar_t sum = 0.0f;
         for (int j = 0; j < rank; ++j) {
@@ -122,8 +122,6 @@ GFN_DEVICE void christoffel_device(
         }
         gamma[i] = sum;
     }
-    
-    // 6. Apply soft clamping
     for (int i = 0; i < dim; ++i) {
         gamma[i] = soft_clamp(gamma[i], CURVATURE_CLAMP);
     }
@@ -350,7 +348,7 @@ GFN_DEVICE void christoffel_backward_device(
     }
     
     scalar_t norm = sqrt(h_energy);
-    scalar_t S = 1.0f / (1.0f + norm + 1e-4f);
+    scalar_t S = 1.0f / (1.0f + norm + EPSILON_STANDARD);
     
     // 1b. Re-compute Modulation M
     scalar_t M_plas = 1.0;
@@ -371,7 +369,7 @@ GFN_DEVICE void christoffel_backward_device(
             for (int i = 0; i < dim; ++i) pot += x[i] * V_w[i];
         }
         gate = sigmoid(pot);
-        soft_m = sigmoid(10.0f * (gate - sing_thresh));
+        soft_m = sigmoid(SINGULARITY_GATE_SLOPE * (gate - sing_thresh));
         M_sing = (1.0f + (sing_strength - 1.0f) * soft_m);
     }
     scalar_t M = M_plas * M_sing;
@@ -430,7 +428,7 @@ GFN_DEVICE void christoffel_backward_device(
     if (grad_x != nullptr && x != nullptr && V_w != nullptr) {
         scalar_t dL_dM_sing = sum_grad_q_h_sq * S * M_plas;
         scalar_t dM_dsoft = (sing_strength - 1.0);
-        scalar_t dsoft_dgate = 10.0f * soft_m * (1.0f - soft_m);
+        scalar_t dsoft_dgate = SINGULARITY_GATE_SLOPE * soft_m * (1.0f - soft_m);
         scalar_t dgate_dpot = gate * (1.0f - gate);
         scalar_t factor = dL_dM_sing * dM_dsoft * dsoft_dgate * dgate_dpot;
         

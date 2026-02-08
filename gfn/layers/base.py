@@ -5,6 +5,8 @@ from ..geometry import (
     EuclideanChristoffel, HyperbolicChristoffel, SphericalChristoffel,
     ToroidalChristoffel
 )
+from ..geometry.hierarchical import HierarchicalChristoffel
+from ..geometry.adaptive import AdaptiveRankChristoffel
 from ..integrators import (
     SymplecticIntegrator, RK4Integrator, HeunIntegrator, LeapfrogIntegrator, 
     YoshidaIntegrator, DormandPrinceIntegrator, EulerIntegrator,
@@ -69,8 +71,17 @@ class MLayer(nn.Module):
 
             if not mixture_enabled:
                  hyper = self.physics_config.get('hyper_curvature', {}).get('enabled', False)
+                 hierarchical = self.physics_config.get('hierarchical_curvature', {}).get('enabled', False)
+                 adaptive = self.physics_config.get('adaptive_curvature', {}).get('enabled', False)
+
                  if is_torus:
                       return ToroidalChristoffel(self.head_dim, physics_config=self.physics_config)
+                 elif hierarchical:
+                      ranks = self.physics_config.get('hierarchical_curvature', {}).get('ranks', [8, 16, 32])
+                      return HierarchicalChristoffel(self.head_dim, ranks=ranks, physics_config=self.physics_config)
+                 elif adaptive:
+                      max_rank = self.physics_config.get('adaptive_curvature', {}).get('max_rank', 64)
+                      return AdaptiveRankChristoffel(self.head_dim, max_rank=max_rank, physics_config=self.physics_config)
                  elif hyper:
                       return HyperChristoffel(self.head_dim, head_rank, physics_config=self.physics_config)
                  else:
@@ -129,14 +140,20 @@ class MLayer(nn.Module):
             RiemannianGating(self.head_dim, topology=self.topology_id) for _ in range(heads)
         ])
         
+        # Initialize per-head timestep parameters
+        # dt_params are initialized to give base_dt when softplus is applied:
+        # dt = softplus(dt_param) where softplus(x) = log(1 + exp(x))
+        # Initial value: target_dt = base_dt / 0.9, so dt ≈ base_dt
+        # Each head gets a small offset (0.1 * i) for diversity
+        param_iter = list(self.parameters())
+        device = param_iter[0].device if len(param_iter) > 0 else torch.device('cpu')
         scale_vals = []
         for i in range(heads):
             target_dt = self.base_dt / 0.9
-            val_init = torch.tensor(target_dt).exp().sub(1.0).log()
-            val = val_init + i * 0.1 # Small spread
+            val_init = torch.tensor(target_dt, device=device).exp().sub(1.0).log()
+            val = val_init + i * 0.1
             scale_vals.append(val)
-            
-        self.dt_params = nn.Parameter(torch.tensor(scale_vals))
+        self.dt_params = nn.Parameter(torch.stack(scale_vals))
         self.time_heads = None
 
         self.friction_gates = nn.ModuleList()
@@ -218,6 +235,12 @@ class MLayer(nn.Module):
              
         # 3. Vectorized Gating [Heads, Batch, 1]
         dt_base = torch.nn.functional.softplus(self.dt_params).view(self.heads, 1, 1)
+        
+        # AUDIT FIX: Clamp dt_scale to reasonable range
+        # Prevents extreme timesteps that cause numerical instability
+        # Range [0.1, 2.0] provides stable integration across most scenarios
+        dt_min, dt_max = 0.1, 2.0
+        dt_base = torch.clamp(dt_base, dt_min, dt_max)
         
         # Only apply dynamic gating if enabled
         use_gating = self.physics_config.get('active_inference', {}).get('dynamic_time', {}).get('enabled', False)
@@ -322,10 +345,9 @@ class MLayer(nn.Module):
                 x_next = self.mixed_norm_x(x_next)
             else:
               
-                # Project back to [0, 2pi] to maintain precision
-                PI = 3.14159265359
-                TWO_PI = 2.0 * PI
-                x_next = torch.remainder(x_next, TWO_PI)
+                # AUDIT FIX: Project back to [-π, π] with smooth wrapping
+                # Use atan2 for differentiable gradients
+                x_next = torch.atan2(torch.sin(x_next), torch.cos(x_next))
                 
             v_next = self.mixed_norm_v(v_next)
         else:

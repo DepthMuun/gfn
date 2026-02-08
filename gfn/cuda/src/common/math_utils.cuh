@@ -107,7 +107,8 @@ GFN_DEVICE void compute_fourier_features(
  * Stable computation of 1 / (1 + sqrt(x))
  */
 GFN_DEVICE scalar_t stable_inv_sqrt_plus_one(scalar_t x) {
-    return 1.0 / (1.0 + sqrt(x + EPSILON_WEAK));
+    // AUDIT FIX: Use EPSILON_STANDARD for CUDA/Python parity (was EPSILON_WEAK)
+    return 1.0 / (1.0 + sqrt(x + EPSILON_STANDARD));
 }
 
 /**
@@ -131,7 +132,8 @@ GFN_DEVICE scalar_t log_sum_exp(const scalar_t* values, int n) {
         sum += exp(values[i] - max_val);
     }
     
-    return max_val + log(sum + EPSILON_WEAK);
+    // AUDIT FIX: Use EPSILON_STANDARD for CUDA/Python parity (was EPSILON_WEAK)
+    return max_val + log(sum + EPSILON_STANDARD);
 }
 
 // ============================================================================
@@ -183,7 +185,8 @@ GFN_DEVICE scalar_t lerp(scalar_t a, scalar_t b, scalar_t t) {
  * Smooth step function (cubic Hermite)
  */
 GFN_DEVICE scalar_t smoothstep(scalar_t edge0, scalar_t edge1, scalar_t x) {
-    scalar_t t = clamp_value((x - edge0) / (edge1 - edge0 + EPSILON_WEAK), 0.0f, 1.0f);
+    // AUDIT FIX: Use EPSILON_STANDARD for CUDA/Python parity (was EPSILON_WEAK)
+    scalar_t t = clamp_value((x - edge0) / (edge1 - edge0 + EPSILON_STANDARD), 0.0f, 1.0f);
     return t * t * (3.0f - 2.0f * t);
 }
 
@@ -191,7 +194,8 @@ GFN_DEVICE scalar_t smoothstep(scalar_t edge0, scalar_t edge1, scalar_t x) {
  * Smoother step function (quintic)
  */
 GFN_DEVICE scalar_t smootherstep(scalar_t edge0, scalar_t edge1, scalar_t x) {
-    scalar_t t = clamp_value((x - edge0) / (edge1 - edge0 + EPSILON_WEAK), 0.0f, 1.0f);
+    // AUDIT FIX: Use EPSILON_STANDARD for CUDA/Python parity (was EPSILON_WEAK)
+    scalar_t t = clamp_value((x - edge0) / (edge1 - edge0 + EPSILON_STANDARD), 0.0f, 1.0f);
     return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
 }
 
@@ -213,7 +217,8 @@ GFN_DEVICE scalar_t random_uniform(unsigned int* seed) {
 GFN_DEVICE scalar_t random_gaussian(unsigned int* seed) {
     scalar_t u1 = random_uniform(seed);
     scalar_t u2 = random_uniform(seed);
-    return sqrt(-2.0 * log(u1 + EPSILON_WEAK)) * cos(TWO_PI * u2);
+    // AUDIT FIX: Use EPSILON_STANDARD for CUDA/Python parity (was EPSILON_WEAK)
+    return sqrt(-2.0 * log(u1 + EPSILON_STANDARD)) * cos(TWO_PI * u2);
 }
 
 } // namespace cuda

@@ -96,13 +96,14 @@ GFN_DEVICE scalar_t dot_product(
 }
 
 /**
- * Vector norm (L2).
+ * @brief Compute L2 norm of a vector with numerical stability
+ * @param v Input vector
+ * @param dim Dimension of vector
+ * @return ||v||_2
  */
-GFN_DEVICE scalar_t vector_norm(
-    const scalar_t* v,
-    int dim
-) {
-    return sqrt(dot_product(v, v, dim) + EPSILON_WEAK);
+GFN_DEVICE scalar_t norm(const scalar_t* v, int dim) {
+    // AUDIT FIX: Use EPSILON_STANDARD for CUDA/Python parity (was EPSILON_WEAK)
+    return sqrt(dot_product(v, v, dim) + EPSILON_STANDARD);
 }
 
 /**

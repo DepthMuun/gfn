@@ -68,7 +68,8 @@ def run_experiment(mode_name, use_cuda_kernel):
             all_forces = outputs[5]
 
             if christoffels:
-                loss_phy = geodesic_regularization(None, christoffels, lambda_g=0.001)
+                # AUDIT FIX: Correct signature
+                loss_phy = geodesic_regularization(christoffels, velocities=None, lambda_g=0.001, mode='structural')
                 def first_head_metric(x):
                     return model.layers[0].christoffels[0].get_metric(x) if hasattr(model.layers[0].christoffels[0], "get_metric") else torch.ones_like(x)
                 loss_ham = hamiltonian_loss(v_seq, states=x_seq, metric_fn=first_head_metric, lambda_h=0.0, forces=all_forces)

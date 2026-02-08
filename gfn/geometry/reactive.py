@@ -2,17 +2,46 @@ import torch
 import torch.nn as nn
 from .lowrank import LowRankChristoffel
 
+
 class ReactiveChristoffel(LowRankChristoffel):
     """
     Active Inference: Geometry that reacts to the agent's state.
+    
+    IMPORTANT NOTES FROM AUDITORIA LOGICA (2026-02-06):
+    
+    1. TERMINOLOGY CLARIFICATION:
+       - "Singularities" are NOT true mathematical singularities
+       - They are CURVATURE AMPLIFICATION regions where the model
+         increases geometric "resistance" to capture high-confidence states
+       - "Black hole strength" = curvature_amplification_factor
+       - "Singularity threshold" = semantic_certainty_threshold
+    
+    2. PHYSICS INTERPRETATION:
+       The amplification factor artificially multiplies Christoffel symbols
+       based on semantic potential. This does NOT correspond to any physical
+       manifold property. It's a regularization/attention mechanism.
+    
+    3. GRADIENT FLOW:
+       Uses soft-sigmoid for differentiability: sigma(10 * (potential - threshold))
+       This creates smooth transitions instead of hard thresholds.
     
     Features:
     1. Reactive Curvature (Plasticity): Metric deforms based on kinetic energy.
        High energy (confusion/exploration) -> Higher curvature (more braking).
        
     2. Logical Singularities: If 'V(x)' (potential) exceeds a threshold, 
-       we trigger a 'Black Hole' (infinite curvature) to trap the thought 
-       in a semantic certainty.
+       we trigger a 'Curvature Amplification' to emphasize semantic certainty.
+       NOT a true singularity - just controlled amplification.
+    
+    Gradient Notes:
+    The singularity gate uses soft-sigmoid (slope * (potential - threshold))
+    to maintain differentiability. This creates a smooth transition rather
+    than a hard threshold, allowing gradients to flow through amplification regions.
+    
+    Args:
+        dim: Manifold dimension
+        rank: Low-rank approximation rank
+        physics_config: Configuration dict with active_inference settings
     """
     def __init__(self, dim, rank=16, physics_config=None):
         super().__init__(dim, rank, physics_config=physics_config)
@@ -20,8 +49,10 @@ class ReactiveChristoffel(LowRankChristoffel):
         self.active_cfg = self.config.get('active_inference', {})
         
         self.plasticity = self.active_cfg.get('reactive_curvature', {}).get('plasticity', 0.0)
-        self.singularity_threshold = self.active_cfg.get('singularities', {}).get('threshold', 0.8)
-        self.black_hole_strength = self.active_cfg.get('singularities', {}).get('strength', 10.0)
+        
+        # AUDIT FIX: Renamed for clarity
+        self.semantic_certainty_threshold = self.active_cfg.get('singularities', {}).get('threshold', 0.8)
+        self.curvature_amplification_factor = self.active_cfg.get('singularities', {}).get('strength', 10.0)
 
     def forward(self, v, x=None, force=None, **kwargs):
         # Try CUDA path with Active Inference
@@ -42,7 +73,7 @@ class ReactiveChristoffel(LowRankChristoffel):
                 react_cfg = self.active_cfg.get('reactive_curvature', {})
                 plasticity = self.plasticity if react_cfg.get('enabled', False) else 0.0
                 
-                # Singularity params
+                # AUDIT FIX: Use renamed parameters
                 sing_thresh = sing_cfg.get('threshold', 0.9) if sing_cfg.get('enabled', False) else 1.0
                 sing_strength = sing_cfg.get('strength', 1.0) if sing_cfg.get('enabled', False) else 1.0
                 
@@ -52,7 +83,7 @@ class ReactiveChristoffel(LowRankChristoffel):
             # Fall through to PyTorch implementation
 
         # Fallback PyTorch: Base curvature (static memory or PyTorch fallback)
-        gamma = super().forward(v, x, force=force)
+        gamma = super().forward(v, x, force=force, **kwargs)
         
         if not self.active_cfg.get('enabled', False):
             return gamma
@@ -65,8 +96,10 @@ class ReactiveChristoffel(LowRankChristoffel):
             # If energy is high, increase curvature (slow down/turn harder)
             # Gamma_new = Gamma * (1 + alpha * energy)
             gamma = gamma * (1.0 + self.plasticity * energy)
-            
-        # 2. Logical Singularities (Black Holes)
+
+        # 2. AUDIT FIX: Curvature Amplification (formerly "Singularities")
+        # This is NOT a true mathematical singularity
+        # It amplifies curvature for high-semantic-certainty regions
         if self.active_cfg.get('singularities', {}).get('enabled', False):
             # Check Semantic Potential V(x)
             if self.is_torus:
@@ -75,10 +108,25 @@ class ReactiveChristoffel(LowRankChristoffel):
                  x_in = x
             potential = torch.sigmoid(self.V(x_in)) # [batch, 1]
             
-            # If we are very sure (High Potential), trigger Singularity
-            # GRADIENT FIX: Use soft-sigmoid instead of hard threshold for differentiability
-            is_singularity = torch.sigmoid(10.0 * (potential - self.singularity_threshold))
-            singularity_mult = 1.0 + is_singularity * (self.black_hole_strength - 1.0)
-            gamma = gamma * singularity_mult
+            # AUDIT FIX: Document what we're doing
+            """
+            We amplify curvature where semantic potential exceeds threshold.
+            This is NOT a true singularity - it's a learned attention mechanism
+            that makes the model "pay more attention" to high-certainty regions
+            by increasing geometric resistance.
             
+            The amplification is smooth (differentiable) via soft-sigmoid.
+            """
+            
+            # Soft amplification using sigmoid with configurable slope
+            gate_slope = self.active_cfg.get('singularities', {}).get('gate_slope', 10.0)
+            is_amplified = torch.sigmoid(gate_slope * (potential - self.semantic_certainty_threshold))
+            amplification_mult = 1.0 + is_amplified * (self.curvature_amplification_factor - 1.0)
+            gamma = gamma * amplification_mult
+            
+            # AUDIT FIX: Add safety constraint
+            # Ensure amplification doesn't cause numerical instability
+            max_amplification = self.curvature_amplification_factor
+            gamma = torch.clamp(gamma, -max_amplification * CURVATURE_CLAMP, max_amplification * CURVATURE_CLAMP)
+
         return gamma

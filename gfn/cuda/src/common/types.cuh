@@ -26,40 +26,44 @@ enum class Topology : int32_t {
 // Physics Constants
 // ============================================================================
 
-// Curvature clamping
-constexpr scalar_t CURVATURE_CLAMP = 20.0f;
-constexpr scalar_t CURVATURE_CLAMP_MIN = -20.0f;
+// Curvature clamping - REDUCED for stability (matches Python)
+constexpr scalar_t CURVATURE_CLAMP = 5.0f;
+constexpr scalar_t CURVATURE_CLAMP_MIN = -5.0f;
 
-// Friction scaling
-constexpr scalar_t FRICTION_SCALE = 5.0f;
-constexpr scalar_t DEFAULT_FRICTION = 0.1f;
+// Friction scaling - REDUCED for stability (matches Python)
+constexpr scalar_t FRICTION_SCALE = 0.5f;
+constexpr scalar_t DEFAULT_FRICTION = 0.01f;
 
-// Numerical stability epsilons
-constexpr scalar_t EPSILON_WEAK = 1e-6f;
-constexpr scalar_t EPSILON_STRONG = 1e-4f;
-constexpr scalar_t EPSILON_SMOOTH = 1e-5f;
+// Mathematical constants
+constexpr scalar_t PI = 3.14159265358979323846f;
+constexpr scalar_t TWO_PI = 6.28318530717958647692f;
+
+// AUDIT FIX (2026-02-06): Unified epsilon for CUDA/Python parity
+// Python: gfn/constants.py::EPSILON_STANDARD = 1e-8
+// CUDA: All division safety uses EPSILON_STANDARD = 1e-8
+// REMOVED: EPSILON_WEAK (was 1e-6) - inconsistent with Python
+constexpr scalar_t EPSILON_STANDARD = 1e-8f;
+constexpr scalar_t EPSILON_STRONG = 1e-8f;
+constexpr scalar_t EPSILON_SMOOTH = 1e-8f;
 
 // Clamping for division safety
 constexpr scalar_t CLAMP_MIN_WEAK = 1e-6f;
 constexpr scalar_t CLAMP_MIN_STRONG = 0.1f;
 
-// Gate biases
-constexpr scalar_t GATE_BIAS_OPEN = 2.0f;   // sigmoid(2) ≈ 0.88 (mostly open)
-constexpr scalar_t GATE_BIAS_CLOSED = -2.0f; // sigmoid(-2) ≈ 0.12 (mostly closed)
+// Gate biases - MODERATE for stability (matches Python)
+constexpr scalar_t GATE_BIAS_OPEN = 1.0f;   // sigmoid(1) ≈ 0.73
+constexpr scalar_t GATE_BIAS_CLOSED = -3.0f; // sigmoid(-3) ≈ 0.05
 
 // Toroidal geometry
 constexpr scalar_t TOROIDAL_MAJOR_RADIUS = 2.0f;  // R
 constexpr scalar_t TOROIDAL_MINOR_RADIUS = 1.0f;  // r
 constexpr scalar_t TOROIDAL_CURVATURE_SCALE = 1.0f;
 
-// Active inference
-constexpr scalar_t DEFAULT_PLASTICITY = 0.1f;
-constexpr scalar_t SINGULARITY_THRESHOLD = 0.8f;
-constexpr scalar_t BLACK_HOLE_STRENGTH = 10.0f;
-
-// Mathematical constants
-constexpr scalar_t PI = 3.14159265358979323846f;
-constexpr scalar_t TWO_PI = 6.28318530717958647692f;
+// Active inference - REDUCED for stability (matches Python)
+constexpr scalar_t DEFAULT_PLASTICITY = 0.01f;
+constexpr scalar_t SINGULARITY_THRESHOLD = 0.5f;
+constexpr scalar_t SINGULARITY_GATE_SLOPE = 1.0f;  // REDUCED from 10.0 for stability
+constexpr scalar_t BLACK_HOLE_STRENGTH = 2.0f;
 
 // ============================================================================
 // Device Function Attributes

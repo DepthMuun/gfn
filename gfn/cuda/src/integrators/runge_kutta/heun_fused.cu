@@ -16,6 +16,8 @@ __global__ void heun_fused_kernel(
     const scalar_t* __restrict__ force,      // [batch, dim]
     const scalar_t* __restrict__ U,          // [dim, rank]
     const scalar_t* __restrict__ W,          // [dim, rank]
+    const scalar_t* __restrict__ W_forget,   // [dim, feature_dim] or nullptr
+    const scalar_t* __restrict__ b_forget,   // [dim] or nullptr
     scalar_t* __restrict__ x_out,            // [batch, dim]
     scalar_t* __restrict__ v_out,            // [batch, dim]
     int batch_size,
@@ -40,6 +42,7 @@ __global__ void heun_fused_kernel(
     scalar_t acc1[64];
     scalar_t acc2[64];
     scalar_t gamma[64];
+    scalar_t friction[64];
     
     // Load initial state
     const scalar_t* x_ptr = x_in + idx * dim;
@@ -58,7 +61,17 @@ __global__ void heun_fused_kernel(
     for (int step = 0; step < steps; ++step) {
         // Stage 1: Compute derivatives at current state
         // dx1/dt = v
-        // dv1/dt = F - Γ(v, x)
+        // dv1/dt = F - Γ(v, x) - μ(x,F) * v
+        
+        // Compute friction at current position
+        if (W_forget != nullptr && b_forget != nullptr) {
+            compute_friction(
+                curr_x, f_ptr, W_forget, b_forget, nullptr,
+                dim, topology, friction
+            );
+        } else {
+            vector_zero(friction, dim);
+        }
         
         christoffel_device(
             curr_v, U, W, curr_x, nullptr,
@@ -67,7 +80,7 @@ __global__ void heun_fused_kernel(
         );
         
         for (int i = 0; i < dim; ++i) {
-            acc1[i] = f_ptr[i] - gamma[i];
+            acc1[i] = f_ptr[i] - gamma[i] - friction[i] * curr_v[i];
         }
         
         // Predictor step (Euler)
@@ -80,6 +93,14 @@ __global__ void heun_fused_kernel(
         apply_boundary_vector(x_pred, dim, topology);
         
         // Stage 2: Compute derivatives at predicted state
+        // Compute friction at predicted position
+        if (W_forget != nullptr && b_forget != nullptr) {
+            compute_friction(
+                x_pred, f_ptr, W_forget, b_forget, nullptr,
+                dim, topology, friction
+            );
+        }
+        
         christoffel_device(
             v_pred, U, W, x_pred, nullptr,
             dim, rank, 0.0f, 1.0f, 1.0f,
@@ -87,7 +108,7 @@ __global__ void heun_fused_kernel(
         );
         
         for (int i = 0; i < dim; ++i) {
-            acc2[i] = f_ptr[i] - gamma[i];
+            acc2[i] = f_ptr[i] - gamma[i] - friction[i] * v_pred[i];
         }
         
         // Corrector step (average of two slopes)
@@ -129,6 +150,8 @@ std::vector<torch::Tensor> heun_fused(
     float dt_scale,
     int steps,
     int topology,
+    torch::Tensor W_forget,    // [dim, feature_dim] or empty
+    torch::Tensor b_forget,    // [dim] or empty
     float R,
     float r
 ) {
@@ -144,6 +167,10 @@ std::vector<torch::Tensor> heun_fused(
     auto x_out = torch::empty_like(x);
     auto v_out = torch::empty_like(v);
     
+    // Prepare pointers
+    const scalar_t* W_forget_ptr = (W_forget.numel() > 0) ? W_forget.data_ptr<scalar_t>() : nullptr;
+    const scalar_t* b_forget_ptr = (b_forget.numel() > 0) ? b_forget.data_ptr<scalar_t>() : nullptr;
+    
     // Launch kernel
     int threads = DEFAULT_BLOCK_SIZE;
     int blocks = div_ceil(batch_size, threads);
@@ -154,6 +181,8 @@ std::vector<torch::Tensor> heun_fused(
         force.data_ptr<scalar_t>(),
         U.data_ptr<scalar_t>(),
         W.data_ptr<scalar_t>(),
+        W_forget_ptr,
+        b_forget_ptr,
         x_out.data_ptr<scalar_t>(),
         v_out.data_ptr<scalar_t>(),
         batch_size,

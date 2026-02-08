@@ -1,11 +1,11 @@
 """
-Standardized Validation Suite Runner
-====================================
+Master GFN Validation Suite (v2.6.5)
+=====================================
 
-Master orchestrator for professional benchmarks:
-- Discovers and runs core benchmarks.
-- Aggregates metrics from standardized ResultsLogger outputs.
-- Displays scientific performance summary.
+Orchestrates the execution of all professional benchmarks.
+- Automated discovery and execution
+- Structured result aggregation
+- Rich visual reporting
 """
 
 import subprocess
@@ -13,125 +13,129 @@ import sys
 import json
 import argparse
 import os
+import time
 from pathlib import Path
-from datetime import datetime
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn
 
 # Path Setup
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 BENCHMARK_DIR = PROJECT_ROOT / "tests/benchmarks/core"
-RESULTS_DIR = PROJECT_ROOT / "tests/benchmarks/results/core"
+RESULTS_BASE = PROJECT_ROOT / "tests/results/core"
+
+console = Console()
 
 BENCHMARKS = {
-    'performance': {
-        'script': 'benchmark_performance.py',
-        'description': 'O(N^2) vs O(1) Memory & Scaling Analysis'
-    },
-    'integrators': {
-        'script': 'benchmark_integrators.py',
-        'description': 'Numerical Drift & Symplectic Stability'
-    },
-    'needle': {
-        'script': 'benchmark_needle_haystack.py',
-        'description': '1M Token Long-Context Stress Test'
-    },
     'baseline': {
         'script': 'benchmark_baseline_comparison.py',
-        'description': 'Systematic comparison vs RNNs (GRU/LSTM)'
+        'desc': 'Systematic comparison vs RNNs (GRU/LSTM)'
     },
     'composition': {
         'script': 'benchmark_composition.py',
-        'description': 'Function composition & systematic generalization'
+        'desc': 'Function composition & systematic generalization'
+    },
+    'ablation': {
+        'script': 'benchmark_feature_ablation.py',
+        'desc': 'Physics feature value-add audit'
+    },
+    'integrators': {
+        'script': 'benchmark_integrators.py',
+        'desc': 'Numerical Drift & Symplectic Stability'
+    },
+    'learning': {
+        'script': 'benchmark_learning_dynamics.py',
+        'desc': 'GFN vs Transformer on Arithmetic'
+    },
+    'needle': {
+        'script': 'benchmark_needle_haystack.py',
+        'desc': '1M Token Long-Context Recall'
+    },
+    'ood': {
+        'script': 'benchmark_ood.py',
+        'desc': 'Out-of-Distribution Math Generalization'
+    },
+    'overhead': {
+        'script': 'benchmark_overhead.py',
+        'desc': 'Physics Engine Computational Cost'
+    },
+    'performance': {
+        'script': 'benchmark_performance.py',
+        'desc': 'Throughput & VRAM Scaling Laws'
+    },
+    'precision': {
+        'script': 'benchmark_precision_stability.py',
+        'desc': 'Numerical format robustness (FP16/BF16)'
+    },
+    'efficiency': {
+        'script': 'benchmark_sample_efficiency.py',
+        'desc': 'Data efficiency vs Transformers'
+    },
+    'scaling': {
+        'script': 'benchmark_scaling.py',
+        'desc': 'Model size expansion laws'
     }
 }
 
-def run_benchmark(name, info):
-    print(f"\n🚀 EXECUTING: {name.upper()}")
-    print(f"   {info['description']}")
-    print("-" * 60)
+def run_bench(name, info):
+    """Executes a benchmark script."""
+    console.print(f"\n[bold cyan]▶ Running: {name.upper()}[/] ([white]{info['desc']}[/])")
     
-    script_path = BENCHMARK_DIR / info['script']
-    if not script_path.exists():
-        print(f"   ❌ Error: Script not found at {script_path}")
+    script = BENCHMARK_DIR / info['script']
+    if not script.exists():
+        console.print(f"  [red]Error: Script not found: {script}[/]")
         return False
-
+        
     env = os.environ.copy()
     env['PYTHONPATH'] = str(PROJECT_ROOT)
     
     try:
-        result = subprocess.run(
-            [sys.executable, str(script_path)],
+        proc = subprocess.run(
+            [sys.executable, str(script)],
             cwd=str(PROJECT_ROOT),
             env=env,
             capture_output=True,
-            text=True,
-            timeout=1200 # 20m for 1M context tests
+            text=True
         )
-        
-        if result.returncode == 0:
-            print(f"   ✅ {name} completed successfully.")
+        if proc.returncode == 0:
+            console.print(f"  [bold green]✓ SUCCESS[/]")
             return True
         else:
-            print(f"   ❌ {name} failed with exit code {result.returncode}")
-            print(f"   Error: {result.stderr[-500:]}")
+            console.print(f"  [bold red]✗ FAILED (Code {proc.returncode})[/]")
+            console.print(f"[dim]{proc.stderr[-1000:]}[/]")
             return False
     except Exception as e:
-        print(f"   ❌ Execution Error: {e}")
+        console.print(f"  [bold red]✗ ERROR: {e}[/]")
         return False
 
-def print_master_summary():
-    print("\n" + "="*80)
-    print("📈 SCIENTIFIC VALIDATION SUMMARY")
-    print("="*80)
-    
-    summary = {}
-    
-    for name in BENCHMARKS:
-        metrics_path = RESULTS_DIR / name / "metrics.json"
-        if metrics_path.exists():
-            with open(metrics_path, 'r') as f:
-                data = json.load(f)
-                summary[name] = data["data"]
-                
-    # 1. Performance Summary
-    if 'performance' in summary:
-        print("\n[PERFORMANCE SCALING]")
-        for item in summary['performance']:
-            if item['Sequence Length'] in [1024, 8192, 16384]:
-                print(f"   {item['Model']:20s} | L={item['Sequence Length']:5d} | VRAM: {item['VRAM (MB)']:8.1f} MB | {item['Throughput (seq/s)']:6.1f} seq/s")
+def show_summary():
+    """Aggregates results from individual benchmark logs."""
+    console.print(f"\n[bold]GFN ARCHITECTURE VALIDATION REPORT[/] (v2.6.5)\n")
 
-    # 2. Integrator Summary
-    if 'integrators' in summary:
-        print("\n[PHYSICS STABILITY]")
-        # Sort by drift
-        sorted_integs = sorted(summary['integrators'], key=lambda x: x['Drift (%)'] if x['Drift (%)'] is not None else 1e9)
-        for item in sorted_integs[:5]: # Top 5
-            print(f"   {item['Integrator']:15s} | Drift: {item['Drift (%)']:10.6f}% | Speed: {item['Inference Speed']:6.1f} seq/s")
+    table = Table(title="Benchmarking Coverage", box=None)
+    table.add_column("Category")
+    table.add_column("Status")
+    table.add_column("Artifacts")
 
-    # 3. Long Context Summary
-    if 'needle' in summary:
-        print("\n[LONG-CONTEXT (O(1) PROOF)]")
-        needle = summary['needle']
-        print(f"   Tested up to {needle[-1]['Sequence Length']} tokens")
-        vram_start = needle[0]['VRAM (MB)']
-        vram_end = needle[-1]['VRAM (MB)']
-        increase = (vram_end - vram_start) / vram_start * 100
-        print(f"   VRAM Expansion (1k -> {needle[-1]['Sequence Length']}): {increase:.2f}% (Target: <5%)")
+    for name, info in BENCHMARKS.items():
+        res_path = RESULTS_BASE / name
+        status = "[green]RUN[/]" if res_path.exists() else "[dim]PENDING[/]"
+        table.add_row(name.capitalize(), status, str(res_path.relative_to(PROJECT_ROOT)) if res_path.exists() else "-")
 
-    print("\n" + "="*80)
-    print(f"✅ Master Report generated at: {RESULTS_DIR}")
-    print(f"📂 Visualization results: {PROJECT_ROOT}/tests/benchmarks/results/core/")
-    print("="*80)
+    console.print(table)
+    console.print(f"\n[dim]Master results located in: {RESULTS_BASE}[/]\n")
 
 def main():
-    parser = argparse.ArgumentParser(description='Manifold Master Validation Runner')
-    parser.add_argument('--all', action='store_true', help='Run all benchmarks')
-    parser.add_argument('--only', nargs='+', help='Specific benchmarks to run')
-    parser.add_argument('--summary', action='store_true', help='Just show the summary of existing results')
+    parser = argparse.ArgumentParser(description='Master GFN Validation Suite')
+    parser.add_argument('--all', action='store_true', help='Run every benchmark')
+    parser.add_argument('--only', nargs='+', help='Run specific benchmarks')
+    parser.add_argument('--status', action='store_true', help='Show coverage status')
     
     args = parser.parse_args()
     
-    if args.summary:
-        print_master_summary()
+    if args.status:
+        show_summary()
         return
 
     to_run = args.only if args.only else (BENCHMARKS.keys() if args.all else [])
@@ -140,11 +144,27 @@ def main():
         parser.print_help()
         return
 
+    start_time = time.time()
+    results = {}
+    
     for name in to_run:
         if name in BENCHMARKS:
-            run_benchmark(name, BENCHMARKS[name])
+            success = run_bench(name, BENCHMARKS[name])
+            results[name] = success
             
-    print_master_summary()
+    # Final Recap
+    elapsed = time.time() - start_time
+    passed = sum(1 for v in results.values() if v)
+    
+    console.print("\n" + "="*60)
+    console.print(f"[bold yellow]SUITE RECAP[/] | Elapsed: [cyan]{elapsed:.1f}s[/]")
+    console.print(f"Passed: [green]{passed}[/] | Failed: [red]{len(results) - passed}[/]")
+    console.print("="*60 + "\n")
+    
+    show_summary()
+
+if __name__ == "__main__":
+    main()
 
 if __name__ == "__main__":
     main()

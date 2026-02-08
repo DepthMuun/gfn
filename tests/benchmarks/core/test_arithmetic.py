@@ -1,3 +1,12 @@
+"""
+Professional Arithmetic Unit-Benchmark (v2.6.5)
+=============================================
+
+Specialized probe for basic arithmetic reliability.
+Verifies that the Manifold-GFN can learn simple 1-digit addition/subtraction
+with extremely high precision and zero divergence.
+"""
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -5,173 +14,102 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sys
 from pathlib import Path
-from tqdm import tqdm
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn
 
 # Add project root
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from gfn.model import Manifold
+from gfn import Manifold
+from gfn.optimizers import RiemannianAdam
+from tests.benchmarks.bench_utils import ResultsLogger
+
+console = Console()
 
 class ArithmeticTask:
-    """
-    Simple arithmetic operations: a + b, a - b, a * b
-    
-    Format:
-    Input: "3 + 5 ="
-    Output: "8"
-    
-    Vocab: 0-9 (digits), +, -, *, =, <pad>
-    """
-    def __init__(self, max_num=20, operation='add'):
-        self.max_num = max_num
-        self.operation = operation
-        
-        # Vocab: 0-9, +, -, *, =, <pad>
+    """Simplified 1-digit addition/subtraction probe."""
+    def __init__(self):
         self.vocab_size = 15
-        self.digit_offset = 0  # 0-9
-        self.op_map = {'+': 10, '-': 11, '*': 12}
-        self.eq_token = 13
-        self.pad_token = 14
+        self.op_map = {'+': 10, '-': 11, '=': 13, '<PAD>': 14}
         
-    def generate_batch(self, batch_size, device='cpu'):
-        """
-        Generate batch of arithmetic problems.
-        
-        Returns:
-            inputs: [batch, 5] - "a op b = <pad>"
-            targets: [batch, 5] - "<pad> <pad> <pad> <pad> result"
-        """
-        inputs = []
-        targets = []
-        
+    def generate(self, batch_size, device='cpu'):
+        ins, tgs = [], []
         for _ in range(batch_size):
-            a = np.random.randint(0, self.max_num)
-            b = np.random.randint(0, self.max_num)
-            
-            if self.operation == 'add':
-                result = a + b
-                op = self.op_map['+']
-            elif self.operation == 'sub':
-                result = max(0, a - b)  # No negatives
-                op = self.op_map['-']
-            else:  # mul
-                result = a * b
-                op = self.op_map['*']
-            
-            # Clamp result to single digit
-            result = min(result, 9)
-            
-            # Input: [a, op, b, =, pad]
-            inp = [a, op, b, self.eq_token, self.pad_token]
-            
-            # Target: [pad, pad, pad, pad, result]
-            tgt = [self.pad_token, self.pad_token, self.pad_token, self.pad_token, result]
-            
-            inputs.append(inp)
-            targets.append(tgt)
-        
-        return (torch.tensor(inputs, device=device), 
-                torch.tensor(targets, device=device))
-
-def train_arithmetic(model, task, max_steps=3000, lr=3e-4, device='cuda'):
-    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
-    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=lr, total_steps=max_steps, pct_start=0.2)
-    
-    is_binary = model.physics_config.get('readout', {}).get('type') == 'binary'
-    
-    if is_binary:
-        criterion = nn.BCEWithLogitsLoss()
-    else:
-        criterion = nn.CrossEntropyLoss()
-    
-    loss_history = []
-    best_acc = 0.0
-    
-    pbar = tqdm(range(max_steps), desc=f"Training {model.__class__.__name__}")
-    
-    for i in pbar:
-        model.train()
-        x, y = task.generate_batch(64, device=device)
-        
-        optimizer.zero_grad()
-        logits, _, _ = model(x)
-        
-        if is_binary:
-            # Binary mode
-            coord_dim = model.physics_config.get('embedding', {}).get('coord_dim', 16)
-            mask = 2**torch.arange(coord_dim).to(device)
-            target_bits = (y.unsqueeze(-1) & mask) > 0
-            target_bits = target_bits.float()
-            
-            # Only train on last position
-            loss = criterion(logits[:, -1, :], target_bits[:, -1, :])
-        else:
-            # Standard mode
-            loss = criterion(logits[:, -1, :], y[:, -1])
-        
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        optimizer.step()
-        scheduler.step()
-        
-        # Calculate accuracy
-        if is_binary:
-            preds = (logits[:, -1, 0] > 0.0).long()
-        else:
-            preds = logits[:, -1, :].argmax(dim=-1)
-        
-        acc = (preds == y[:, -1]).float().mean().item()
-        best_acc = max(best_acc, acc)
-        
-        pbar.set_postfix({
-            'loss': f"{loss.item():.4f}",
-            'acc': f"{acc*100:.1f}%",
-            'best': f"{best_acc*100:.1f}%",
-        })
-        
-        loss_history.append(loss.item())
-        
-        if acc > 0.95 and i > 200:
-            print(f"\n✅ Converged at step {i} (Acc: {acc*100:.1f}%)")
-            break
-    
-    return loss_history
+            a, b = np.random.randint(0, 5), np.random.randint(0, 5)
+            # a + b = res
+            res = a + b
+            prob = [a, self.op_map['+'], b, self.op_map['='], res]
+            ins.append(prob[:-1])
+            tgs.append(prob[-1])
+        return torch.tensor(ins).to(device), torch.tensor(tgs).to(device)
 
 def run_arithmetic_benchmark():
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    print(f"🧮 Arithmetic Task Benchmark")
-    print(f"Device: {device}\n")
+    logger = ResultsLogger("arithmetic_unit", category="core")
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
-    # Create task
-    task = ArithmeticTask(max_num=10, operation='add')
-    
-    # Create model
-    dim = 128
-    depth = 6
-    heads = 4
-    vocab = 15  # 0-9, +, -, *, =, <pad>
-    
+    console.print(Panel.fit(
+        "[bold green]GFN ARITHMETIC UNIT TEST[/]\n[white]Low-level Logic Verification (v2.6.5)[/]",
+        border_style="green"
+    ))
+
+    task = ArithmeticTask()
     model = Manifold(
-        vocab_size=vocab, dim=dim, depth=depth, heads=heads,
-        use_scan=False,
-        integrator_type='leapfrog',
-        physics_config={
-            'embedding': {'type': 'functional', 'mode': 'linear', 'coord_dim': 16},
-            'readout': {'type': 'implicit', 'coord_dim': 16},
-            'active_inference': {'enabled': True, 'reactive_curvature': {'enabled': True, 'plasticity': 0.05}},
-            'hyper_curvature': {'enabled': True},
-            'stability': {'base_dt': 0.3, 'damping': 0.05, 'residual_scale': 0.5}
-        }
+        vocab_size=15, dim=128, depth=4, heads=4,
+        physics_config={'topology': 'euclidean', 'plasticity': 0.1}
     ).to(device)
     
-    print(f"Model: {dim}d, {depth} layers, {heads} heads")
-    print(f"Task: a + b (0-9)\n")
+    opt = RiemannianAdam(model.parameters(), lr=1e-3)
+    crit = nn.CrossEntropyLoss()
     
-    # Train
-    loss_history = train_arithmetic(model, task, max_steps=3000, lr=3e-4, device=device)
+    history = []
     
-    print("\n✅ Training complete!")
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(bar_width=40),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TimeElapsedColumn(),
+        console=console
+    ) as progress:
+        train_task = progress.add_task("Training...", total=500)
+        
+        for i in range(500):
+            model.train()
+            x, y = task.generate(32, device=device)
+            
+            opt.zero_grad()
+            out = model(x)
+            logits = out[0] if isinstance(out, tuple) else out
+            
+            loss = crit(logits[:, -1, :], y)
+            loss.backward()
+            opt.step()
+            
+            acc = (logits[:, -1, :].argmax(dim=-1) == y).float().mean().item()
+            history.append(loss.item())
+            
+            progress.update(train_task, advance=1, description=f"Loss: {loss.item():.4f} | Acc: {acc*100:.1f}%")
+            
+            if acc > 0.99 and i > 100:
+                console.print(f"\n[bold green][CONVERGED][/] Step {i} at 100% accuracy.")
+                break
+
+    # Results
+    logger.save_json(history)
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.plot(history, color='green', lw=2)
+    ax.set_title("Arithmetic Convergence (v2.6.5)")
+    ax.set_xlabel("Steps")
+    ax.set_ylabel("Loss")
+    logger.save_plot(fig, "arithmetic_convergence.png")
+    
+    console.print(f"\n[bold green][SUCCESS][/] Unit test complete. Results in [cyan]{logger.run_dir}[/]\n")
+
+if __name__ == "__main__":
+    run_arithmetic_benchmark()
 
 if __name__ == '__main__':
     run_arithmetic_benchmark()

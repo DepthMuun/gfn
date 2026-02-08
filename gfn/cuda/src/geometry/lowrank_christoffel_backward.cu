@@ -64,7 +64,7 @@ __global__ void christoffel_backward_kernel(
         if (topology == Topology::TORUS) { for (int i = 0; i < dim; ++i) pot += sinf(x_b[i]) * V_w[i]; }
         else { for (int i = 0; i < dim; ++i) pot += x_b[i] * V_w[i]; }
         gate = sigmoid(pot);
-        soft_m = sigmoid(10.0f * (gate - sing_thresh));
+        soft_m = sigmoid(SINGULARITY_GATE_SLOPE * (gate - sing_thresh));
         M_sing = (1.0f + (sing_strength - 1.0f) * soft_m);
     }
     scalar_t M = M_plas * M_sing;
@@ -93,7 +93,7 @@ __global__ void christoffel_backward_kernel(
 
     if (g_x_b != nullptr && V_w != nullptr) {
         scalar_t dL_dM_sing = sum_grad_q_h_sq * S * M_plas;
-        scalar_t factor = dL_dM_sing * (sing_strength - 1.0f) * 10.0f * soft_m * (1.0f - soft_m) * gate * (1.0f - gate);
+        scalar_t factor = dL_dM_sing * (sing_strength - 1.0f) * SINGULARITY_GATE_SLOPE * soft_m * (1.0f - soft_m) * gate * (1.0f - gate);
         for (int i = 0; i < dim; ++i) {
             g_x_b[i] = factor * ((topology == Topology::TORUS) ? cosf(x_b[i]) * V_w[i] : V_w[i]);
         }

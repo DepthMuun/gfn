@@ -206,7 +206,8 @@ def train_multimodal_omni():
         
         # Hamiltonian & Geodesic (Scan mode returns empty christ for speed, but supports v_final)
         loss_ham = hamiltonian_loss([v_final], lambda_h=0.01) if v_final is not None else 0.0
-        loss_geo = geodesic_regularization(None, all_christ, lambda_g=0.001) if all_christ else 0.0
+        # AUDIT FIX: Correct signature
+        loss_geo = geodesic_regularization(all_christ, velocities=None, lambda_g=0.001, mode='structural') if all_christ else 0.0
         
         total_loss = loss_ce + loss_ham + loss_geo
         total_loss.backward()

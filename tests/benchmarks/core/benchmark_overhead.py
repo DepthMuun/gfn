@@ -1,188 +1,169 @@
 """
-Feature Overhead Benchmark
-==========================
-Measures the cost (VRAM, throughput, latency) of each physics feature.
+Professional Feature Overhead Benchmark (v2.6.5)
+==============================================
 
-Answers: "What does each feature cost?"
+Measures the cost (VRAM, throughput, latency) of each physics feature.
+Provides a clear efficiency vs. expressivity tradeoff analysis.
 """
 
 import torch
+import torch.nn as nn
 import time
-import json
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 import sys
 from pathlib import Path
-import matplotlib.pyplot as plt
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn
 
+# Add project root
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from gfn.model import Manifold
+from gfn import Manifold
+from tests.benchmarks.baselines import MicroGPT
+from tests.benchmarks.bench_utils import ResultsLogger, PerformanceStats
 
+console = Console()
 
-def get_physics_configs():
-    """Return configurations for ablation."""
+def get_ablation_configs():
+    """Flattened v2.6.5 physics configs for overhead analysis."""
     return {
-        "baseline": None,
-        "+active_inference": {
-            'active_inference': {'enabled': True}
+        "Manifold (Base)": {
+            'plasticity': 0.0,
+            'singularity_strength': 0.0,
+            'topology': 'euclidean'
         },
-        "+reactive_curvature": {
-            'active_inference': {
-                'enabled': True,
-                'reactive_curvature': {'enabled': True, 'plasticity': 0.1}
-            }
+        "+ Plasticity": {
+            'plasticity': 0.1,
+            'singularity_strength': 0.0,
+            'topology': 'euclidean'
         },
-        "+singularities": {
-            'active_inference': {
-                'enabled': True,
-                'singularities': {'enabled': True, 'strength': 5.0}
-            }
+        "+ Singularities": {
+            'plasticity': 0.0,
+            'singularity_strength': 10.0,
+            'singularity_thresh': 0.8,
+            'topology': 'euclidean'
         },
-        "+dynamic_time": {
-            'active_inference': {
-                'enabled': True,
-                'dynamic_time': {'enabled': True, 'range': [0.1, 3.0]}
-            }
+        "+ Torus Topology": {
+            'plasticity': 0.0,
+            'singularity_strength': 0.0,
+            'topology': 'torus',
+            'R': 2.0, 'r': 1.0
         },
-        "+symmetries": {
-            'active_inference': {'enabled': True},
-            'symmetries': {'enabled': True, 'isomeric_groups': [[0, 1], [2, 3]]}
-        },
-        "+fractal": {
-            'active_inference': {'enabled': True},
-            'fractal': {'enabled': True, 'threshold': 0.5, 'alpha': 0.2}
-        },
-        "all_features": {
-            'active_inference': {
-                'enabled': True,
-                'reactive_curvature': {'enabled': True, 'plasticity': 0.1},
-                'singularities': {'enabled': True, 'strength': 5.0},
-                'dynamic_time': {'enabled': True, 'range': [0.1, 3.0]}
-            },
-            'symmetries': {'enabled': True, 'isomeric_groups': [[0, 1], [2, 3]]},
-            'fractal': {'enabled': True, 'threshold': 0.5, 'alpha': 0.2},
-            'stability': {'curvature_clamp': 10.0}
+        "Full Physics": {
+            'plasticity': 0.1,
+            'singularity_strength': 10.0,
+            'singularity_thresh': 0.8,
+            'topology': 'torus',
+            'R': 2.0, 'r': 1.0
         }
     }
 
-
-def measure_overhead(config_name, physics_config, device, batch_size=16, seq_len=128, warmup=3, runs=10):
-    """Measure VRAM and throughput for a configuration."""
-    # Merge with default binary functional embedding for O(1) proof
-    base_config = {
-        'embedding': {'type': 'functional', 'mode': 'linear', 'coord_dim': 16},
-        'readout': {'type': 'implicit', 'coord_dim': 16}
-    }
-    if physics_config:
-        # Shallow merge
-        merged_config = {**base_config, **physics_config}
+def measure_overhead(name, config, device, batch_size=16, seq_len=128):
+    if name == "Transformer (Baseline)":
+        model = MicroGPT(vocab_size=64, dim=256, depth=6, heads=4).to(device)
     else:
-        merged_config = base_config
-
-    model = Manifold(
-        vocab_size=64,
-        dim=256,
-        depth=6,
-        heads=4,
-        integrator_type='heun',
-        physics_config=merged_config
-    ).to(device).eval()
+        model = Manifold(
+            vocab_size=64, dim=256, depth=6, heads=4,
+            physics_config=config, holographic=True
+        ).to(device)
     
-    params = sum(p.numel() for p in model.parameters())
+    model.eval()
+    dummy_input = torch.randint(0, 64, (batch_size, seq_len)).to(device)
     
     # Warmup
     with torch.no_grad():
-        for _ in range(warmup):
-            x = torch.randint(0, 64, (batch_size, seq_len)).to(device)
-            model(x)
+        for _ in range(5): model(dummy_input)
     
-    torch.cuda.reset_peak_memory_stats() if torch.cuda.is_available() else None
+    # 1. Memory
+    vram = PerformanceStats.measure_peak_memory(model, lambda: model(dummy_input))
     
-    # Timed runs
+    # 2. Throughput
     start = time.time()
     with torch.no_grad():
-        for _ in range(runs):
-            x = torch.randint(0, 64, (batch_size, seq_len)).to(device)
-            model(x)
+        for _ in range(50): model(dummy_input)
     elapsed = time.time() - start
-    
-    peak_vram = torch.cuda.max_memory_allocated() / (1024**2) if torch.cuda.is_available() else 0
-    throughput = (runs * batch_size) / elapsed
-    latency_ms = (elapsed / runs) * 1000
-    
-    del model
-    torch.cuda.empty_cache() if torch.cuda.is_available() else None
+    tput = (50 * batch_size) / elapsed
+    lat = (elapsed / 50) * 1000
     
     return {
-        'params': params,
-        'vram_mb': round(peak_vram, 2),
-        'throughput': round(throughput, 2),
-        'latency_ms': round(latency_ms, 2)
+        "Configuration": name,
+        "VRAM (MB)": vram,
+        "Throughput (seq/s)": tput,
+        "Latency (ms)": lat
     }
 
-
 def run_benchmark():
+    logger = ResultsLogger("overhead", category="core")
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"[*] Feature Overhead Benchmark on {device}")
-    print("="*60)
     
-    configs = get_physics_configs()
-    results = {}
+    console.print(f"\n[bold]GFN FEATURE OVERHEAD AUDIT[/] (Manifold v2.6.5)\n")
+
+    configs = get_ablation_configs()
+    report_data = []
     
-    for name, physics_config in configs.items():
-        print(f"\n[*][*]  Testing: {name}...")
-        try:
-            metrics = measure_overhead(name, physics_config, device)
-            results[name] = metrics
-            print(f"   VRAM: {metrics['vram_mb']:.1f} MB | "
-                  f"Throughput: {metrics['throughput']:.1f} seq/s | "
-                  f"Latency: {metrics['latency_ms']:.1f} ms")
-        except Exception as e:
-            print(f"   ERROR: {e}")
-            results[name] = {'error': str(e)}
+    # Include Transformer Baseline
+    all_tests = {"Transformer (Baseline)": None}
+    all_tests.update(configs)
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(bar_width=40),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TimeElapsedColumn(),
+        console=console
+    ) as progress:
+        task = progress.add_task("Profiling...", total=len(all_tests))
+        
+        for name, cfg in all_tests.items():
+            progress.update(task, description=f"Benchmarking: {name}")
+            metrics = measure_overhead(name, cfg, device)
+            report_data.append(metrics)
+            progress.update(task, advance=1)
+
+    # Summary Table
+    table = Table(title="Overhead Breakdown", box=None)
+    table.add_column("Configuration")
+    table.add_column("VRAM (MB)", justify="right")
+    table.add_column("Throughput (seq/s)", justify="right")
     
-    # Save results
-    res_dir = PROJECT_ROOT / "tests/benchmarks/results/validation"
-    res_dir.mkdir(parents=True, exist_ok=True)
+    for r in report_data:
+        table.add_row(r["Config"], f"{r['VRAM (MB)']:.1f}", f"{r['Throughput (seq/s)']:.1f}")
     
-    with open(res_dir / "overhead_analysis.json", 'w') as f:
-        json.dump(results, f, indent=2)
+    console.print("\n", table)
     
-    # Generate plot
-    valid_names = [k for k, v in results.items() if 'error' not in v]
-    vram_vals = [results[k]['vram_mb'] for k in valid_names]
-    throughput_vals = [results[k]['throughput'] for k in valid_names]
+    # Save & Plot
+    logger.save_json(report_data)
+    df = pd.DataFrame(report_data)
     
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+    sns.set_theme(style="darkgrid", rc={"axes.facecolor": "#121212", "grid.color": "#2a2a2a"})
+    fig, axes = plt.subplots(1, 2, figsize=(16, 6), facecolor='#121212')
     
-    # VRAM chart
-    bars1 = ax1.barh(valid_names, vram_vals, color='steelblue')
-    ax1.set_xlabel('Peak VRAM (MB)')
-    ax1.set_title('Memory Overhead by Feature')
-    ax1.bar_label(bars1, fmt='%.1f')
+    # VRAM Plot
+    sns.barplot(data=df, x="Configuration", y="VRAM (MB)", ax=axes[0], palette="flare")
+    axes[0].set_title("Memory Consumption", color='white', fontweight='bold')
+    axes[0].tick_params(axis='x', rotation=45, colors='white')
+    axes[0].tick_params(axis='y', colors='white')
     
-    # Throughput chart  
-    bars2 = ax2.barh(valid_names, throughput_vals, color='seagreen')
-    ax2.set_xlabel('Throughput (seq/s)')
-    ax2.set_title('Speed Impact by Feature')
-    ax2.bar_label(bars2, fmt='%.1f')
+    # Throughput Plot
+    sns.barplot(data=df, x="Configuration", y="Throughput (seq/s)", ax=axes[1], palette="crest")
+    axes[1].set_title("Inference Throughput", color='white', fontweight='bold')
+    axes[1].tick_params(axis='x', rotation=45, colors='white')
+    axes[1].tick_params(axis='y', colors='white')
     
     plt.tight_layout()
-    plt.savefig(res_dir / "overhead_comparison.png", dpi=150, bbox_inches='tight')
+    logger.save_plot(fig, "overhead_premium.png")
     
-    print(f"\n[*] Results saved to {res_dir}")
-    
-    # Summary
-    if 'baseline' in results and 'all_features' in results:
-        base = results['baseline']
-        full = results['all_features']
-        vram_overhead = ((full['vram_mb'] - base['vram_mb']) / base['vram_mb']) * 100
-        speed_overhead = ((base['throughput'] - full['throughput']) / base['throughput']) * 100
-        print(f"\n[*] SUMMARY:")
-        print(f"   Full features add {vram_overhead:.1f}% VRAM overhead")
-        print(f"   Full features reduce throughput by {speed_overhead:.1f}%")
-    
-    return results
+    console.print(f"\n[bold green][SUCCESS][/] Detailed profiles saved to [cyan]{logger.run_dir}[/]\n")
+
+if __name__ == "__main__":
+    run_benchmark()
 
 
 if __name__ == "__main__":
