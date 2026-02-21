@@ -1,3 +1,14 @@
+# Progress Update (February 21, 2026)
+
+Over the past two weeks, we’ve been working intensively on the Geodesic Flow Framework (GFN / Manifold). Here’s a quick update on where things stand:
+
+**-Steady development:** We’ve implemented several new features and ideas inspired by recent papers, which significantly expanded the framework’s capabilities.
+**-Challenges along the way**: As the project grew (now over 130 files), we started running into some issues: tightly coupled code, limited modularity, and convergence problems in more complex tasks.
+**-Current focus (v2.6.6)**: Our main goal right now is a full modular refactor — reorganizing everything into a clean, scalable structure that will likely grow to 300+ files. This will make the framework much easier to maintain, extend, and evolve without breaking existing functionality.
+**-note**: Even without new commits over the past two weeks, the repository has continued to get steady organic views and clones. Thanks to everyone who’s been checking it out! 
+
+**The modularized version is coming soon.**
+
 # THIS IS A PROJECT IN DEVELOPMENT, WE DO NOT RECOMMEND USING IT FOR PRODUCTION YET.
 
 # Manifold: Geometric Sequence Modeling via Symplectic Flows
