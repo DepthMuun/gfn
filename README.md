@@ -4,7 +4,15 @@
 
 Before: **manifold**
 
-Now: **Geodesic Flow Framework**
+Possible future repository names:
+
+1: gfn
+
+2: gff
+
+3: Geodesic Flow Network
+
+4: Geodesic Flow Framework
 
 
 # ORGANIZATION: 
