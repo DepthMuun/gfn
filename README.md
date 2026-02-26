@@ -1,4 +1,14 @@
-# ⚠️ ORGANIZATION RENAMED ⚠️  
+# ⚠️ ORGANIZATION AND REPOSITORY RENAMED ⚠️  
+
+*It is possible that a change will be made to the name of the repository coming with this complete v2.6.6:*
+
+Before: **manifold**
+
+Now: **Geodesic Flow Network**
+
+
+# ORGANIZATION: 
+
 **Previously: Manifold-Laboratory**
 
 **Now: DepthMuun**  
