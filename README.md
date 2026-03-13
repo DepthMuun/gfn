@@ -45,18 +45,18 @@ Manifold provides comprehensive documentation to help users understand, implemen
 ### Documentation Map
 
 ```
-â”œâ”€â”€ Getting Started
-â”‚   â”œâ”€â”€ Installation & Setup
-â”‚   â””â”€â”€ Quick Start Tutorial
-â”‚
-â”œâ”€â”€ Core Concepts
-â”‚   â”œâ”€â”€ Mathematical Foundations
-â”‚   â””â”€â”€ Architecture Deep Dive
-â”‚
-â”œâ”€â”€ Reference
-â”‚   â”œâ”€â”€ API Documentation
-â”‚   â”œâ”€â”€ Benchmarking Results
-â”‚   â””â”€â”€ Troubleshooting Guide
+├── Getting Started
+│   ├── Installation & Setup
+│   └── Quick Start Tutorial
+│
+├── Core Concepts
+│   ├── Mathematical Foundations
+│   └── Architecture Deep Dive
+│
+├── Reference
+│   ├── API Documentation
+│   ├── Benchmarking Results
+│   └── Troubleshooting Guide
 ```
 
 ---
