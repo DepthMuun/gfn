@@ -1,4 +1,4 @@
-# Pre-commit hooks configuration for Manifold
+# Pre-commit hooks configuration for GFN
 #
 # This file defines the automated quality checks that run before each commit.
 # Install hooks with: pre-commit install

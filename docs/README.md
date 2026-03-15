@@ -1,12 +1,12 @@
-# Manifold Documentation
+# GFN Documentation
 
-Welcome to the Manifold documentation. Manifold is a Geometric Flow Network (GFN) implementation that reformulates sequence modeling through the lens of differential geometry and Hamiltonian mechanics. This documentation provides comprehensive guidance for understanding, configuring, and using the Manifold framework.
+Welcome to the GFN documentation. GFN is a Geometric Flow Network (GFN) implementation that reformulates sequence modeling through the lens of differential geometry and Hamiltonian mechanics. This documentation provides comprehensive guidance for understanding, configuring, and using the GFN framework.
 
 ## Documentation Structure
 
 ### Getting Started
 
-- [Getting Started](getting-started.md) - Quick introduction to Manifold
+- [Getting Started](getting-started.md) - Quick introduction to GFN
 - [Installation](guides/01-introduction/02-installation.md) - Setup instructions
 - [Quick Start Guide](guides/04-guides/01-quick-start-guide.md) - Run your first experiment
 - [About the Project](guides/01-introduction/01-about-the-project.md) - Project overview
@@ -55,4 +55,4 @@ Welcome to the Manifold documentation. Manifold is a Geometric Flow Network (GFN
 
 ---
 
-**Manifold Framework Documentation**
+**GFN Framework Documentation**

@@ -1,0 +1,10 @@
+{
+  "hallucination_score_max": 0.0456,
+  "hallucination_score_mean": 0.043,
+  "drift_per_step": 0.001858,
+  "time_variance": 0.0083,
+  "inference_time_s": 0.604,
+  "seq_len": 100,
+  "n_params": 3164,
+  "eval_mode": "Stability Trained"
+}

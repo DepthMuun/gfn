@@ -1,13 +1,13 @@
 ﻿cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 authors:
-  - family-names: "StÃ¼rtz"
-    given-names: "JoaquÃ­n"
+  - family-names: "Stürz"
+    given-names: "Joaquín"
     affiliation: "DepthMuun"
-title: "Manifold: Geometric Sequence Modeling via Symplectic Flows"
-version: "2.6.5"
+title: "GFN: Geometric Sequence Modeling via Symplectic Flows"
+version: "2.6.6"
 doi: ""
-date-released: 2026-02-03
+date-released: 2026-03-14
 url: "https://github.com/DepthMuun/gfn"
 repository-code: "https://github.com/DepthMuun/gfn"
 license: Apache-2.0
@@ -25,4 +25,4 @@ keywords:
   - "transformer alternative"
   - "manifold learning"
   - "riemannian geometry"
-commit: "v2.6.5"
+commit: "v2.6.6"

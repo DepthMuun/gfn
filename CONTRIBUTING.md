@@ -1,27 +1,27 @@
-﻿# Contributing to Manifold
+﻿# Contributing to GFN
 
-Thank you for your interest in contributing to Manifold! This document provides comprehensive guidelines and detailed instructions for contributing to the Geodesic Flow Networks project. Whether you are fixing bugs, adding new features, improving documentation, or proposing innovative ideas to extend the geometric sequence modeling capabilities, your contributions are warmly welcomed and deeply appreciated. This guide will walk you through the entire contribution process, from setting up your development environment to having your changes merged into the main repository.
+Thank you for your interest in contributing to GFN! This document provides comprehensive guidelines and detailed instructions for contributing to the Geodesic Flow Networks project. Whether you are fixing bugs, adding new features, improving documentation, or proposing innovative ideas to extend the geometric sequence modeling capabilities, your contributions are warmly welcomed and deeply appreciated. This guide will walk you through the entire contribution process, from setting up your development environment to having your changes merged into the main repository.
 
 ## 1. Getting Started
 
 ### 1.1 Prerequisites and Environment Requirements
 
-Before you begin contributing to Manifold, it is essential to ensure that your development environment meets all the necessary requirements and is properly configured. Manifold is built on PyTorch and relies on several scientific computing libraries, so having the correct versions installed is crucial for successful development and testing.
+Before you begin contributing to GFN, it is essential to ensure that your development environment meets all the necessary requirements and is properly configured. GFN is built on PyTorch and relies on several scientific computing libraries, so having the correct versions installed is crucial for successful development and testing.
 
-The following tools and dependencies must be installed on your system before you can contribute to Manifold. Python version 3.10 or higher is required, as the project utilizes modern Python features including structural pattern matching and improved type hint syntax. Git is essential for version control operations including cloning repositories, creating branches, and managing commits. PyTorch version 2.0 or higher is the core deep learning framework upon which Manifold is built, and version compatibility is important for certain features to function correctly. A CUDA-compatible GPU is strongly recommended for development and testing, as the project involves numerical computations that benefit significantly from GPU acceleration. A LaTeX distribution is necessary for building mathematical documentation that contains properly rendered equations and symbols.
+The following tools and dependencies must be installed on your system before you can contribute to GFN. Python version 3.10 or higher is required, as the project utilizes modern Python features including structural pattern matching and improved type hint syntax. Git is essential for version control operations including cloning repositories, creating branches, and managing commits. PyTorch version 2.0 or higher is the core deep learning framework upon which GFN is built, and version compatibility is important for certain features to function correctly. A CUDA-compatible GPU is strongly recommended for development and testing, as the project involves numerical computations that benefit significantly from GPU acceleration. A LaTeX distribution is necessary for building mathematical documentation that contains properly rendered equations and symbols.
 
 You can verify your Python version by running `python --version` in your terminal. For PyTorch installation with CUDA support, visit the official PyTorch website to get the appropriate installation command for your system configuration. GPU availability can be verified using the `nvidia-smi` command on Linux systems or by running a simple PyTorch tensor computation on the GPU.
 
 ### 1.2 Setting Up Your Development Environment
 
-Establishing a proper development environment is the first and most important step in contributing to Manifold. The following procedure will guide you through forking the repository, cloning it to your local machine, and configuring all necessary development dependencies.
+Establishing a proper development environment is the first and most important step in contributing to GFN. The following procedure will guide you through forking the repository, cloning it to your local machine, and configuring all necessary development dependencies.
 
-First, navigate to the main Manifold repository page on GitHub and click the "Fork" button in the upper-right corner of the page. This creates your personal copy of the repository under your GitHub account, allowing you to make changes without affecting the main project. After forking is complete, clone your forked repository to your local machine using the git clone command with the URL of your fork. Navigate into the repository directory and install the package in editable mode along with all development dependencies.
+First, navigate to the main GFN repository page on GitHub and click the "Fork" button in the upper-right corner of the page. This creates your personal copy of the repository under your GitHub account, allowing you to make changes without affecting the main project. After forking is complete, clone your forked repository to your local machine using the git clone command with the URL of your fork. Navigate into the repository directory and install the package in editable mode along with all development dependencies.
 
 ```bash
 # Clone your forked repository
 git clone https://github.com/DepthMuun/gfn.git
-cd manifold
+cd gfn
 
 # Install in development mode with all dependencies
 pip install -e ".[dev]"
@@ -32,11 +32,11 @@ pre-commit install
 
 The editable installation (`-e` flag) allows you to modify the source code and have those changes immediately reflected without reinstalling the package. The development dependencies include testing frameworks, documentation building tools, linting utilities, and other essential development tools. Pre-commit hooks are automated scripts that run before each commit to ensure your code meets the project's quality standards, including formatting checks, linting, and basic sanity tests.
 
-After installation, verify that your environment is correctly set up by running a simple test. Import the Manifold module and verify that you can create an instance of the model without errors. If you encounter any import errors or dependency issues, consult the [Troubleshooting](docs/troubleshooting.md) documentation for guidance on resolving common setup problems.
+After installation, verify that your environment is correctly set up by running a simple test. Import the GFN module and verify that you can create an instance of the model without errors. If you encounter any import errors or dependency issues, consult the [Troubleshooting](docs/troubleshooting.md) documentation for guidance on resolving common setup problems.
 
 ### 1.3 Understanding the Project Structure
 
-Manifold follows a carefully organized modular architecture designed to separate concerns, facilitate code reuse, and make the system extensible. Before making significant contributions, take the time to understand how the project is structured and how different components interact with each other.
+GFN follows a carefully organized modular architecture designed to separate concerns, facilitate code reuse, and make the system extensible. Before making significant contributions, take the time to understand how the project is structured and how different components interact with each other.
 
 The `src/` directory contains the main implementation source code, organized into logical submodules that correspond to different components of the system. This includes modules for the core manifold model, integrators for numerical simulation, optimizers for Riemannian gradient descent, and utility functions for data processing and evaluation. Each submodule contains clear documentation and type annotations to facilitate understanding and extension.
 
