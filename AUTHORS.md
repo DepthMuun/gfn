@@ -2,7 +2,7 @@
 
 ## Project Creator
 
-**Joaquín Stürtz** (Manifold Laboratory) is the primary creator and architect of Manifold and Geodesic Flow Networks. The laboratory focuses on advancing the field of geometric intelligence through the application of physical principles to machine learning architectures.
+**Joaquín Stürtz** (DepthMuun) is the primary creator and architect of GFN (Geometric Flow Networks). The laboratory focuses on advancing the field of geometric intelligence through the application of physical principles to machine learning architectures.
 
 For inquiries about the project, please contact Joaquín Stürtz through the official GitHub repository.
 
@@ -10,17 +10,17 @@ For inquiries about the project, please contact Joaquín Stürtz through the off
 
 ### Project Lead
 
-**Joaquín Stürtz** is the project lead, responsible for the overall direction, architecture decisions, and quality standards of the Manifold project. This role encompasses technical leadership, community management, and strategic planning for the project's development roadmap.
+**Joaquín Stürtz** is the project lead, responsible for the overall direction, architecture decisions, and quality standards of the GFN project. This role encompasses technical leadership, community management, and strategic planning for the project's development roadmap.
 
 ### Core Contributors
 
-Core contributors are individuals who have made significant and sustained contributions to the Manifold project. These contributions may include major feature implementations, substantial code refactoring, comprehensive documentation, benchmark development, or other contributions that have meaningfully advanced the project.
+Core contributors are individuals who have made significant and sustained contributions to the GFN project. These contributions may include major feature implementations, substantial code refactoring, comprehensive documentation, benchmark development, or other contributions that have meaningfully advanced the project.
 
 Core contributors have write access to the repository and participate in code reviews and technical discussions. They are expected to maintain the project's quality standards and help guide the direction of development.
 
 ## Contributing Community
 
-Manifold benefits from a vibrant community of contributors who help improve the project through various means:
+GFN benefits from a vibrant community of contributors who help improve the project through various means:
 
 ### Code Contributors
 
@@ -42,7 +42,7 @@ Members of the community who help other users through discussions, answering que
 
 ### Contribution Types
 
-Manifold recognizes contributions across several dimensions:
+GFN recognizes contributions across several dimensions:
 
 **Code Contributions**: Implementation of features, bug fixes, performance improvements, and code refactoring. Major code contributions are recognized in release notes and may be highlighted in project communications.
 
@@ -61,9 +61,9 @@ Contributors are attributed in the following ways:
 - **Commit History**: All contributions are recorded in the Git commit history, preserving the authorship of each change.
 - **Release Notes**: Significant contributions are highlighted in release notes accompanying new versions.
 - **Documentation**: Major contributors may be mentioned in relevant documentation sections.
-- **Communication**: With permission, contributors may be featured in blog posts, presentations, and other communications from the Manifold Laboratory.
+- **Communication**: With permission, contributors may be featured in blog posts, presentations, and other communications from the DepthMuun.
 
-## Contributing to Manifold
+## Contributing to GFN
 
 We welcome contributions from the community in all forms. Whether you are fixing a typo in the documentation, reporting a bug, implementing a new feature, or improving the mathematical foundations, your contributions are valued.
 
@@ -71,30 +71,30 @@ For information about how to contribute, please see the [CONTRIBUTING.md](CONTRI
 
 ## Open Source Recognition
 
-Manifold is published under the Apache License 2.0, an open source license that permits free use, modification, and distribution of the software. We are grateful to the open source community for the tools, libraries, and knowledge that have made this project possible.
+GFN is published under the Apache License 2.0, an open source license that permits free use, modification, and distribution of the software. We are grateful to the open source community for the tools, libraries, and knowledge that have made this project possible.
 
 ### Dependencies and Inspirations
 
-Manifold builds upon several important open source projects and research works:
+GFN builds upon several important open source projects and research works:
 
-- **PyTorch**: The deep learning framework that powers Manifold's tensor computations and automatic differentiation capabilities.
+- **PyTorch**: The deep learning framework that powers GFN's tensor computations and automatic differentiation capabilities.
 - **NumPy**: Scientific computing foundation for numerical operations and array manipulation.
 - **Scientific Literature**: The project draws inspiration from research in geometric mechanics, Riemannian geometry, and state space models for sequence modeling.
 
 ## Contact Information
 
-For questions about Manifold, contributions, or collaboration opportunities, please:
+For questions about GFN, contributions, or collaboration opportunities, please:
 
 - Open an issue on GitHub for bug reports, feature requests, or questions
-- Review the documentation at docs/ for guidance on using Manifold
+- Review the documentation at docs/ for guidance on using GFN
 - Check existing issues before opening new ones to avoid duplication
 
 ## Acknowledgments
 
-We thank all contributors who have dedicated their time and expertise to making Manifold a successful project. Your contributions advance the field of geometric sequence modeling and make powerful tools accessible to researchers and practitioners worldwide.
+We thank all contributors who have dedicated their time and expertise to making GFN a successful project. Your contributions advance the field of geometric sequence modeling and make powerful tools accessible to researchers and practitioners worldwide.
 
-The journey of Manifold is one of collaboration, learning, and discovery. We are committed to fostering an inclusive and supportive community where all contributors can grow and succeed.
+The journey of GFN is one of collaboration, learning, and discovery. We are committed to fostering an inclusive and supportive community where all contributors can grow and succeed.
 
 ---
 
-*This document recognizes the collaborative nature of open source development and the value of every contribution to the Manifold project.*
+*This document recognizes the collaborative nature of open source development and the value of every contribution to the GFN project.*

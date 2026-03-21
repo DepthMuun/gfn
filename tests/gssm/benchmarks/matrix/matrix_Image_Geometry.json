@@ -1,0 +1,162 @@
+[
+    {
+        "parameters": 152867,
+        "vram_mb": 21.38,
+        "peak_vram_mb": 27.99,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773146845.6305046,
+        "task": "Image_Geometry",
+        "config": {
+            "physics.topology.geometry_scope": "local",
+            "physics.topology.riemannian_type": "low_rank",
+            "rank": 32
+        },
+        "accuracy": 0.975,
+        "duration_sec": 46.04,
+        "steps": 500,
+        "loss_final": 0.5073717832565308
+    },
+    {
+        "parameters": 169251,
+        "vram_mb": 20.76,
+        "peak_vram_mb": 32.68,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773146895.4222503,
+        "task": "Image_Geometry",
+        "config": {
+            "physics.topology.geometry_scope": "local",
+            "physics.topology.riemannian_type": "low_rank",
+            "rank": 64
+        },
+        "accuracy": 0.975,
+        "duration_sec": 49.78,
+        "steps": 500,
+        "loss_final": 0.38283973932266235
+    },
+    {
+        "parameters": 152867,
+        "vram_mb": 21.38,
+        "peak_vram_mb": 32.5,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773146941.219575,
+        "task": "Image_Geometry",
+        "config": {
+            "physics.topology.geometry_scope": "local",
+            "physics.topology.riemannian_type": "reactive",
+            "rank": 32
+        },
+        "accuracy": 0.975,
+        "duration_sec": 45.79,
+        "steps": 500,
+        "loss_final": 0.41449832916259766
+    },
+    {
+        "parameters": 169251,
+        "vram_mb": 20.76,
+        "peak_vram_mb": 32.68,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773146989.9400332,
+        "task": "Image_Geometry",
+        "config": {
+            "physics.topology.geometry_scope": "local",
+            "physics.topology.riemannian_type": "reactive",
+            "rank": 64
+        },
+        "accuracy": 0.975,
+        "duration_sec": 48.71,
+        "steps": 500,
+        "loss_final": 0.37616655230522156
+    },
+    {
+        "parameters": 8662179,
+        "vram_mb": 84.69,
+        "peak_vram_mb": 183.57,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773147041.9781578,
+        "task": "Image_Geometry",
+        "config": {
+            "physics.topology.geometry_scope": "global",
+            "physics.topology.riemannian_type": "low_rank",
+            "rank": 32
+        },
+        "accuracy": 0.975,
+        "duration_sec": 52.03,
+        "steps": 500,
+        "loss_final": 1.4751684665679932
+    },
+    {
+        "parameters": 8793251,
+        "vram_mb": 83.94,
+        "peak_vram_mb": 248.26,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773147104.5318549,
+        "task": "Image_Geometry",
+        "config": {
+            "physics.topology.geometry_scope": "global",
+            "physics.topology.riemannian_type": "low_rank",
+            "rank": 64
+        },
+        "accuracy": 0.975,
+        "duration_sec": 62.54,
+        "steps": 500,
+        "loss_final": 1.3305025100708008
+    },
+    {
+        "parameters": 8662179,
+        "vram_mb": 84.69,
+        "peak_vram_mb": 246.76,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773147164.471909,
+        "task": "Image_Geometry",
+        "config": {
+            "physics.topology.geometry_scope": "global",
+            "physics.topology.riemannian_type": "reactive",
+            "rank": 32
+        },
+        "accuracy": 0.975,
+        "duration_sec": 59.92,
+        "steps": 500,
+        "loss_final": 1.1680643558502197
+    },
+    {
+        "parameters": 8793251,
+        "vram_mb": 83.94,
+        "peak_vram_mb": 248.26,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773147223.4016974,
+        "task": "Image_Geometry",
+        "config": {
+            "physics.topology.geometry_scope": "global",
+            "physics.topology.riemannian_type": "reactive",
+            "rank": 64
+        },
+        "accuracy": 0.975,
+        "duration_sec": 58.92,
+        "steps": 500,
+        "loss_final": 1.326475739479065
+    }
+]

@@ -1,0 +1,28 @@
+{
+  "benchmark": "MANIFOLD Real NIAH (HF ameyhengle/Multilingual)",
+  "timestamp_start": "2026-03-06T19:24:33.388211",
+  "config": {
+    "dim": 128,
+    "depth": 4,
+    "heads": 4,
+    "integrator": "rk4",
+    "impulse_scale": 120.0,
+    "vocab_size": 50257,
+    "train_batch_size": 4,
+    "train_steps": 100000,
+    "checkpoint_every": 30,
+    "lr": 0.001,
+    "max_lr": 0.002,
+    "eval_batch_size": 4,
+    "eval_steps": 50,
+    "acc_threshold": 0.9,
+    "patience": 100,
+    "min_steps": 100,
+    "hf_config": "baseline",
+    "max_seq_len": 3000,
+    "device": "cuda",
+    "tokenizer": "transformers-gpt2"
+  },
+  "training": {},
+  "evaluation": {}
+}

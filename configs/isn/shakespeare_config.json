@@ -1,0 +1,53 @@
+{
+    "model": {
+        "d_model": 256,
+        "d_embedding": 256,
+        "d_properties": 128,
+        "n_layers": 8
+    },
+    "training": {
+        "batch_size": 512,
+        "learning_rate": 5e-4,
+        "num_epochs": 50,
+        "gradient_clip": 1.0,
+        "scheduler": {
+            "type": "CosineAnnealingLR",
+            "T_max": 50,
+            "eta_min": 1e-5
+        },
+        "curriculum": {
+            "phase1": {
+                "epochs": [
+                    0,
+                    10
+                ],
+                "lambda_weights": {
+                    "lambda_outcome": 1.0,
+                    "lambda_coherence": 0.5,
+                    "lambda_grounding": 0.0,
+                    "lambda_validity": 0.0,
+                    "lambda_emergence": 0.0,
+                    "lambda_efficiency": 0.1
+                }
+            },
+            "phase2": {
+                "epochs": [
+                    10,
+                    50
+                ],
+                "lambda_weights": {
+                    "lambda_outcome": 1.0,
+                    "lambda_coherence": 1.0,
+                    "lambda_grounding": 0.0,
+                    "lambda_validity": 0.0,
+                    "lambda_emergence": 0.0,
+                    "lambda_efficiency": 0.2
+                }
+            }
+        }
+    },
+    "logging": {
+        "checkpoint_frequency": 5,
+        "keep_n_checkpoints": 3
+    }
+}

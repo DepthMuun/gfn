@@ -2,6 +2,12 @@
 # =========================
 
 # Python
+
+.mypy_cache/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+_eval_out/
 __pycache__/
 *.py[cod]
 *$py.class
@@ -26,11 +32,15 @@ share/python-wheels/
 *.egg
 MANIFEST
 *.tex
-
+*.log
+*.pdf
+_eval_out
 # PyTorch
 *.pth
 *.pt
 *.ckpt
+memory/
+*.csv
 
 # Checkpoints (Exclude all model weights everywhere)
 checkpoints/

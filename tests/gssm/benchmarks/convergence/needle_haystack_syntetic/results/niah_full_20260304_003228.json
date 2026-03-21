@@ -1,0 +1,41 @@
+{
+  "benchmark": "MANIFOLD Needle-in-a-Haystack",
+  "timestamp_start": "2026-03-04T00:32:30.317413",
+  "config": {
+    "dim": 192,
+    "depth": 6,
+    "heads": 6,
+    "integrator": "yoshida",
+    "impulse_scale": 80.0,
+    "train_seq_len": 64,
+    "train_batch_size": 64,
+    "train_steps": 600,
+    "checkpoint_every": 100,
+    "lr": 0.001,
+    "max_lr": 0.002,
+    "eval_lengths": [
+      1000,
+      2000,
+      4000,
+      8000,
+      16000,
+      32000
+    ],
+    "needle_fractions": [
+      0.05,
+      0.25,
+      0.5,
+      0.75,
+      0.95
+    ],
+    "eval_batch_size": 8,
+    "acc_threshold": 0.95,
+    "patience": 30,
+    "min_steps": 150,
+    "device": "cuda",
+    "n_params": 987145,
+    "seed": 42
+  },
+  "training": {},
+  "eval_lengths": {}
+}

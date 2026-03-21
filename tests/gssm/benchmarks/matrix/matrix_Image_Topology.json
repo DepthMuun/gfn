@@ -1,0 +1,242 @@
+[
+    {
+        "parameters": 146707,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 27.83,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773147279.3556178,
+        "task": "Image_Topology",
+        "config": {
+            "physics.topology.type": "torus",
+            "physics.stability.enable_trace_normalization": true,
+            "physics.dynamics.type": "direct"
+        },
+        "accuracy": 0.025,
+        "duration_sec": 55.94,
+        "steps": 500,
+        "loss_final": 0.4016503393650055
+    },
+    {
+        "parameters": 146711,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773147326.0985558,
+        "task": "Image_Topology",
+        "config": {
+            "physics.topology.type": "torus",
+            "physics.stability.enable_trace_normalization": true,
+            "physics.dynamics.type": "residual"
+        },
+        "accuracy": 0.025,
+        "duration_sec": 46.73,
+        "steps": 500,
+        "loss_final": 0.7310786247253418
+    },
+    {
+        "parameters": 146715,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.16,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773147374.442951,
+        "task": "Image_Topology",
+        "config": {
+            "physics.topology.type": "torus",
+            "physics.stability.enable_trace_normalization": true,
+            "physics.dynamics.type": "mix"
+        },
+        "accuracy": 0.025,
+        "duration_sec": 48.34,
+        "steps": 500,
+        "loss_final": 0.9295099973678589
+    },
+    {
+        "parameters": 146451,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773147418.0045574,
+        "task": "Image_Topology",
+        "config": {
+            "physics.topology.type": "torus",
+            "physics.stability.enable_trace_normalization": false,
+            "physics.dynamics.type": "direct"
+        },
+        "accuracy": 0.025,
+        "duration_sec": 43.55,
+        "steps": 500,
+        "loss_final": 0.4481172263622284
+    },
+    {
+        "parameters": 146455,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773147463.1203408,
+        "task": "Image_Topology",
+        "config": {
+            "physics.topology.type": "torus",
+            "physics.stability.enable_trace_normalization": false,
+            "physics.dynamics.type": "residual"
+        },
+        "accuracy": 0.025,
+        "duration_sec": 45.11,
+        "steps": 500,
+        "loss_final": 0.7580626010894775
+    },
+    {
+        "parameters": 146459,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.16,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773147508.242944,
+        "task": "Image_Topology",
+        "config": {
+            "physics.topology.type": "torus",
+            "physics.stability.enable_trace_normalization": false,
+            "physics.dynamics.type": "mix"
+        },
+        "accuracy": 0.025,
+        "duration_sec": 45.11,
+        "steps": 500,
+        "loss_final": 1.0818378925323486
+    },
+    {
+        "parameters": 79123,
+        "vram_mb": 20.81,
+        "peak_vram_mb": 30.89,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773147551.97237,
+        "task": "Image_Topology",
+        "config": {
+            "physics.topology.type": "euclidean",
+            "physics.stability.enable_trace_normalization": true,
+            "physics.dynamics.type": "direct"
+        },
+        "accuracy": 0.025,
+        "duration_sec": 43.72,
+        "steps": 500,
+        "loss_final": 0.46354007720947266
+    },
+    {
+        "parameters": 79127,
+        "vram_mb": 20.06,
+        "peak_vram_mb": 30.39,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773147599.697917,
+        "task": "Image_Topology",
+        "config": {
+            "physics.topology.type": "euclidean",
+            "physics.stability.enable_trace_normalization": true,
+            "physics.dynamics.type": "residual"
+        },
+        "accuracy": 0.025,
+        "duration_sec": 47.72,
+        "steps": 500,
+        "loss_final": 0.7212965488433838
+    },
+    {
+        "parameters": 79131,
+        "vram_mb": 20.82,
+        "peak_vram_mb": 30.4,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773147663.3906164,
+        "task": "Image_Topology",
+        "config": {
+            "physics.topology.type": "euclidean",
+            "physics.stability.enable_trace_normalization": true,
+            "physics.dynamics.type": "mix"
+        },
+        "accuracy": 0.025,
+        "duration_sec": 63.68,
+        "steps": 500,
+        "loss_final": 0.9066017270088196
+    },
+    {
+        "parameters": 78867,
+        "vram_mb": 20.06,
+        "peak_vram_mb": 30.38,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773147721.8657558,
+        "task": "Image_Topology",
+        "config": {
+            "physics.topology.type": "euclidean",
+            "physics.stability.enable_trace_normalization": false,
+            "physics.dynamics.type": "direct"
+        },
+        "accuracy": 0.025,
+        "duration_sec": 58.47,
+        "steps": 500,
+        "loss_final": 0.4443150758743286
+    },
+    {
+        "parameters": 78871,
+        "vram_mb": 20.81,
+        "peak_vram_mb": 30.38,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773147780.549544,
+        "task": "Image_Topology",
+        "config": {
+            "physics.topology.type": "euclidean",
+            "physics.stability.enable_trace_normalization": false,
+            "physics.dynamics.type": "residual"
+        },
+        "accuracy": 0.025,
+        "duration_sec": 58.68,
+        "steps": 500,
+        "loss_final": 0.7068781852722168
+    },
+    {
+        "parameters": 78875,
+        "vram_mb": 20.06,
+        "peak_vram_mb": 30.4,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773147837.3563106,
+        "task": "Image_Topology",
+        "config": {
+            "physics.topology.type": "euclidean",
+            "physics.stability.enable_trace_normalization": false,
+            "physics.dynamics.type": "mix"
+        },
+        "accuracy": 0.025,
+        "duration_sec": 56.8,
+        "steps": 500,
+        "loss_final": 0.9966775178909302
+    }
+]

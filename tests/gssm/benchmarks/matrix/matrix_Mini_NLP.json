@@ -1,0 +1,242 @@
+[
+    {
+        "parameters": 39603,
+        "vram_mb": 16.57,
+        "peak_vram_mb": 21.92,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772848671.5989442,
+        "task": "Mini_NLP",
+        "config": {
+            "mixer_type": "low_rank",
+            "dynamics_type": "direct",
+            "topology_type": "torus"
+        },
+        "accuracy": 0.28070175647735596,
+        "duration_sec": 232.83,
+        "steps": 150,
+        "loss_final": 0.06355646252632141
+    },
+    {
+        "parameters": 24755,
+        "vram_mb": 16.46,
+        "peak_vram_mb": 19.29,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772848723.4523065,
+        "task": "Mini_NLP",
+        "config": {
+            "mixer_type": "low_rank",
+            "dynamics_type": "direct",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 0.24561403691768646,
+        "duration_sec": 51.84,
+        "steps": 150,
+        "loss_final": 1.2255829572677612
+    },
+    {
+        "parameters": 39607,
+        "vram_mb": 16.57,
+        "peak_vram_mb": 22.64,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772848976.8958635,
+        "task": "Mini_NLP",
+        "config": {
+            "mixer_type": "low_rank",
+            "dynamics_type": "residual",
+            "topology_type": "torus"
+        },
+        "accuracy": 0.24561403691768646,
+        "duration_sec": 253.44,
+        "steps": 150,
+        "loss_final": 0.896192193031311
+    },
+    {
+        "parameters": 24759,
+        "vram_mb": 16.47,
+        "peak_vram_mb": 19.49,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772849032.1524644,
+        "task": "Mini_NLP",
+        "config": {
+            "mixer_type": "low_rank",
+            "dynamics_type": "residual",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 0.31578946113586426,
+        "duration_sec": 55.25,
+        "steps": 150,
+        "loss_final": 2.0167198181152344
+    },
+    {
+        "parameters": 39603,
+        "vram_mb": 16.57,
+        "peak_vram_mb": 21.92,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772849268.8201697,
+        "task": "Mini_NLP",
+        "config": {
+            "mixer_type": "geodesic_attention",
+            "dynamics_type": "direct",
+            "topology_type": "torus"
+        },
+        "accuracy": 0.31578946113586426,
+        "duration_sec": 236.66,
+        "steps": 150,
+        "loss_final": 0.07033070921897888
+    },
+    {
+        "parameters": 24755,
+        "vram_mb": 16.46,
+        "peak_vram_mb": 19.29,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772849319.285919,
+        "task": "Mini_NLP",
+        "config": {
+            "mixer_type": "geodesic_attention",
+            "dynamics_type": "direct",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 0.24561403691768646,
+        "duration_sec": 50.46,
+        "steps": 150,
+        "loss_final": 1.2255829572677612
+    },
+    {
+        "parameters": 39607,
+        "vram_mb": 16.57,
+        "peak_vram_mb": 22.64,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772849567.0085354,
+        "task": "Mini_NLP",
+        "config": {
+            "mixer_type": "geodesic_attention",
+            "dynamics_type": "residual",
+            "topology_type": "torus"
+        },
+        "accuracy": 0.24561403691768646,
+        "duration_sec": 247.72,
+        "steps": 150,
+        "loss_final": 0.896192193031311
+    },
+    {
+        "parameters": 24759,
+        "vram_mb": 16.47,
+        "peak_vram_mb": 19.49,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772849622.40228,
+        "task": "Mini_NLP",
+        "config": {
+            "mixer_type": "geodesic_attention",
+            "dynamics_type": "residual",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 0.31578946113586426,
+        "duration_sec": 55.38,
+        "steps": 150,
+        "loss_final": 2.0167198181152344
+    },
+    {
+        "parameters": 39603,
+        "vram_mb": 16.57,
+        "peak_vram_mb": 21.92,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772849858.9784164,
+        "task": "Mini_NLP",
+        "config": {
+            "mixer_type": "flow_mixer",
+            "dynamics_type": "direct",
+            "topology_type": "torus"
+        },
+        "accuracy": 0.31578946113586426,
+        "duration_sec": 236.57,
+        "steps": 150,
+        "loss_final": 0.07033070921897888
+    },
+    {
+        "parameters": 24755,
+        "vram_mb": 16.46,
+        "peak_vram_mb": 19.29,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772849909.3111835,
+        "task": "Mini_NLP",
+        "config": {
+            "mixer_type": "flow_mixer",
+            "dynamics_type": "direct",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 0.24561403691768646,
+        "duration_sec": 50.33,
+        "steps": 150,
+        "loss_final": 1.2255829572677612
+    },
+    {
+        "parameters": 39607,
+        "vram_mb": 16.57,
+        "peak_vram_mb": 22.64,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772850156.5572374,
+        "task": "Mini_NLP",
+        "config": {
+            "mixer_type": "flow_mixer",
+            "dynamics_type": "residual",
+            "topology_type": "torus"
+        },
+        "accuracy": 0.24561403691768646,
+        "duration_sec": 247.24,
+        "steps": 150,
+        "loss_final": 0.896192193031311
+    },
+    {
+        "parameters": 24759,
+        "vram_mb": 16.47,
+        "peak_vram_mb": 19.49,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772850212.5075982,
+        "task": "Mini_NLP",
+        "config": {
+            "mixer_type": "flow_mixer",
+            "dynamics_type": "residual",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 0.31578946113586426,
+        "duration_sec": 55.94,
+        "steps": 150,
+        "loss_final": 2.0167198181152344
+    }
+]

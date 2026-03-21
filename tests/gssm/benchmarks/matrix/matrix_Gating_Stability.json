@@ -1,0 +1,338 @@
+[
+    {
+        "parameters": 28097,
+        "vram_mb": 16.53,
+        "peak_vram_mb": 19.01,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772846666.6460266,
+        "task": "Gating_Stability",
+        "config": {
+            "active_inference.dynamic_time.enabled": true,
+            "active_inference.dynamic_time.type": "riemannian",
+            "stability.integrator_type": "yoshida",
+            "dynamics_type": "mix"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 77.82,
+        "steps": 100,
+        "loss_final": 5.3405610742629506e-06
+    },
+    {
+        "parameters": 53033,
+        "vram_mb": 16.71,
+        "peak_vram_mb": 19.14,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772846738.7768483,
+        "task": "Gating_Stability",
+        "config": {
+            "active_inference.dynamic_time.enabled": true,
+            "active_inference.dynamic_time.type": "riemannian",
+            "stability.integrator_type": "yoshida",
+            "dynamics_type": "gated"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 72.12,
+        "steps": 100,
+        "loss_final": 8.606843948655296e-06
+    },
+    {
+        "parameters": 28097,
+        "vram_mb": 16.53,
+        "peak_vram_mb": 19.01,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772846808.2326415,
+        "task": "Gating_Stability",
+        "config": {
+            "active_inference.dynamic_time.enabled": true,
+            "active_inference.dynamic_time.type": "riemannian",
+            "stability.integrator_type": "rk4",
+            "dynamics_type": "mix"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 69.44,
+        "steps": 100,
+        "loss_final": 7.247895609907573e-06
+    },
+    {
+        "parameters": 53033,
+        "vram_mb": 16.71,
+        "peak_vram_mb": 19.14,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772846877.447959,
+        "task": "Gating_Stability",
+        "config": {
+            "active_inference.dynamic_time.enabled": true,
+            "active_inference.dynamic_time.type": "riemannian",
+            "stability.integrator_type": "rk4",
+            "dynamics_type": "gated"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 69.2,
+        "steps": 100,
+        "loss_final": 8.606843948655296e-06
+    },
+    {
+        "parameters": 28097,
+        "vram_mb": 16.53,
+        "peak_vram_mb": 19.01,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772846952.1187336,
+        "task": "Gating_Stability",
+        "config": {
+            "active_inference.dynamic_time.enabled": true,
+            "active_inference.dynamic_time.type": "thermo",
+            "stability.integrator_type": "yoshida",
+            "dynamics_type": "mix"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 74.65,
+        "steps": 100,
+        "loss_final": 7.247895609907573e-06
+    },
+    {
+        "parameters": 53033,
+        "vram_mb": 16.71,
+        "peak_vram_mb": 19.14,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772847018.6935508,
+        "task": "Gating_Stability",
+        "config": {
+            "active_inference.dynamic_time.enabled": true,
+            "active_inference.dynamic_time.type": "thermo",
+            "stability.integrator_type": "yoshida",
+            "dynamics_type": "gated"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 66.56,
+        "steps": 100,
+        "loss_final": 8.606843948655296e-06
+    },
+    {
+        "parameters": 28097,
+        "vram_mb": 16.53,
+        "peak_vram_mb": 19.01,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772847096.5820317,
+        "task": "Gating_Stability",
+        "config": {
+            "active_inference.dynamic_time.enabled": true,
+            "active_inference.dynamic_time.type": "thermo",
+            "stability.integrator_type": "rk4",
+            "dynamics_type": "mix"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 77.87,
+        "steps": 100,
+        "loss_final": 7.247895609907573e-06
+    },
+    {
+        "parameters": 53033,
+        "vram_mb": 16.71,
+        "peak_vram_mb": 19.14,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772847166.0947118,
+        "task": "Gating_Stability",
+        "config": {
+            "active_inference.dynamic_time.enabled": true,
+            "active_inference.dynamic_time.type": "thermo",
+            "stability.integrator_type": "rk4",
+            "dynamics_type": "gated"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 69.49,
+        "steps": 100,
+        "loss_final": 8.606843948655296e-06
+    },
+    {
+        "parameters": 28097,
+        "vram_mb": 16.53,
+        "peak_vram_mb": 19.01,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772847236.1062193,
+        "task": "Gating_Stability",
+        "config": {
+            "active_inference.dynamic_time.enabled": false,
+            "active_inference.dynamic_time.type": "riemannian",
+            "stability.integrator_type": "yoshida",
+            "dynamics_type": "mix"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 70.0,
+        "steps": 100,
+        "loss_final": 7.247895609907573e-06
+    },
+    {
+        "parameters": 53033,
+        "vram_mb": 16.71,
+        "peak_vram_mb": 19.14,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772847314.943279,
+        "task": "Gating_Stability",
+        "config": {
+            "active_inference.dynamic_time.enabled": false,
+            "active_inference.dynamic_time.type": "riemannian",
+            "stability.integrator_type": "yoshida",
+            "dynamics_type": "gated"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 78.82,
+        "steps": 100,
+        "loss_final": 8.606843948655296e-06
+    },
+    {
+        "parameters": 28097,
+        "vram_mb": 16.53,
+        "peak_vram_mb": 19.01,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772847390.1795144,
+        "task": "Gating_Stability",
+        "config": {
+            "active_inference.dynamic_time.enabled": false,
+            "active_inference.dynamic_time.type": "riemannian",
+            "stability.integrator_type": "rk4",
+            "dynamics_type": "mix"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 75.22,
+        "steps": 100,
+        "loss_final": 7.247895609907573e-06
+    },
+    {
+        "parameters": 53033,
+        "vram_mb": 16.71,
+        "peak_vram_mb": 19.14,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772847457.471748,
+        "task": "Gating_Stability",
+        "config": {
+            "active_inference.dynamic_time.enabled": false,
+            "active_inference.dynamic_time.type": "riemannian",
+            "stability.integrator_type": "rk4",
+            "dynamics_type": "gated"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 67.27,
+        "steps": 100,
+        "loss_final": 8.606843948655296e-06
+    },
+    {
+        "parameters": 28097,
+        "vram_mb": 16.53,
+        "peak_vram_mb": 19.01,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772847529.634303,
+        "task": "Gating_Stability",
+        "config": {
+            "active_inference.dynamic_time.enabled": false,
+            "active_inference.dynamic_time.type": "thermo",
+            "stability.integrator_type": "yoshida",
+            "dynamics_type": "mix"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 72.15,
+        "steps": 100,
+        "loss_final": 7.247895609907573e-06
+    },
+    {
+        "parameters": 53033,
+        "vram_mb": 16.71,
+        "peak_vram_mb": 19.14,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772847599.3798327,
+        "task": "Gating_Stability",
+        "config": {
+            "active_inference.dynamic_time.enabled": false,
+            "active_inference.dynamic_time.type": "thermo",
+            "stability.integrator_type": "yoshida",
+            "dynamics_type": "gated"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 69.73,
+        "steps": 100,
+        "loss_final": 8.606843948655296e-06
+    },
+    {
+        "parameters": 28097,
+        "vram_mb": 16.53,
+        "peak_vram_mb": 19.01,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772847669.2959957,
+        "task": "Gating_Stability",
+        "config": {
+            "active_inference.dynamic_time.enabled": false,
+            "active_inference.dynamic_time.type": "thermo",
+            "stability.integrator_type": "rk4",
+            "dynamics_type": "mix"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 69.9,
+        "steps": 100,
+        "loss_final": 7.247895609907573e-06
+    },
+    {
+        "parameters": 53033,
+        "vram_mb": 16.71,
+        "peak_vram_mb": 19.14,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772847734.6740339,
+        "task": "Gating_Stability",
+        "config": {
+            "active_inference.dynamic_time.enabled": false,
+            "active_inference.dynamic_time.type": "thermo",
+            "stability.integrator_type": "rk4",
+            "dynamics_type": "gated"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 65.36,
+        "steps": 100,
+        "loss_final": 8.606843948655296e-06
+    }
+]

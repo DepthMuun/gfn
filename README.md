@@ -1,263 +1,196 @@
-# ⚠️ ORGANIZATION AND REPOSITORY RENAMED ⚠️  
+# GFN: Geometric Flow Networks
 
-*It is possible that a change will be made to the name of the repository coming with this complete v2.6.6:*
+## A Physics-Informed Paradigm for Sequential Intelligence
 
-Before: **manifold**
+[![Framework: GFN](https://img.shields.io/badge/Paradigm-GFN_2.7.0-blue.svg)](https://github.com/DepthMuun/gfn)
+[![Models: Hugging Face](https://img.shields.io/badge/Models-Hugging%20Face-orange.svg)](https://huggingface.co/DepthMuun)
+[![DOI: 10.5281/zenodo.19141133](https://img.shields.io/badge/DOI-10.5281/zenodo.19141133-blue.svg)](https://doi.org/10.5281/zenodo.19141133)
+[![Status: Active](https://img.shields.io/badge/Status-Active-green.svg)]()
 
-**NOW: gfn**
+> "Intelligence is not statistical correlation; it is the continuous evolution of a persistent world-state governed by physical invariants."
 
-
-
-
-# ORGANIZATION: 
-
-**Previously: Manifold-Laboratory**
-
-**Now: DepthMuun**  
-
-All old links (including github.com/Manifold-Laboratory/manifold) NOT redirect automatically.  
-Same repo, same code, same project —just better branding for our vision.  
-
-**Thanks for your support!** :)
-
-
-# Progress Update (February 21, 2026)
-
-Over the past two weeks, we’ve been working intensively on the Geodesic Flow Framework (GFN / Manifold). Here’s a quick update on where things stand:
-
-**-Steady development:** We’ve implemented several new features and ideas inspired by recent papers, which significantly expanded the framework’s capabilities.
-
-**-Challenges along the way**: As the project grew (now over 130 files), we started running into some issues: tightly coupled code, limited modularity, and convergence problems in more complex tasks.
-
-**-Current focus (v2.6.6)**: Our main goal right now is a full modular refactor — reorganizing everything into a clean, scalable structure that will likely grow to 300+ files. This will make the framework much easier to maintain, extend, and evolve without breaking existing functionality.
-
-**-note**: Even without new commits over the past two weeks, the repository has continued to get steady organic views and clones. Thanks to everyone who’s been checking it out! 
-
-**The modularized version is coming soon.**
-
-# THIS IS A PROJECT IN DEVELOPMENT, WE DO NOT RECOMMEND USING IT FOR PRODUCTION YET.
-
-# Manifold: Geometric Sequence Modeling via Symplectic Flows
-
-> **Infinite Context. Constant Memory. Hamiltonian Dynamics.**
-
-<p align="center">
-  <img src="tests/benchmarks/results/geodesic_flow/geodesic_flow_3d.png" alt="Latent Geodesic Trajectories" width="100%"/>
-  <br>
-  <i><b>Figure 1: The Geometry of Thought.</b> Visualization of the semantic state evolution ($x_t, v_t$) traversing a learned high-dimensional Riemannian manifold. Unlike discrete state transitions in traditional RNNs, Manifold models intelligence as a continuous symplectic flow, conserving momentum and information over infinite horizons.</i>
-</p>
-
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Framework](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
-[![Status](https://img.shields.io/badge/Status-Research%20Preview-orange.svg)]()
+**Geometric Flow Networks (GFN)** represents a fundamental shift in neural architecture. Instead of treating computation as token-to-token correlation (Attention), GFN treats it as a **trajectory** within a high-integrity dynamical system where inputs act as external perturbations that drive state evolution according to structural invariants.
 
 ---
 
-## Documentation
+## The GFN Paradigm
 
-Manifold provides comprehensive documentation to help users understand, implement, and extend the Geometric Flow Network architecture. The documentation is organized into several guides covering different aspects of the system.
+The GFN paradigm (Stürtz, 2026) formalizes reasoning as structural flow. In this framework, inputs act as external perturbations $\mathbf{f}_{ext}$ that drive a persistent state toward a configuration satisfying global conservation laws.
 
-### Getting Started
+---
 
-| Guide | Description |
-|-------|-------------|
-| [Getting Started](docs/getting-started.md) | Complete guide to installing, configuring, and running your first Manifold model. Covers environment setup, basic configuration, and quick-start examples. |
-| [Tutorial](docs/tutorial.md) | Step-by-step tutorial demonstrating how to build a complete sequence modeling project using Manifold. Includes practical code examples and best practices. |
+## The Five Pillars of GFN
 
-### Core Concepts
+For an architecture to be considered a valid GFN realization, it must satisfy **all five pillars**:
 
-| Guide | Description |
-|-------|-------------|
-| [Mathematical Foundations](docs/mathematical-foundations.md) | In-depth exploration of the geometric mechanics principles underlying Manifold. Covers Hamiltonian dynamics, symplectic flows, Riemannian geometry, and the physical interpretation of sequence modeling. |
-| [Architecture](docs/architecture.md) | Comprehensive technical reference describing the system architecture, components, data flow, and implementation details. Essential for understanding how Manifold processes sequences internally. |
+### Pillar 1: Persistent Internal World
 
-### Reference & Advanced Topics
-
-| Guide | Description |
-|-------|-------------|
-| [API Reference](docs/API.md) | Complete API documentation for all Manifold modules, classes, and functions. Includes parameter descriptions, return values, and usage examples for integration into production systems. |
-| [Benchmarking](docs/benchmarking.md) | Detailed documentation of performance evaluations and comparison studies. Covers methodology, metrics, datasets, and results comparing Manifold against Transformers, Mamba, and other state space models. |
-| [Troubleshooting](docs/troubleshooting.md) | Solutions to common issues, numerical instability guides, performance optimization tips, and frequently asked questions. Essential for debugging and production deployment. |
-
-### Documentation Map
+The system must maintain a **simulator**, not a memory buffer. The state evolves through the space, not merely accumulates inputs.
 
 ```
-├── Getting Started
-│   ├── Installation & Setup
-│   └── Quick Start Tutorial
-│
-├── Core Concepts
-│   ├── Mathematical Foundations
-│   └── Architecture Deep Dive
-│
-├── Reference
-│   ├── API Documentation
-│   ├── Benchmarking Results
-│   └── Troubleshooting Guide
+INVALID (Transformer with KV-cache):     Token → Correlation → Token (with memory buffer)
+GFN (Valid):                             Token → Perturbation → World State Evolution
+
+The KV-cache is a "memory crutch" - if you cut the cache, the Transformer forgets everything.
+The GFN world-state is the geometry itself. Memory is intrinsic to the curvature, not an external buffer.
+```
+
+### Pillar 2: At Least One Invariant
+
+The system must encode at least one physical/mathematical invariant that acts as the "gravity" of the model. This prevents the internal world from becoming a latent hallucination.
+
+Examples of valid invariants:
+- **Casimir Operators**: Commute with all generators of a Lie algebra
+- **Hamiltonian Conservation**: Total energy preserved through symplectic integration
+- **Norm Preservation**: State norm remains bounded
+- **Group Symmetries**: Topological constraints that make invalid states geometrically impossible
+- **Phase Space Volume**: Liouville's theorem preservation
+
+```
+WITHOUT INVARIANTS:  "A map without a compass. Without invariants, the world-state is a latent hallucination."
+WITH INVARIANTS:     "The laws of gravity in your model. They prevent the internal world from disintegrating."
+```
+
+### Pillar 3: Structural Integrity
+
+The state cannot collapse to zero or explode to infinity. The invariant guarantees that informational "volume" remains constant.
+
+This resolves the gradient problem intrinsically:
+- No gradient vanishing (singular values = 1)
+- No gradient explosion (volume preserved)
+- The system is stable by geometry, not by patching
+
+### Pillar 4: Temporal Locality (For True O(1))
+
+**Requirement**: The computational cost of updating the state must be independent of how many tokens came before.
+
+```
+VALID:   state_update = f(current_state, present_input)  # O(1) per step
+INVALID: state_update = f(current_state, all_previous_tokens)  # O(N) - breaks O(1) promise
+
+"The flow is calculated over the current state and present input, nothing more."
+```
+
+If an architecture's forward pass loops over history, it breaks the O(1) promise.
+
+### Pillar 5: Geometric Differentiability (For Metric Coherence)
+
+**Requirement**: All states must exist in a manifold where "distance" is physically coherent. This defines how "forces" and "flows" operate.
+
+```
+For there to be "forces" and "flows", you need to know how far one concept is from another in that curved space.
+
+Rule: "Every state must exist in a variety where the notion of 'distance' is physically coherent."
 ```
 
 ---
 
-## 1. Introduction: The Memory Bottleneck
+## The GFN Definition
 
-The fundamental limitation of modern Large Language Models (LLMs) is the **Key-Value (KV) Cache**. To generate the next token, a Transformer must explicitly attend to its entire history. This results in a memory complexity of $O(N)$, creating a hard physical ceiling on context length and inference throughput.
+A **Geometric Flow Network (GFN)** is a neural architecture satisfying all five pillars above:
 
-**Manifold** introduces a paradigm shift by reformulating sequence modeling through the lens of **Geometric Mechanics**. Instead of storing a history of discrete tokens, Manifold encodes context into the **momentum** of a dynamic massive particle moving through a curved semantic space.
+1. Persistent Internal World (Simulator, not buffer)
+2. At Least One Physical/Mathematical Invariant
+3. Structural Integrity (gradient stability by geometry)
+4. Temporal Locality (O(1) state update)
+5. Geometric Differentiability (metric coherence)
 
-This approach yields a **Physically-Structured State Space Model (SSM)** that achieves:
-*   **$O(1)$ Inference Memory**: Constant state complexity (~30MB) regardless of sequence length ($L=10$ or $L=1,000,000$).
-*   **Infinite Context Horizon**: Information is preserved via symplectic conservation laws rather than explicit storage.
-*   **Symplectic Stability**: Energy-conserving integrators prevent the vanishing/exploding gradient problem inherent in standard RNNs.
-
----
-
-## 2. The Superiority Benchmark
-
-To rigorously evaluate the state-tracking capabilities of this architecture, we conducted the **Manifold Superiority Benchmark**. This benchmark utilizes the **Cumulative Parity (XOR) Task**, a problem that is computationally irreducible and requires perfect, lossless memory retention over the entire sequence duration. A single bit-flip error at $t=0$ propagates to invert the target at $t=\infty$, making it the ultimate test of long-term dependency handling.
-
-We compared **Manifold (v2.6.0)** against a standard **Transformer (MicroGPT)** with equivalent parameter counts.
-
-### 2.1. Infinite Length Generalization
-
-Both models were trained **exclusively** on sequences of length $L=20$. We then evaluated their ability to generalize to sequences up to $L=100,000$ (5,000x longer than training).
-
-<p align="center">
-  <img src="tests/benchmarks/results/gfn_superiority/parity_result.png" alt="Superiority Benchmark Result" width="100%"/>
-  <br>
-  <i><b>Figure 2: The Generalization Gap.</b> (Left) Accuracy on Cumulative Parity task relative to sequence length. (Right) VRAM usage scaling. Manifold generalizes perfectly to 100,000+ tokens (~5000x training length) while maintaining O(1) memory.</i>
-</p>
-
-### 2.2. Vocabulary Scaling (O(1) Parameters)
-
-Manifold's **Functional Embeddings** allow the vocabulary to grow indefinitely without increasing parameter count.
-
-<p align="center">
-  <img src="tests/benchmarks/results/infinite_scaling/infinite_scaling_plot.png" alt="Infinite Vocab Scaling" width="100%"/>
-  <br>
-  <i><b>Figure 3: Infinite Vocabulary.</b> Proving O(1) memory scaling with respect to vocabulary size (up to 1 Million tokens).</i>
-</p>
-
-**Empirical Conclusion**: Manifold demonstrates true **algorithmic generalization**. It has learned the underlying generative law of the data (the XOR operator) rather than simply memorizing patterns. This capability is enabled by its **momentum-based memory**, which acts as a robust, noise-resistant carrier of logical state.
-
----
-
-## 3. Dynamic Physics: Forgetting & Remembering
-
-Standard RNNs struggle to forget ("catastrophic memory"), while Transformers must explicitly mask history. Manifold employs a **Dynamic Forget Gate** (thermodynamic friction) that adapts to the input energy.
-
-### 3.1. Context-Aware Forgetting
-
-*   **Stable Context:** Friction $\approx 0$ (Symplectic Conservation). The model remembers.
-*   **Context Switch:** Friction spikes (Energy Dissipation). The model forgets.
-
-<p align="center">
-  <img src="tests/benchmarks/results/stability/dynamic_friction_test.png" alt="Dynamic Friction Response" width="100%"/>
-  <br>
-  <i><b>Figure 3: The Physics of Forgetting.</b> (Left) When a high-energy "Context Switch" occurs (Blue), the Learnable Friction (Red) spikes immediately to dissipate previous state momentum. (Right) The learned activation function shows a clear phase transition from conservation to dissipation based on input magnitude.</i>
-</p>
-
----
-
-## 4. Theoretical Foundations
-
-Manifold diverges from standard connectionsist architectures by imposing **Hamiltonian constraints** on the latent update rule. The network learns to shape the geometry of the solution space, such that the "natural motion" of the state vector corresponds to the desired computation.
-
-### 4.1. The Geodesic Equation
-
-The latent state update is governed by the discrete-time approximation of the geodesic equation on a Riemannian manifold:
+### Formal Definition
 
 $$
-\frac{d^2x}{dt^2} + \Gamma^k_{ij}(x) \frac{dx^i}{dt} \frac{dx^j}{dt} = F(u_t)
+\mathbf{W}_{t+1} = \mathcal{T}(\mathbf{W}_t, \mathbf{f}_{ext}; \theta)
 $$
 
 Where:
-*   $x_t \in \mathbb{R}^d$: The **Position** (Semantic State).
-*   $v_t = \dot{x}_t \in \mathbb{R}^d$: The **Velocity** (Contextual Momentum).
-*   $\Gamma(x)$: The **Christoffel Symbols** (Learned Interaction Tensor), defining the local curvature and feature interactions ($O(d^2)$ complexity).
-*   $F(u_t)$: The **External Force** derived from the input token embedding.
-
-### 4.2. Symplectic Stability & Conservation
-
-Standard Euler integration used in Residual Networks is energy-dissipative, leading to signal loss. Manifold employs a **Leapfrog Integrator**, a symplectic solver designed to strictly conserve phase-space volume.
-
-<p align="center">
-  <img src="tests/benchmarks/results/stability/stability_metrics_20260119_022614.png" alt="Symplectic Stability Metrics" width="100%"/>
-  <br>
-  <i><b>Figure 3: Conservation Laws.</b> Analysis of the Hamiltonian energy drift over long horizons. Unlike standard integration which diverges (Green), Manifold's symplectic solver (Blue) keeps energy bounded, ensuring gradient stability for $L \to \infty$.</i>
-</p>
+- $\mathbf{W}_t$ is the internal world state at time $t$
+- $\mathbf{f}_{ext}$ is the external input (perturbation)
+- $\mathcal{T}$ is a transfer operator that:
+  - Preserves at least one invariant
+  - Operates on $\mathbf{W}_t$ and $\mathbf{f}_{ext}$ ONLY (no history)
+  - Is differentiable with respect to a coherent metric
 
 ---
 
-## 5. Latent Space Analysis
+## Why Geometric Flow Networks?
 
-We perform a deep diagnostic of the model's internal representation to understand *how* it solves complex tasks.
+### Comparison to Related Approaches
 
-### 5.1. Manifold Trajectories vs. Random Walks
+| Architecture | Persistent World | Invariant | Integrity | O(1) Update | Metric |
+|-------------|-----------------|-----------|-----------|--------------|--------|
+| **Transformer + KV-cache** | ❌ (buffer) | ❌ | ❌ | ❌ | ❌ |
+| **Mamba/SSM** | ✅ | ❌ | ❌ | ✅ | ❌ |
+| **World-State Networks** | ✅ | ❌ | ❌ | ✅ | ❌ |
+| **GFN** | ✅ | ✅ | ✅ | ✅ | ✅ |
 
-By projecting the high-dimensional hidden states into 3D, we observe that Manifold learns smooth, deterministic orbits, whereas traditional RNNs often exhibit chaotic or collapsing trajectories.
+### Key Distinctions
 
-<p align="center">
-  <img src="tests/benchmarks/results/trajectories/trajectory_comparison.png" alt="Trajectory Comparison" width="100%"/>
-  <br>
-  <i><b>Figure 4: Latent Dynamics Comparison.</b> Left: The chaotic state evolution of a standard RNN. Right: The coherent, orbital structure of a Manifold trained on the same task. The geometric prior forces the state to follow smooth geodesic paths.</i>
-</p>
+**GFN vs Transformer:**
+- Transformer: "Guesses" by statistics
+- GFN: "Orbits" solutions because geometric structure doesn't allow stepping outside physics
 
-### 5.2. The Geometry of Optimization
+**GFN vs SSM:**
+- SSM: "Radio signal" - state can collapse or explode
+- GFN: "River flow" - state orbits around physically coherent solutions
 
-Why does Manifold converge faster on complex tasks? The answer lies in the Loss Landscape. By constraining parameters to the manifold, we convexify the optimization surface.
-
-<p align="center">
-  <img src="tests/benchmarks/results/loss_landscape/loss_landscape_3d_comparison.png" alt="Loss Landscape 3D" width="100%"/>
-  <br>
-  <i><b>Figure 5: Optimization Topography.</b> (Left) The sharp, non-convex landscape of a standard Transformer trained on Parity. (Right) The smooth, quasi-convex basin of Manifold, enabled by RiemannianAdam and geometric regularization.</i>
-</p>
-
----
-
-## 6. Advanced Dynamics: Beyond Text
-
-The geometric framework is domain-agnostic. By projecting inputs into the tangent space of the manifold, the model processes text, images, and audio as unified force vectors. Current experiments demonstrate convergence in multimodal tasks, suggesting that geometric mechanics is a universal prior for sequential data.
-
-<p align="center">
-  <img src="tests/benchmarks/results/fractals/fractal_zoom_comparison.png" alt="Fractal Dynamics" width="100%"/>
-  <br>
-  <i><b>Figure 6: Fractal State Space.</b> Investigating the self-similar properties of the learned manifold. The model learns to organize information hierarchically, exhibiting fractal structures in its decision boundaries.</i>
-</p>
+**GFN vs World-State Networks:**
+- World-state without invariants: "Photo on a post-it" - blurry, degrades over time
+- GFN: "Full simulator" - the world exists as geometry, not memory
 
 ---
 
-## 7. Implementation & Usage
+## Latent Planning Capability
 
-Manifold provides a production-ready implementation with a PyTorch-native API.
+A critical consequence of the five pillars:
 
-### 7.1. Installation
+> GFN can "predict" the future without generating token by token, simply by moving the state vector through the geometric flow.
 
-```bash
-pip install gfn
-# OR for development
-git clone https://github.com/DepthMuun/gfn.git
-cd manifold
-pip install -e "."
-```
+The internal world enables latent planning:
+- Future states can be computed by flowing through the manifold
+- No need to autoregressively generate each token to "see" what comes next
+- The geometry of the world encodes causal structure
 
 ---
 
-## 8. Citation
+## Complexity Characteristics
 
-Manifold is an active research project. If you utilize this framework or its findings in your research, please cite:
+**GFN is a paradigm with five mandatory requirements.** Complexity characteristics depend on implementation:
 
-```bibtex
-@article{Geodesic Flow network,
-  title={Geodesic Flow Networks},
+| Requirement | Complexity Impact |
+|-------------|------------------|
+| Temporal Locality (Pillar 4) | Enables O(1) inference memory |
+| Structural Integrity (Pillar 3) | Intrinsic gradient stability |
+| All Pillars Combined | No KV-cache, no O(N²) attention |
+
+---
+
+## Paradigm Documentation
+
+For detailed theoretical foundations and mathematical formalism, see:
+
+- [THEORY.md](docs/THEORY.md) - Complete mathematical foundations
+- [ARCHITECTURES.md](ARCHITECTURES.md) - Available realizations
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Adding new realizations
+- [GEOMETRY_IS_ALL_YOU_NEED.tex](GEOMETRY_IS_ALL_YOU_NEED.tex) - Primary research paper
+
+### Citation
+
+```latex
+@article{sturtz2026geometry,
+  title={Geometric Flow Networks: A Physics-Informed Paradigm for Sequential Intelligence},
   author={Stürtz, Joaquín},
-  journal={arXiv preprint},
-  year={2026}
+  journal={Zenodo Preprints},
+  year={2026},
+  doi={10.5281/zenodo.19141133},
+  url={https://doi.org/10.5281/zenodo.19141133}
 }
 ```
 
 ---
 
-<div align="center">
-  <b>Joaquín Stürtz</b><br>
-  <i>DepthMuun</i>
-</div>
+## License
+
+This project is proprietary to DepthMuun Research. See the `LICENSE` file for details.
+
+**Author**: Joaquín Stürtz, DepthMuun Research  
+**Version**: 2.7.0  
+**Date**: March 2026

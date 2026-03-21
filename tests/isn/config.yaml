@@ -1,0 +1,84 @@
+# Reality Model Configuration (Local ISN Benchmark)
+
+# Model Architecture
+model:
+  encoder:
+    d_model: 384
+    n_layers: 4
+    n_heads: 6
+    d_ff: 1536
+    dropout: 0.1
+    max_seq_length: 1024
+  
+  entity:
+    d_embedding: 512
+    d_properties: 128
+    max_entities: 200
+  
+  world:
+    max_timesteps: 100
+    coherence_threshold: 0.7
+  
+  gnn:
+    n_layers: 4
+    d_hidden: 512
+    attention_heads: 8
+  
+  decoder:
+    d_model: 384
+    n_layers: 3
+    n_heads: 6
+    d_ff: 2048
+    dropout: 0.1
+
+# Training Configuration
+training:
+  optimizer:
+    type: AdamW
+    lr: 1.0e-4
+    betas: [0.9, 0.999]
+    weight_decay: 0.01
+    eps: 1.0e-8
+  
+  scheduler:
+    type: CosineAnnealingLR
+    T_max: 1000
+    eta_min: 1.0e-6
+  
+  batch_size: 32
+  gradient_clip: 1.0
+  mixed_precision: true
+  num_epochs: 100
+
+# Loss Configuration
+loss:
+  lambda:
+    outcome: 1.0
+    coherence: 0.8
+    grounding: 0.6
+    validity: 0.5
+    emergence: 0.4
+    efficiency: 0.3
+  
+  coherence:
+    alpha_entities: 0.25
+    alpha_relations: 0.25
+    alpha_laws: 0.25
+    alpha_temporal: 0.25
+  
+  efficiency:
+    gamma_entities: 0.01
+    gamma_timesteps: 0.01
+    gamma_edges: 0.005
+
+# Device Configuration
+device:
+  type: cuda
+  gpu_id: 0
+
+# Paths (Local)
+paths:
+  data_dir: ./data
+  checkpoint_dir: ./checkpoints
+  output_dir: ./outputs
+  visualization_dir: ./visualizations

@@ -1,0 +1,242 @@
+[
+    {
+        "parameters": 146707,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 27.83,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773147899.5830371,
+        "task": "Image_Readout",
+        "config": {
+            "physics.readout.type": "standard",
+            "holographic": true,
+            "physics.mixture.coupler_mode": "mean_field"
+        },
+        "accuracy": 0.025,
+        "duration_sec": 62.22,
+        "steps": 500,
+        "loss_final": 0.5172421932220459
+    },
+    {
+        "parameters": 146707,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.14,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773147962.8192463,
+        "task": "Image_Readout",
+        "config": {
+            "physics.readout.type": "standard",
+            "holographic": true,
+            "physics.mixture.coupler_mode": "low_rank"
+        },
+        "accuracy": 0.025,
+        "duration_sec": 63.22,
+        "steps": 500,
+        "loss_final": 0.5172421932220459
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773148027.131665,
+        "task": "Image_Readout",
+        "config": {
+            "physics.readout.type": "standard",
+            "holographic": false,
+            "physics.mixture.coupler_mode": "mean_field"
+        },
+        "accuracy": 0.025,
+        "duration_sec": 64.31,
+        "steps": 500,
+        "loss_final": 0.5032472014427185
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773148091.1456292,
+        "task": "Image_Readout",
+        "config": {
+            "physics.readout.type": "standard",
+            "holographic": false,
+            "physics.mixture.coupler_mode": "low_rank"
+        },
+        "accuracy": 0.025,
+        "duration_sec": 64.0,
+        "steps": 500,
+        "loss_final": 0.46683168411254883
+    },
+    {
+        "parameters": 146707,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773148152.7618809,
+        "task": "Image_Readout",
+        "config": {
+            "physics.readout.type": "implicit",
+            "holographic": true,
+            "physics.mixture.coupler_mode": "mean_field"
+        },
+        "accuracy": 0.025,
+        "duration_sec": 61.6,
+        "steps": 500,
+        "loss_final": 0.5044320225715637
+    },
+    {
+        "parameters": 146707,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.14,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773148217.138921,
+        "task": "Image_Readout",
+        "config": {
+            "physics.readout.type": "implicit",
+            "holographic": true,
+            "physics.mixture.coupler_mode": "low_rank"
+        },
+        "accuracy": 0.025,
+        "duration_sec": 64.37,
+        "steps": 500,
+        "loss_final": 0.5172421932220459
+    },
+    {
+        "parameters": 179861,
+        "vram_mb": 21.44,
+        "peak_vram_mb": 32.27,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773148280.3213668,
+        "task": "Image_Readout",
+        "config": {
+            "physics.readout.type": "implicit",
+            "holographic": false,
+            "physics.mixture.coupler_mode": "mean_field"
+        },
+        "accuracy": 0.025,
+        "duration_sec": 63.18,
+        "steps": 500,
+        "loss_final": 1.0079764127731323
+    },
+    {
+        "parameters": 179861,
+        "vram_mb": 20.69,
+        "peak_vram_mb": 32.4,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773148340.5859807,
+        "task": "Image_Readout",
+        "config": {
+            "physics.readout.type": "implicit",
+            "holographic": false,
+            "physics.mixture.coupler_mode": "low_rank"
+        },
+        "accuracy": 0.025,
+        "duration_sec": 60.25,
+        "steps": 500,
+        "loss_final": 0.9750913381576538
+    },
+    {
+        "parameters": 146707,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.27,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773148401.570645,
+        "task": "Image_Readout",
+        "config": {
+            "physics.readout.type": "identity",
+            "holographic": true,
+            "physics.mixture.coupler_mode": "mean_field"
+        },
+        "accuracy": 0.025,
+        "duration_sec": 60.97,
+        "steps": 500,
+        "loss_final": 0.5332347750663757
+    },
+    {
+        "parameters": 146707,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.14,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773148462.7442613,
+        "task": "Image_Readout",
+        "config": {
+            "physics.readout.type": "identity",
+            "holographic": true,
+            "physics.mixture.coupler_mode": "low_rank"
+        },
+        "accuracy": 0.025,
+        "duration_sec": 61.16,
+        "steps": 500,
+        "loss_final": 0.5172421932220459
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773148518.1220322,
+        "task": "Image_Readout",
+        "config": {
+            "physics.readout.type": "identity",
+            "holographic": false,
+            "physics.mixture.coupler_mode": "mean_field"
+        },
+        "accuracy": 0.025,
+        "duration_sec": 55.36,
+        "steps": 500,
+        "loss_final": 0.5032472014427185
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773148578.9599788,
+        "task": "Image_Readout",
+        "config": {
+            "physics.readout.type": "identity",
+            "holographic": false,
+            "physics.mixture.coupler_mode": "low_rank"
+        },
+        "accuracy": 0.025,
+        "duration_sec": 60.83,
+        "steps": 500,
+        "loss_final": 0.46683168411254883
+    }
+]

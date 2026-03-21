@@ -1,7 +1,0 @@
-torch>=2.0.0
-transformers
-datasets
-nvidia-ml-py
-matplotlib
-numpy
-torchdiffeq

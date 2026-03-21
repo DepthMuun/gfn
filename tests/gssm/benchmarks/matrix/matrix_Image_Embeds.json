@@ -1,0 +1,322 @@
+[
+    {
+        "parameters": 146707,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 27.83,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773149499.5126283,
+        "task": "Image_Embeds",
+        "config": {
+            "physics.embedding.type": "standard",
+            "physics.embedding.mode": "linear",
+            "holographic": true
+        },
+        "accuracy": 0.975,
+        "duration_sec": 46.8,
+        "steps": 500,
+        "loss_final": 0.4391074478626251
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773149547.1973138,
+        "task": "Image_Embeds",
+        "config": {
+            "physics.embedding.type": "standard",
+            "physics.embedding.mode": "linear",
+            "holographic": false
+        },
+        "accuracy": 0.975,
+        "duration_sec": 47.67,
+        "steps": 500,
+        "loss_final": 0.4615480601787567
+    },
+    {
+        "parameters": 146707,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773149594.7298748,
+        "task": "Image_Embeds",
+        "config": {
+            "physics.embedding.type": "standard",
+            "physics.embedding.mode": "binary",
+            "holographic": true
+        },
+        "accuracy": 0.975,
+        "duration_sec": 47.53,
+        "steps": 500,
+        "loss_final": 0.4391074478626251
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773149642.7972474,
+        "task": "Image_Embeds",
+        "config": {
+            "physics.embedding.type": "standard",
+            "physics.embedding.mode": "binary",
+            "holographic": false
+        },
+        "accuracy": 0.975,
+        "duration_sec": 48.06,
+        "steps": 500,
+        "loss_final": 0.4615480601787567
+    },
+    {
+        "parameters": 162259,
+        "vram_mb": 21.38,
+        "peak_vram_mb": 32.21,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773149689.9170175,
+        "task": "Image_Embeds",
+        "config": {
+            "physics.embedding.type": "standard",
+            "physics.embedding.mode": "sinusoidal",
+            "holographic": true
+        },
+        "accuracy": 0.975,
+        "duration_sec": 47.11,
+        "steps": 500,
+        "loss_final": 0.5837199687957764
+    },
+    {
+        "parameters": 162773,
+        "vram_mb": 20.63,
+        "peak_vram_mb": 32.27,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773149734.5757852,
+        "task": "Image_Embeds",
+        "config": {
+            "physics.embedding.type": "standard",
+            "physics.embedding.mode": "sinusoidal",
+            "holographic": false
+        },
+        "accuracy": 0.975,
+        "duration_sec": 44.65,
+        "steps": 500,
+        "loss_final": 0.42755743861198425
+    },
+    {
+        "parameters": 162259,
+        "vram_mb": 21.38,
+        "peak_vram_mb": 32.27,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773149778.8769646,
+        "task": "Image_Embeds",
+        "config": {
+            "physics.embedding.type": "standard",
+            "physics.embedding.mode": "siren",
+            "holographic": true
+        },
+        "accuracy": 0.975,
+        "duration_sec": 44.29,
+        "steps": 500,
+        "loss_final": 0.5837199687957764
+    },
+    {
+        "parameters": 162773,
+        "vram_mb": 20.63,
+        "peak_vram_mb": 32.27,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773149831.8367062,
+        "task": "Image_Embeds",
+        "config": {
+            "physics.embedding.type": "standard",
+            "physics.embedding.mode": "siren",
+            "holographic": false
+        },
+        "accuracy": 0.975,
+        "duration_sec": 52.95,
+        "steps": 500,
+        "loss_final": 0.42755743861198425
+    },
+    {
+        "parameters": 146707,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.21,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773149882.084666,
+        "task": "Image_Embeds",
+        "config": {
+            "physics.embedding.type": "functional",
+            "physics.embedding.mode": "linear",
+            "holographic": true
+        },
+        "accuracy": 0.975,
+        "duration_sec": 50.24,
+        "steps": 500,
+        "loss_final": 0.4391074478626251
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773149925.9715378,
+        "task": "Image_Embeds",
+        "config": {
+            "physics.embedding.type": "functional",
+            "physics.embedding.mode": "linear",
+            "holographic": false
+        },
+        "accuracy": 0.975,
+        "duration_sec": 43.88,
+        "steps": 500,
+        "loss_final": 0.4615480601787567
+    },
+    {
+        "parameters": 146707,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773149973.0267358,
+        "task": "Image_Embeds",
+        "config": {
+            "physics.embedding.type": "functional",
+            "physics.embedding.mode": "binary",
+            "holographic": true
+        },
+        "accuracy": 0.975,
+        "duration_sec": 47.05,
+        "steps": 500,
+        "loss_final": 0.4391074478626251
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773150022.3176072,
+        "task": "Image_Embeds",
+        "config": {
+            "physics.embedding.type": "functional",
+            "physics.embedding.mode": "binary",
+            "holographic": false
+        },
+        "accuracy": 0.975,
+        "duration_sec": 49.28,
+        "steps": 500,
+        "loss_final": 0.4615480601787567
+    },
+    {
+        "parameters": 162259,
+        "vram_mb": 21.38,
+        "peak_vram_mb": 32.21,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773150072.269638,
+        "task": "Image_Embeds",
+        "config": {
+            "physics.embedding.type": "functional",
+            "physics.embedding.mode": "sinusoidal",
+            "holographic": true
+        },
+        "accuracy": 0.975,
+        "duration_sec": 49.94,
+        "steps": 500,
+        "loss_final": 0.5837199687957764
+    },
+    {
+        "parameters": 162773,
+        "vram_mb": 20.63,
+        "peak_vram_mb": 32.27,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773150122.7052448,
+        "task": "Image_Embeds",
+        "config": {
+            "physics.embedding.type": "functional",
+            "physics.embedding.mode": "sinusoidal",
+            "holographic": false
+        },
+        "accuracy": 0.975,
+        "duration_sec": 50.43,
+        "steps": 500,
+        "loss_final": 0.42755743861198425
+    },
+    {
+        "parameters": 162259,
+        "vram_mb": 21.38,
+        "peak_vram_mb": 32.27,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773150174.2343402,
+        "task": "Image_Embeds",
+        "config": {
+            "physics.embedding.type": "functional",
+            "physics.embedding.mode": "siren",
+            "holographic": true
+        },
+        "accuracy": 0.975,
+        "duration_sec": 51.52,
+        "steps": 500,
+        "loss_final": 0.5837199687957764
+    },
+    {
+        "parameters": 162773,
+        "vram_mb": 20.63,
+        "peak_vram_mb": 32.27,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773150225.6166446,
+        "task": "Image_Embeds",
+        "config": {
+            "physics.embedding.type": "functional",
+            "physics.embedding.mode": "siren",
+            "holographic": false
+        },
+        "accuracy": 0.975,
+        "duration_sec": 51.37,
+        "steps": 500,
+        "loss_final": 0.42755743861198425
+    }
+]

@@ -1,21 +1,21 @@
-cff-version: 1.2.0
+﻿cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 authors:
   - family-names: "Stürtz"
     given-names: "Joaquín"
-    affiliation: "Manifold Laboratory"
-title: "Manifold: Geometric Sequence Modeling via Symplectic Flows"
-version: "2.6.5"
+    affiliation: "DepthMuun"
+title: "GFN: Geometric Sequence Modeling via Symplectic Flows"
+version: "2.6.6"
 doi: ""
-date-released: 2026-02-03
-url: "https://github.com/Manifold-Laboratory/manifold"
-repository-code: "https://github.com/Manifold-Laboratory/manifold"
+date-released: 2026-03-14
+url: "https://github.com/DepthMuun/gfn"
+repository-code: "https://github.com/DepthMuun/gfn"
 license: Apache-2.0
 type: software
 keywords:
   - "geometric sequence modeling"
   - "state space models"
-  - "geodesic flow networks"
+  - "geometric flow networks"
   - "symplectic dynamics"
   - "hamiltonian neural networks"
   - "geometric deep learning"
@@ -25,4 +25,4 @@ keywords:
   - "transformer alternative"
   - "manifold learning"
   - "riemannian geometry"
-commit: "v2.6.5"
+commit: "v2.6.6"

@@ -1,0 +1,242 @@
+[
+    {
+        "parameters": 11725,
+        "vram_mb": 16.36,
+        "peak_vram_mb": 17.56,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772838740.535032,
+        "task": "XOR_Logic",
+        "config": {
+            "dynamics_type": "direct",
+            "integrator": "yoshida",
+            "topology_type": "torus"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 7.28,
+        "steps": 100,
+        "loss_final": 0.000610647548455745
+    },
+    {
+        "parameters": 7309,
+        "vram_mb": 16.32,
+        "peak_vram_mb": 17.46,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772838744.898479,
+        "task": "XOR_Logic",
+        "config": {
+            "dynamics_type": "direct",
+            "integrator": "yoshida",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 0.25,
+        "duration_sec": 4.36,
+        "steps": 100,
+        "loss_final": 0.7909783124923706
+    },
+    {
+        "parameters": 11725,
+        "vram_mb": 16.36,
+        "peak_vram_mb": 17.55,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772838750.983454,
+        "task": "XOR_Logic",
+        "config": {
+            "dynamics_type": "direct",
+            "integrator": "rk4",
+            "topology_type": "torus"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 6.08,
+        "steps": 100,
+        "loss_final": 0.0002228324010502547
+    },
+    {
+        "parameters": 7309,
+        "vram_mb": 16.32,
+        "peak_vram_mb": 17.48,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772838755.6442053,
+        "task": "XOR_Logic",
+        "config": {
+            "dynamics_type": "direct",
+            "integrator": "rk4",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 0.25,
+        "duration_sec": 4.66,
+        "steps": 100,
+        "loss_final": 0.7902153730392456
+    },
+    {
+        "parameters": 11729,
+        "vram_mb": 16.36,
+        "peak_vram_mb": 17.58,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772838761.6444454,
+        "task": "XOR_Logic",
+        "config": {
+            "dynamics_type": "residual",
+            "integrator": "yoshida",
+            "topology_type": "torus"
+        },
+        "accuracy": 0.75,
+        "duration_sec": 5.99,
+        "steps": 100,
+        "loss_final": 0.6955370903015137
+    },
+    {
+        "parameters": 7313,
+        "vram_mb": 16.33,
+        "peak_vram_mb": 17.47,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772838766.1492572,
+        "task": "XOR_Logic",
+        "config": {
+            "dynamics_type": "residual",
+            "integrator": "yoshida",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 0.5,
+        "duration_sec": 4.5,
+        "steps": 100,
+        "loss_final": 0.6944676637649536
+    },
+    {
+        "parameters": 11729,
+        "vram_mb": 16.36,
+        "peak_vram_mb": 17.58,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772838773.0188563,
+        "task": "XOR_Logic",
+        "config": {
+            "dynamics_type": "residual",
+            "integrator": "rk4",
+            "topology_type": "torus"
+        },
+        "accuracy": 0.75,
+        "duration_sec": 6.86,
+        "steps": 100,
+        "loss_final": 0.6955587863922119
+    },
+    {
+        "parameters": 7313,
+        "vram_mb": 16.33,
+        "peak_vram_mb": 17.49,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772838778.0346055,
+        "task": "XOR_Logic",
+        "config": {
+            "dynamics_type": "residual",
+            "integrator": "rk4",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 0.5,
+        "duration_sec": 5.01,
+        "steps": 100,
+        "loss_final": 0.6944707632064819
+    },
+    {
+        "parameters": 11733,
+        "vram_mb": 16.36,
+        "peak_vram_mb": 17.61,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772838784.7379882,
+        "task": "XOR_Logic",
+        "config": {
+            "dynamics_type": "mix",
+            "integrator": "yoshida",
+            "topology_type": "torus"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 6.7,
+        "steps": 100,
+        "loss_final": 0.7227630019187927
+    },
+    {
+        "parameters": 7317,
+        "vram_mb": 16.33,
+        "peak_vram_mb": 17.49,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772838789.3351817,
+        "task": "XOR_Logic",
+        "config": {
+            "dynamics_type": "mix",
+            "integrator": "yoshida",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 0.5,
+        "duration_sec": 4.59,
+        "steps": 100,
+        "loss_final": 0.7209168076515198
+    },
+    {
+        "parameters": 11733,
+        "vram_mb": 16.36,
+        "peak_vram_mb": 17.61,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772838797.079783,
+        "task": "XOR_Logic",
+        "config": {
+            "dynamics_type": "mix",
+            "integrator": "rk4",
+            "topology_type": "torus"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 7.74,
+        "steps": 100,
+        "loss_final": 0.7227606773376465
+    },
+    {
+        "parameters": 7317,
+        "vram_mb": 16.33,
+        "peak_vram_mb": 17.51,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772838802.5061347,
+        "task": "XOR_Logic",
+        "config": {
+            "dynamics_type": "mix",
+            "integrator": "rk4",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 0.5,
+        "duration_sec": 5.42,
+        "steps": 100,
+        "loss_final": 0.7209454774856567
+    }
+]

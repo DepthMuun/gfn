@@ -1,0 +1,242 @@
+[
+    {
+        "parameters": 44783,
+        "vram_mb": 16.65,
+        "peak_vram_mb": 18.48,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772846200.754568,
+        "task": "Hierarchical_Tree",
+        "config": {
+            "topology_type": "euclidean",
+            "dynamics_type": "direct",
+            "integrator": "yoshida"
+        },
+        "accuracy": 0.0,
+        "duration_sec": 25.34,
+        "steps": 200,
+        "loss_final": 6027.57763671875
+    },
+    {
+        "parameters": 44783,
+        "vram_mb": 16.65,
+        "peak_vram_mb": 18.32,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772846217.5324252,
+        "task": "Hierarchical_Tree",
+        "config": {
+            "topology_type": "euclidean",
+            "dynamics_type": "direct",
+            "integrator": "leapfrog"
+        },
+        "accuracy": 0.5,
+        "duration_sec": 16.77,
+        "steps": 200,
+        "loss_final": 0.5274420380592346
+    },
+    {
+        "parameters": 44791,
+        "vram_mb": 16.65,
+        "peak_vram_mb": 18.55,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772846243.0592782,
+        "task": "Hierarchical_Tree",
+        "config": {
+            "topology_type": "euclidean",
+            "dynamics_type": "residual",
+            "integrator": "yoshida"
+        },
+        "accuracy": 0.375,
+        "duration_sec": 25.51,
+        "steps": 200,
+        "loss_final": 0.2103765606880188
+    },
+    {
+        "parameters": 44791,
+        "vram_mb": 16.65,
+        "peak_vram_mb": 18.39,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772846261.6624827,
+        "task": "Hierarchical_Tree",
+        "config": {
+            "topology_type": "euclidean",
+            "dynamics_type": "residual",
+            "integrator": "leapfrog"
+        },
+        "accuracy": 0.5,
+        "duration_sec": 18.59,
+        "steps": 200,
+        "loss_final": 0.3040809631347656
+    },
+    {
+        "parameters": 46959,
+        "vram_mb": 16.67,
+        "peak_vram_mb": 19.29,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772846293.6797059,
+        "task": "Hierarchical_Tree",
+        "config": {
+            "topology_type": "hyperbolic",
+            "dynamics_type": "direct",
+            "integrator": "yoshida"
+        },
+        "accuracy": 0.5,
+        "duration_sec": 32.0,
+        "steps": 200,
+        "loss_final": 0.41891661286354065
+    },
+    {
+        "parameters": 46959,
+        "vram_mb": 16.67,
+        "peak_vram_mb": 18.86,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772846316.457094,
+        "task": "Hierarchical_Tree",
+        "config": {
+            "topology_type": "hyperbolic",
+            "dynamics_type": "direct",
+            "integrator": "leapfrog"
+        },
+        "accuracy": 0.5,
+        "duration_sec": 22.76,
+        "steps": 200,
+        "loss_final": 0.4202263653278351
+    },
+    {
+        "parameters": 46967,
+        "vram_mb": 16.68,
+        "peak_vram_mb": 19.36,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772846351.5186229,
+        "task": "Hierarchical_Tree",
+        "config": {
+            "topology_type": "hyperbolic",
+            "dynamics_type": "residual",
+            "integrator": "yoshida"
+        },
+        "accuracy": 0.5,
+        "duration_sec": 35.05,
+        "steps": 200,
+        "loss_final": 0.21193772554397583
+    },
+    {
+        "parameters": 46967,
+        "vram_mb": 16.68,
+        "peak_vram_mb": 18.93,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772846375.1037855,
+        "task": "Hierarchical_Tree",
+        "config": {
+            "topology_type": "hyperbolic",
+            "dynamics_type": "residual",
+            "integrator": "leapfrog"
+        },
+        "accuracy": 0.5,
+        "duration_sec": 23.57,
+        "steps": 200,
+        "loss_final": 0.2143688052892685
+    },
+    {
+        "parameters": 65283,
+        "vram_mb": 16.81,
+        "peak_vram_mb": 19.6,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772846429.4296277,
+        "task": "Hierarchical_Tree",
+        "config": {
+            "topology_type": "hierarchical",
+            "dynamics_type": "direct",
+            "integrator": "yoshida"
+        },
+        "accuracy": 0.5,
+        "duration_sec": 54.31,
+        "steps": 200,
+        "loss_final": 0.43943893909454346
+    },
+    {
+        "parameters": 65283,
+        "vram_mb": 16.81,
+        "peak_vram_mb": 19.2,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772846467.6364903,
+        "task": "Hierarchical_Tree",
+        "config": {
+            "topology_type": "hierarchical",
+            "dynamics_type": "direct",
+            "integrator": "leapfrog"
+        },
+        "accuracy": 0.25,
+        "duration_sec": 38.19,
+        "steps": 200,
+        "loss_final": 0.4278196394443512
+    },
+    {
+        "parameters": 65291,
+        "vram_mb": 16.82,
+        "peak_vram_mb": 19.68,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772846524.1176891,
+        "task": "Hierarchical_Tree",
+        "config": {
+            "topology_type": "hierarchical",
+            "dynamics_type": "residual",
+            "integrator": "yoshida"
+        },
+        "accuracy": 0.5,
+        "duration_sec": 56.46,
+        "steps": 200,
+        "loss_final": 0.3821437656879425
+    },
+    {
+        "parameters": 65291,
+        "vram_mb": 16.82,
+        "peak_vram_mb": 19.28,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772846566.8483248,
+        "task": "Hierarchical_Tree",
+        "config": {
+            "topology_type": "hierarchical",
+            "dynamics_type": "residual",
+            "integrator": "leapfrog"
+        },
+        "accuracy": 0.5,
+        "duration_sec": 42.71,
+        "steps": 200,
+        "loss_final": 0.4009939134120941
+    }
+]

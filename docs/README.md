@@ -1,49 +1,98 @@
-# MANIFOLD Documentation
+# GFN Framework Documentation
 
-Welcome to the MANIFOLD documentation. This directory contains comprehensive technical reference and research materials for the MANIFOLD (Multi-scale Adaptive Neural Inference via Flow On Learned Dynamics) architecture.
+## Welcome to Geometric Flow Networks
 
-## 📚 Core Documentation
+This is the unified documentation for the GFN (Geometric Flow Networks) framework. GFN is a physics-informed paradigm for sequential intelligence that reformulates computation as the evolution of persistent state according to structural invariants.
 
-### Technical Reference
-- **[SCIENTIFIC_PAPER.md](SCIENTIFIC_PAPER.md)** - Complete research paper with mathematical derivations, experimental validation, and reproducibility details
-- **[TECHNICAL_HANDBOOK.md](TECHNICAL_HANDBOOK.md)** - **The "Source of Truth"**: Fundamental equations, loss engine details, and optimization protocols.
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture overview and design principles
-- **[API.md](API.md)** - Python API reference for model usage
-- **[TRAINING.md](TRAINING.md)** - Training procedures, hyperparameters, and optimization guides
-- **[BENCHMARKS.md](BENCHMARKS.md)** - Empirical performance benchmarks and comparisons
+## Documentation Map
 
-### Theoretical Foundations
-- **[PHYSICS.md](PHYSICS.md)** - Mathematical foundations: Riemannian geometry, symplectic integration, Hamiltonian mechanics
-- **[CONCEPTS.md](CONCEPTS.md)** - Key concepts: geodesic flow, Christoffel symbols, manifold learning
-- **[MODELS_AND_MECHANICS.md](MODELS_AND_MECHANICS.md)** - Detailed mechanical explanations of core components
+### For Users
 
-### Specialized Topics
-- **[COMPONENTS.md](COMPONENTS.md)** - Individual component specifications (embeddings, layers, integrators, optimizers)
-- **[CONFIGURATION.md](CONFIGURATION.md)** - YAML configuration reference and best practices
+| Topic | Document | Description |
+|-------|----------|-------------|
+| **Paradigm Overview** | [README.md](../README.md) | High-level introduction to GFN |
+| **Theoretical Foundations** | [THEORY.md](THEORY.md) | Complete mathematical theory |
+| **Available Architectures** | [ARCHITECTURES.md](ARCHITECTURES.md) | Realization registry and comparison |
+| **Getting Started** | [docs/gssm/guides/01-introduction/02-installation.md](gssm/guides/01-introduction/02-installation.md) | Setup instructions |
 
-## 🚀 Quick Start
+### For Developers
 
-1. **For Researchers**: Start with [SCIENTIFIC_PAPER.md](SCIENTIFIC_PAPER.md)
-2. **For Developers**: Start with [API.md](API.md) and [TRAINING.md](TRAINING.md)
-3. **For Theory**: Start with [PHYSICS.md](PHYSICS.md) and [CONCEPTS.md](CONCEPTS.md)
+| Topic | Document | Description |
+|-------|----------|-------------|
+| **Contributing** | [CONTRIBUTING.md](CONTRIBUTING.md) | Standards for new realizations |
+| **Realization Template** | [realization_template.md](realization_template.md) | Template for new architectures |
+| **API Reference** | [docs/gssm/guides/03-reference/02-api-classes.md](gssm/guides/03-reference/02-api-classes.md) | Complete API documentation |
 
-## 📊 Key Results
+### For Researchers
 
-**Binary Parity Task (L=20 training)**:
-- **100% accuracy** on sequences up to L=1000 (50× extrapolation)
-- **O(1) memory**: 28-32MB VRAM regardless of sequence length
-- **Verified symplectic stability**: No gradient vanishing/explosion
+| Topic | Document | Description |
+|-------|----------|-------------|
+| **Paradigm Paper** | [GEOMETRY_IS_ALL_YOU_NEED.tex](../GEOMETRY_IS_ALL_YOU_NEED.tex) | Primary reference |
+| **Research Papers** | [docs/gssm/00_papers/](gssm/00_papers/) | Theoretical extensions |
 
-See [BENCHMARKS.md](BENCHMARKS.md) for complete results.
+## Realization Documentation
 
-## 📖 Additional Resources
+### G-SSM (Geodesic State Space Model)
 
-- [Main Project README](../README.md) - Project overview and installation
-- [Contributing Guide](../CONTRIBUTING.md) - How to contribute
-- [Changelog](../CHANGELOG.md) - Version history
+A differential realization using continuous dynamics on Riemannian manifolds.
 
+- **Documentation**: [docs/gssm/README.md](gssm/README.md)
+- **Type**: Differential Flow
+- **Complexity**: O(1) inference memory
 
+### ISN (Inertial State Network)
 
-**Version**: 2.5.0 "Riemannian Stability"  
-**Last Updated**: January 18, 2026  
-**License**: Apache 2.0
+A simulative realization using discrete entity-based dynamics.
+
+- **Documentation**: [docs/ISN/README.md](ISN/README.md)
+- **Type**: Simulative Flow
+- **Complexity**: O(1) or O(world_size)
+
+## Key Concepts
+
+### The GFN Paradigm
+
+GFN replaces statistical correlation with geometric flow. Key principles:
+
+1. **State Persistence**: Computation operates on persistent state vectors
+2. **Structural Invariants**: Domain constraints limit valid transitions
+3. **Deterministic Evolution**: Structured dynamics govern state changes
+
+### Complexity Characteristics
+
+GFN is a **paradigm**, not a specific architecture. Complexity varies:
+
+| Realization | Inference Memory | Forward Pass |
+|-------------|-----------------|--------------|
+| G-SSM | O(1) or O(d) | O(N) sequential |
+| ISN | O(1) or O(world_size) | O(N) sequential |
+
+*Not all GFN realizations achieve O(1) memory complexity.*
+
+## Navigation
+
+```
+GFN Framework
+├── README.md                    # Paradigm overview
+├── THEORY.md                    # Theoretical foundations
+├── ARCHITECTURES.md             # Realization registry
+├── CONTRIBUTING.md              # Developer guidelines
+└── docs/
+    ├── THEORY.md               # (duplicate for navigation)
+    ├── ARCHITECTURES.md        # (duplicate for navigation)
+    ├── realization_template.md # Template for new realizations
+    ├── gssm/                   # G-SSM documentation
+    └── ISN/                    # ISN documentation
+```
+
+## Resources
+
+- [GitHub Repository](https://github.com/DepthMuun/gfn)
+- [Issue Tracker](https://github.com/DepthMuun/gfn/issues)
+- [Citation](CITATION.cff)
+
+---
+
+**GFN Framework**  
+*Version 2.6.6 | March 2026*  
+*DepthMuun Research*

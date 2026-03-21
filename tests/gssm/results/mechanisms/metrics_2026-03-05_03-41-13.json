@@ -1,0 +1,6 @@
+{
+    "mech_direct_low_rank_final_loss": 1.3432904481887817,
+    "mech_residual_low_rank_final_loss": 1.0677638530731202,
+    "mech_direct_attention_final_loss": 1.4823277950286866,
+    "mech_residual_attention_final_loss": 1.4656001567840575
+}

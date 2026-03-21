@@ -4,18 +4,18 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gfn"
-version = "2.6.5.1"
-description = "Manifold: Geometric Intelligence via Symplectic Geodesic Flows | GFN: Geometric Flow Networks"
+version = "2.7.0"
+description = "Geometric Flow Networks: A Physics-Informed Paradigm for Sequential Intelligence"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 authors = [
-    { name = "Manifold Laboratory (Joaquín Stürtz)", email = "ManifoldLabs@proton.me" }
+    { name = "DepthMuun", email = "DepthMuun@proton.me" }
 ]
 requires-python = ">=3.10"
 keywords = [
     "artificial-intelligence",
-    "deep-learning", 
-    "riemannian-geometry", 
+    "deep-learning",
+    "riemannian-geometry",
     "symplectic-integration",
     "sequence-modeling",
     "geometric-deep-learning"
@@ -45,17 +45,18 @@ dev = [
     "pytest-cov>=4.1.0",
     "black>=23.7.0",
     "isort>=5.12.0",
-    "flake8>=6.1.0"
+    "flake8>=6.1.0",
+    "mypy>=1.5.0"
 ]
 cuda = [
-    "ninja>=1.11.1" 
+    "ninja>=1.11.1"
 ]
 
 [project.urls]
-Homepage = "https://github.com/Manifold-Laboratory/manifold"
-Documentation = "https://github.com/Manifold-Laboratory/manifold/tree/main/docs"
-Repository = "https://github.com/Manifold-Laboratory/manifold.git"
-Issues = "https://github.com/Manifold-Laboratory/manifold/issues"
+Homepage = "https://github.com/DepthMuun/gfn"
+Documentation = "https://github.com/DepthMuun/gfn/tree/main/docs"
+Repository = "https://github.com/DepthMuun/gfn.git"
+Issues = "https://github.com/DepthMuun/gfn/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]

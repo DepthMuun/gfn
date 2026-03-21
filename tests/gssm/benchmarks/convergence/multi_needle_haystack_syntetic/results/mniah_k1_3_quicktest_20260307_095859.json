@@ -1,0 +1,99 @@
+{
+  "benchmark": "MANIFOLD Multi-Needle-in-a-Haystack",
+  "timestamp_start": "2026-03-07T09:58:59.783390",
+  "config": {
+    "vocab_size": 12,
+    "dim": 128,
+    "depth": 4,
+    "heads": 4,
+    "integrator": "leapfrog",
+    "impulse_scale": 80.0,
+    "dynamics_type": "gated",
+    "topology_type": "hyperbolic",
+    "min_needles": 1,
+    "max_needles": 3,
+    "train_seq_len": 24,
+    "train_batch_size": 32,
+    "train_steps": 120,
+    "checkpoint_every": 40,
+    "lr": 0.001,
+    "max_lr": 0.002,
+    "eval_lengths": [
+      64,
+      256,
+      512,
+      1024
+    ],
+    "eval_batch_size": 8,
+    "acc_threshold": 0.95,
+    "patience": 10,
+    "min_steps": 40,
+    "device": "cuda",
+    "n_params": 404661,
+    "seed": 42
+  },
+  "training": {
+    "steps_run": 120,
+    "converged_at": null,
+    "final_loss": 0.9943345189094543,
+    "final_acc": 0.5525000095367432,
+    "best_acc": 0.7324999570846558,
+    "checkpoint": "D:\\ASAS\\manifold_mini\\manifold_working\\tests\\benchmarks\\convergence\\multi_needle_haystack_syntetic\\checkpoints\\mniah_model_final.pt"
+  },
+  "eval_lengths": {
+    "64": {
+      "acc_before_first": 0.5672,
+      "acc_between": 0.4955,
+      "acc_after_last": 0.5202,
+      "false_positive_rate": 0.5045,
+      "acc_overall": 0.5205,
+      "avg_needle_spread": 7.2,
+      "avg_last_needle_pos": 42.2,
+      "context_length": 64,
+      "num_trials": 3,
+      "eval_time_s": 37.39,
+      "timestamp": "2026-03-07T10:05:41.909066"
+    },
+    "256": {
+      "acc_before_first": 0.5815,
+      "acc_between": 0.7011,
+      "acc_after_last": 0.0638,
+      "false_positive_rate": 0.2989,
+      "acc_overall": 0.4603,
+      "avg_needle_spread": 13.6,
+      "avg_last_needle_pos": 162.2,
+      "context_length": 256,
+      "num_trials": 3,
+      "eval_time_s": 62.67,
+      "timestamp": "2026-03-07T10:06:44.583178"
+    },
+    "512": {
+      "acc_before_first": 0.6343,
+      "acc_between": 0.8503,
+      "acc_after_last": 0.0,
+      "false_positive_rate": 0.1497,
+      "acc_overall": 0.5289,
+      "avg_needle_spread": 137.9,
+      "avg_last_needle_pos": 359.5,
+      "context_length": 512,
+      "num_trials": 3,
+      "eval_time_s": 210.81,
+      "timestamp": "2026-03-07T10:10:15.392139"
+    },
+    "1024": {
+      "acc_before_first": 0.7505,
+      "acc_between": 0.9913,
+      "acc_after_last": 0.0216,
+      "false_positive_rate": 0.0087,
+      "acc_overall": 0.6146,
+      "avg_needle_spread": 186.8,
+      "avg_last_needle_pos": 630.9,
+      "context_length": 1024,
+      "num_trials": 3,
+      "eval_time_s": 765.9,
+      "timestamp": "2026-03-07T10:23:01.291320"
+    }
+  },
+  "timestamp_train_done": "2026-03-07T10:05:04.520887",
+  "timestamp_last_eval": "2026-03-07T10:23:01.291345"
+}

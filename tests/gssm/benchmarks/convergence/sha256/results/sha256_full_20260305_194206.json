@@ -1,0 +1,36 @@
+{
+  "benchmark": "MANIFOLD SHA256 Benchmark",
+  "timestamp_start": "2026-03-05T19:42:06.817766",
+  "config": {
+    "dim": 32,
+    "depth": 4,
+    "heads": 2,
+    "integrator": "leapfrog",
+    "impulse_scale": 80.0,
+    "train_message_bytes": 4,
+    "train_batch_size": 64,
+    "train_steps": 600,
+    "checkpoint_every": 100,
+    "lr": 0.001,
+    "max_lr": 0.002,
+    "eval_lengths": [
+      16,
+      64,
+      256,
+      1024,
+      4096,
+      16384,
+      65536,
+      262144
+    ],
+    "eval_batch_size": 8,
+    "acc_threshold": 0.95,
+    "patience": 30,
+    "min_steps": 150,
+    "device": "cuda",
+    "n_params": 26805,
+    "seed": 42
+  },
+  "training": {},
+  "eval_lengths": {}
+}

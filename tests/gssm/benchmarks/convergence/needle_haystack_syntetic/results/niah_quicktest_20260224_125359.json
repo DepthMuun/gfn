@@ -1,0 +1,191 @@
+{
+  "benchmark": "MANIFOLD Needle-in-a-Haystack",
+  "timestamp_start": "2026-02-24T12:53:59.559445",
+  "config": {
+    "dim": 128,
+    "depth": 4,
+    "heads": 4,
+    "integrator": "yoshida",
+    "impulse_scale": 80.0,
+    "train_seq_len": 20,
+    "train_batch_size": 32,
+    "train_steps": 80,
+    "checkpoint_every": 40,
+    "lr": 0.001,
+    "max_lr": 0.002,
+    "eval_lengths": [
+      64,
+      256,
+      512,
+      1024
+    ],
+    "needle_fractions": [
+      0.1,
+      0.5,
+      0.9
+    ],
+    "eval_batch_size": 8,
+    "acc_threshold": 0.95,
+    "patience": 10,
+    "min_steps": 30,
+    "device": "cuda",
+    "n_params": 376753,
+    "seed": 42
+  },
+  "training": {
+    "steps_run": 40,
+    "converged_at": 39,
+    "final_loss": 0.004820792470127344,
+    "final_acc": 1.0,
+    "best_acc": 1.0,
+    "checkpoint": "D:\\ASAS\\manifold_mini\\manifold_working\\tests\\system\\convergence\\needle_haystack\\checkpoints\\model_final.pt"
+  },
+  "eval_lengths": {
+    "64": {
+      "context_length": 64,
+      "mean_acc_after": 1.0,
+      "mean_acc_overall": 1.0,
+      "needle_positions": {
+        "needle_10pct": {
+          "acc_before": 1.0,
+          "acc_at": 1.0,
+          "acc_after": 1.0,
+          "acc_overall": 1.0,
+          "needle_pos": 6,
+          "distance_to_end": 58,
+          "inference_time_s": 6.359
+        },
+        "needle_50pct": {
+          "acc_before": 1.0,
+          "acc_at": 1.0,
+          "acc_after": 1.0,
+          "acc_overall": 1.0,
+          "needle_pos": 32,
+          "distance_to_end": 32,
+          "inference_time_s": 6.546
+        },
+        "needle_90pct": {
+          "acc_before": 1.0,
+          "acc_at": 1.0,
+          "acc_after": 1.0,
+          "acc_overall": 1.0,
+          "needle_pos": 57,
+          "distance_to_end": 7,
+          "inference_time_s": 6.175
+        }
+      },
+      "eval_time_s": 19.11,
+      "timestamp": "2026-02-24T12:58:54.473654"
+    },
+    "256": {
+      "context_length": 256,
+      "mean_acc_after": 1.0,
+      "mean_acc_overall": 1.0,
+      "needle_positions": {
+        "needle_10pct": {
+          "acc_before": 1.0,
+          "acc_at": 1.0,
+          "acc_after": 0.9999999403953552,
+          "acc_overall": 1.0,
+          "needle_pos": 25,
+          "distance_to_end": 231,
+          "inference_time_s": 25.83
+        },
+        "needle_50pct": {
+          "acc_before": 1.0,
+          "acc_at": 1.0,
+          "acc_after": 1.0,
+          "acc_overall": 1.0,
+          "needle_pos": 128,
+          "distance_to_end": 128,
+          "inference_time_s": 25.669
+        },
+        "needle_90pct": {
+          "acc_before": 0.9999999403953552,
+          "acc_at": 1.0,
+          "acc_after": 1.0,
+          "acc_overall": 1.0,
+          "needle_pos": 230,
+          "distance_to_end": 26,
+          "inference_time_s": 25.425
+        }
+      },
+      "eval_time_s": 76.94,
+      "timestamp": "2026-02-24T13:00:11.418854"
+    },
+    "512": {
+      "context_length": 512,
+      "mean_acc_after": 1.0,
+      "mean_acc_overall": 1.0,
+      "needle_positions": {
+        "needle_10pct": {
+          "acc_before": 1.0,
+          "acc_at": 1.0,
+          "acc_after": 0.9999999403953552,
+          "acc_overall": 1.0,
+          "needle_pos": 51,
+          "distance_to_end": 461,
+          "inference_time_s": 55.291
+        },
+        "needle_50pct": {
+          "acc_before": 1.0,
+          "acc_at": 1.0,
+          "acc_after": 1.0,
+          "acc_overall": 1.0,
+          "needle_pos": 256,
+          "distance_to_end": 256,
+          "inference_time_s": 52.17
+        },
+        "needle_90pct": {
+          "acc_before": 0.9999999403953552,
+          "acc_at": 1.0,
+          "acc_after": 1.0,
+          "acc_overall": 1.0,
+          "needle_pos": 460,
+          "distance_to_end": 52,
+          "inference_time_s": 58.272
+        }
+      },
+      "eval_time_s": 165.75,
+      "timestamp": "2026-02-24T13:02:57.173667"
+    },
+    "1024": {
+      "context_length": 1024,
+      "mean_acc_after": 1.0,
+      "mean_acc_overall": 1.0,
+      "needle_positions": {
+        "needle_10pct": {
+          "acc_before": 1.0,
+          "acc_at": 1.0,
+          "acc_after": 1.0,
+          "acc_overall": 1.0,
+          "needle_pos": 102,
+          "distance_to_end": 922,
+          "inference_time_s": 120.43
+        },
+        "needle_50pct": {
+          "acc_before": 1.0,
+          "acc_at": 1.0,
+          "acc_after": 1.0,
+          "acc_overall": 1.0,
+          "needle_pos": 512,
+          "distance_to_end": 512,
+          "inference_time_s": 119.047
+        },
+        "needle_90pct": {
+          "acc_before": 1.0,
+          "acc_at": 1.0,
+          "acc_after": 1.0,
+          "acc_overall": 1.0,
+          "needle_pos": 921,
+          "distance_to_end": 103,
+          "inference_time_s": 115.859
+        }
+      },
+      "eval_time_s": 355.36,
+      "timestamp": "2026-02-24T13:08:52.537032"
+    }
+  },
+  "timestamp_train_done": "2026-02-24T12:58:35.358438",
+  "timestamp_last_eval": "2026-02-24T13:08:52.537047"
+}

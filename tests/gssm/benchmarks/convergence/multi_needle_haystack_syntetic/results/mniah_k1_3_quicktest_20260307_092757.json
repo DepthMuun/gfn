@@ -1,0 +1,60 @@
+{
+  "benchmark": "MANIFOLD Multi-Needle-in-a-Haystack",
+  "timestamp_start": "2026-03-07T09:27:57.217136",
+  "config": {
+    "vocab_size": 12,
+    "dim": 128,
+    "depth": 4,
+    "heads": 4,
+    "integrator": "leapfrog",
+    "impulse_scale": 80.0,
+    "dynamics_type": "gated",
+    "topology_type": "hyperbolic",
+    "min_needles": 1,
+    "max_needles": 3,
+    "train_seq_len": 24,
+    "train_batch_size": 32,
+    "train_steps": 120,
+    "checkpoint_every": 40,
+    "lr": 0.001,
+    "max_lr": 0.002,
+    "eval_lengths": [
+      64,
+      256,
+      512,
+      1024
+    ],
+    "eval_batch_size": 8,
+    "acc_threshold": 0.95,
+    "patience": 10,
+    "min_steps": 40,
+    "device": "cuda",
+    "n_params": 404661,
+    "seed": 42
+  },
+  "training": {
+    "steps_run": 120,
+    "converged_at": null,
+    "final_loss": 0.9956464767456055,
+    "final_acc": 0.5,
+    "best_acc": 0.7174999713897705,
+    "checkpoint": "D:\\ASAS\\manifold_mini\\manifold_working\\tests\\benchmarks\\convergence\\multi_needle_haystack_syntetic\\checkpoints\\mniah_model_final.pt"
+  },
+  "eval_lengths": {
+    "64": {
+      "acc_before_first": 0.5541,
+      "acc_between": 0.54,
+      "acc_after_last": 0.4852,
+      "false_positive_rate": 0.46,
+      "acc_overall": 0.5135,
+      "avg_needle_spread": 22.2,
+      "avg_last_needle_pos": 44.0,
+      "context_length": 64,
+      "num_trials": 3,
+      "eval_time_s": 27.17,
+      "timestamp": "2026-03-07T09:40:26.625146"
+    }
+  },
+  "timestamp_train_done": "2026-03-07T09:39:59.454919",
+  "timestamp_last_eval": "2026-03-07T09:40:26.625162"
+}

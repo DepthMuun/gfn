@@ -1,0 +1,501 @@
+[
+    {
+        "parameters": 25445,
+        "vram_mb": 16.46,
+        "peak_vram_mb": 17.66,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868638.233899,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "lookup",
+            "readout_type": "categorical",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 5.39,
+        "steps": 100,
+        "loss_final": 0.0
+    },
+    {
+        "parameters": 40421,
+        "vram_mb": 16.57,
+        "peak_vram_mb": 18.0,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868657.041667,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "lookup",
+            "readout_type": "categorical",
+            "topology_type": "torus"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 18.8,
+        "steps": 100,
+        "loss_final": 5.038433664594777e-05
+    },
+    {
+        "parameters": 25445,
+        "vram_mb": 16.46,
+        "peak_vram_mb": 17.66,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868661.2747025,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "lookup",
+            "readout_type": "implicit",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 4.23,
+        "steps": 100,
+        "loss_final": 0.0
+    },
+    {
+        "parameters": 40421,
+        "vram_mb": 16.57,
+        "peak_vram_mb": 18.0,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868680.0885572,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "lookup",
+            "readout_type": "implicit",
+            "topology_type": "torus"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 18.81,
+        "steps": 100,
+        "loss_final": 5.038433664594777e-05
+    },
+    {
+        "parameters": 25445,
+        "vram_mb": 16.46,
+        "peak_vram_mb": 17.66,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868684.339673,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "lookup",
+            "readout_type": "identity",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 4.24,
+        "steps": 100,
+        "loss_final": 0.0
+    },
+    {
+        "parameters": 40421,
+        "vram_mb": 16.57,
+        "peak_vram_mb": 18.0,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868703.1197615,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "lookup",
+            "readout_type": "identity",
+            "topology_type": "torus"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 18.78,
+        "steps": 100,
+        "loss_final": 5.038433664594777e-05
+    },
+    {
+        "parameters": 24869,
+        "vram_mb": 16.45,
+        "peak_vram_mb": 17.66,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868707.2587605,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "binary",
+            "readout_type": "categorical",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 4.13,
+        "steps": 100,
+        "loss_final": 0.0
+    },
+    {
+        "parameters": 39845,
+        "vram_mb": 16.56,
+        "peak_vram_mb": 17.99,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868725.705485,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "binary",
+            "readout_type": "categorical",
+            "topology_type": "torus"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 18.44,
+        "steps": 100,
+        "loss_final": 8.113848889479414e-05
+    },
+    {
+        "parameters": 24869,
+        "vram_mb": 16.45,
+        "peak_vram_mb": 17.66,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868729.976552,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "binary",
+            "readout_type": "implicit",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 4.26,
+        "steps": 100,
+        "loss_final": 0.0
+    },
+    {
+        "parameters": 39845,
+        "vram_mb": 16.56,
+        "peak_vram_mb": 17.99,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868748.542398,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "binary",
+            "readout_type": "implicit",
+            "topology_type": "torus"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 18.56,
+        "steps": 100,
+        "loss_final": 8.113848889479414e-05
+    },
+    {
+        "parameters": 24869,
+        "vram_mb": 16.45,
+        "peak_vram_mb": 17.66,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868752.66651,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "binary",
+            "readout_type": "identity",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 4.12,
+        "steps": 100,
+        "loss_final": 0.0
+    },
+    {
+        "parameters": 39845,
+        "vram_mb": 16.56,
+        "peak_vram_mb": 17.99,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868771.292763,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "binary",
+            "readout_type": "identity",
+            "topology_type": "torus"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 18.62,
+        "steps": 100,
+        "loss_final": 8.113848889479414e-05
+    },
+    {
+        "parameters": 24869,
+        "vram_mb": 16.45,
+        "peak_vram_mb": 17.66,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868775.4935002,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "linear",
+            "readout_type": "categorical",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 4.19,
+        "steps": 100,
+        "loss_final": 3.099426976405084e-06
+    },
+    {
+        "parameters": 39845,
+        "vram_mb": 16.56,
+        "peak_vram_mb": 17.99,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868793.9472854,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "linear",
+            "readout_type": "categorical",
+            "topology_type": "torus"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 18.45,
+        "steps": 100,
+        "loss_final": 5.260956459096633e-05
+    },
+    {
+        "parameters": 24869,
+        "vram_mb": 16.45,
+        "peak_vram_mb": 17.66,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868798.1222856,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "linear",
+            "readout_type": "implicit",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 4.17,
+        "steps": 100,
+        "loss_final": 3.099426976405084e-06
+    },
+    {
+        "parameters": 39845,
+        "vram_mb": 16.56,
+        "peak_vram_mb": 17.99,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868817.1297078,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "linear",
+            "readout_type": "implicit",
+            "topology_type": "torus"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 19.0,
+        "steps": 100,
+        "loss_final": 5.260956459096633e-05
+    },
+    {
+        "parameters": 24869,
+        "vram_mb": 16.45,
+        "peak_vram_mb": 17.66,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868821.4419634,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "linear",
+            "readout_type": "identity",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 4.31,
+        "steps": 100,
+        "loss_final": 3.099426976405084e-06
+    },
+    {
+        "parameters": 39845,
+        "vram_mb": 16.56,
+        "peak_vram_mb": 17.99,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868840.422133,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "linear",
+            "readout_type": "identity",
+            "topology_type": "torus"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 18.97,
+        "steps": 100,
+        "loss_final": 5.260956459096633e-05
+    },
+    {
+        "parameters": 37349,
+        "vram_mb": 16.55,
+        "peak_vram_mb": 17.81,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868844.8224244,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "siren",
+            "readout_type": "categorical",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 4.39,
+        "steps": 100,
+        "loss_final": 1.3112995702613262e-06
+    },
+    {
+        "parameters": 52325,
+        "vram_mb": 16.66,
+        "peak_vram_mb": 18.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868863.4068148,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "siren",
+            "readout_type": "categorical",
+            "topology_type": "torus"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 18.58,
+        "steps": 100,
+        "loss_final": 4.227863973937929e-05
+    },
+    {
+        "parameters": 37349,
+        "vram_mb": 16.55,
+        "peak_vram_mb": 17.81,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868867.8434544,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "siren",
+            "readout_type": "implicit",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 4.43,
+        "steps": 100,
+        "loss_final": 1.3112995702613262e-06
+    },
+    {
+        "parameters": 52325,
+        "vram_mb": 16.66,
+        "peak_vram_mb": 18.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868886.5733492,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "siren",
+            "readout_type": "implicit",
+            "topology_type": "torus"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 18.72,
+        "steps": 100,
+        "loss_final": 4.227863973937929e-05
+    },
+    {
+        "parameters": 37349,
+        "vram_mb": 16.55,
+        "peak_vram_mb": 17.81,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868890.9679117,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "siren",
+            "readout_type": "identity",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 4.39,
+        "steps": 100,
+        "loss_final": 1.3112995702613262e-06
+    },
+    {
+        "parameters": 52325,
+        "vram_mb": 16.66,
+        "peak_vram_mb": 18.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868909.9533274,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "siren",
+            "readout_type": "identity",
+            "topology_type": "torus"
+        },
+        "accuracy": 1.0,
+        "duration_sec": 18.98,
+        "steps": 100,
+        "loss_final": 4.227863973937929e-05
+    },
+    {
+        "parameters": 10871,
+        "vram_mb": 16.39,
+        "peak_vram_mb": 17.82,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772868932.8056676,
+        "task": "Structural_ROI",
+        "config": {
+            "embedding_mode": "linear",
+            "topology_type": "torus"
+        },
+        "accuracy": 0.3333333432674408,
+        "duration_sec": 22.84,
+        "steps": 100,
+        "loss_final": 2.8142917156219482
+    }
+]

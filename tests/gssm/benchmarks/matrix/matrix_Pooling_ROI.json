@@ -1,0 +1,162 @@
+[
+    {
+        "parameters": 23829,
+        "vram_mb": 16.49,
+        "peak_vram_mb": 17.95,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772870617.2194061,
+        "task": "Pooling_ROI",
+        "config": {
+            "pooling_type": "hamiltonian",
+            "topology_type": "euclidean",
+            "readout_type": "categorical"
+        },
+        "accuracy": 0.125,
+        "duration_sec": 24.3,
+        "steps": 300,
+        "loss_final": 2.6493773475522175e-05
+    },
+    {
+        "parameters": 37141,
+        "vram_mb": 16.58,
+        "peak_vram_mb": 18.68,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772870717.2477374,
+        "task": "Pooling_ROI",
+        "config": {
+            "pooling_type": "hamiltonian",
+            "topology_type": "torus",
+            "readout_type": "categorical"
+        },
+        "accuracy": 0.125,
+        "duration_sec": 100.02,
+        "steps": 300,
+        "loss_final": 2.517484664916992
+    },
+    {
+        "parameters": 23829,
+        "vram_mb": 16.49,
+        "peak_vram_mb": 17.98,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772870738.5829864,
+        "task": "Pooling_ROI",
+        "config": {
+            "pooling_type": "hierarchical",
+            "topology_type": "euclidean",
+            "readout_type": "categorical"
+        },
+        "accuracy": 0.0625,
+        "duration_sec": 21.33,
+        "steps": 300,
+        "loss_final": 2.8788173949578777e-05
+    },
+    {
+        "parameters": 37141,
+        "vram_mb": 16.58,
+        "peak_vram_mb": 18.71,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772870836.14593,
+        "task": "Pooling_ROI",
+        "config": {
+            "pooling_type": "hierarchical",
+            "topology_type": "torus",
+            "readout_type": "categorical"
+        },
+        "accuracy": 0.0625,
+        "duration_sec": 97.56,
+        "steps": 300,
+        "loss_final": 2.7112560272216797
+    },
+    {
+        "parameters": 23829,
+        "vram_mb": 16.49,
+        "peak_vram_mb": 17.95,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772870856.4059365,
+        "task": "Pooling_ROI",
+        "config": {
+            "pooling_type": "momentum",
+            "topology_type": "euclidean",
+            "readout_type": "categorical"
+        },
+        "accuracy": 0.125,
+        "duration_sec": 20.25,
+        "steps": 300,
+        "loss_final": 6.54277391731739e-05
+    },
+    {
+        "parameters": 37141,
+        "vram_mb": 16.59,
+        "peak_vram_mb": 18.66,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772870949.1031265,
+        "task": "Pooling_ROI",
+        "config": {
+            "pooling_type": "momentum",
+            "topology_type": "torus",
+            "readout_type": "categorical"
+        },
+        "accuracy": 0.125,
+        "duration_sec": 92.69,
+        "steps": 300,
+        "loss_final": 2.2491300106048584
+    },
+    {
+        "parameters": 23829,
+        "vram_mb": 16.45,
+        "peak_vram_mb": 18.32,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772870979.7306857,
+        "task": "Pooling_ROI",
+        "config": {
+            "pooling_type": null,
+            "topology_type": "euclidean",
+            "readout_type": "categorical"
+        },
+        "accuracy": 0.125,
+        "duration_sec": 30.62,
+        "steps": 300,
+        "loss_final": 2.376658630964812e-05
+    },
+    {
+        "parameters": 37141,
+        "vram_mb": 16.55,
+        "peak_vram_mb": 19.63,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772871114.917458,
+        "task": "Pooling_ROI",
+        "config": {
+            "pooling_type": null,
+            "topology_type": "torus",
+            "readout_type": "categorical"
+        },
+        "accuracy": 0.0625,
+        "duration_sec": 135.18,
+        "steps": 300,
+        "loss_final": 2.051206111907959
+    }
+]

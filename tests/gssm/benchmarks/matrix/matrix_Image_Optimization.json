@@ -1,0 +1,362 @@
+[
+    {
+        "parameters": 147221,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 27.83,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773151400.0033097,
+        "task": "Image_Optimization",
+        "config": {
+            "loss_mode": "mse",
+            "lambda_geo": 0.0,
+            "physics.stability.integrator_type": "leapfrog"
+        },
+        "accuracy": 0.975,
+        "duration_sec": 54.66,
+        "steps": 500,
+        "loss_final": 0.425213098526001
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773151457.8296108,
+        "task": "Image_Optimization",
+        "config": {
+            "loss_mode": "mse",
+            "lambda_geo": 0.0,
+            "physics.stability.integrator_type": "rk4"
+        },
+        "accuracy": 0.975,
+        "duration_sec": 57.82,
+        "steps": 500,
+        "loss_final": 0.4327322542667389
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.74,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773151517.758837,
+        "task": "Image_Optimization",
+        "config": {
+            "loss_mode": "mse",
+            "lambda_geo": 0.001,
+            "physics.stability.integrator_type": "leapfrog"
+        },
+        "accuracy": 0.975,
+        "duration_sec": 59.92,
+        "steps": 500,
+        "loss_final": 0.4260408878326416
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.8,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773151584.2234778,
+        "task": "Image_Optimization",
+        "config": {
+            "loss_mode": "mse",
+            "lambda_geo": 0.001,
+            "physics.stability.integrator_type": "rk4"
+        },
+        "accuracy": 0.975,
+        "duration_sec": 66.45,
+        "steps": 500,
+        "loss_final": 0.4317792057991028
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.74,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773151648.5462725,
+        "task": "Image_Optimization",
+        "config": {
+            "loss_mode": "mse",
+            "lambda_geo": 0.01,
+            "physics.stability.integrator_type": "leapfrog"
+        },
+        "accuracy": 0.975,
+        "duration_sec": 64.32,
+        "steps": 500,
+        "loss_final": 0.4260408878326416
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.8,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773151712.562678,
+        "task": "Image_Optimization",
+        "config": {
+            "loss_mode": "mse",
+            "lambda_geo": 0.01,
+            "physics.stability.integrator_type": "rk4"
+        },
+        "accuracy": 0.975,
+        "duration_sec": 64.0,
+        "steps": 500,
+        "loss_final": 0.4317792057991028
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773151769.1748073,
+        "task": "Image_Optimization",
+        "config": {
+            "loss_mode": "circular",
+            "lambda_geo": 0.0,
+            "physics.stability.integrator_type": "leapfrog"
+        },
+        "accuracy": 0.975,
+        "duration_sec": 56.6,
+        "steps": 500,
+        "loss_final": 0.8664237260818481
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773151823.472511,
+        "task": "Image_Optimization",
+        "config": {
+            "loss_mode": "circular",
+            "lambda_geo": 0.0,
+            "physics.stability.integrator_type": "rk4"
+        },
+        "accuracy": 0.975,
+        "duration_sec": 54.29,
+        "steps": 500,
+        "loss_final": 0.8473538160324097
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.74,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773151880.5556848,
+        "task": "Image_Optimization",
+        "config": {
+            "loss_mode": "circular",
+            "lambda_geo": 0.001,
+            "physics.stability.integrator_type": "leapfrog"
+        },
+        "accuracy": 0.975,
+        "duration_sec": 57.08,
+        "steps": 500,
+        "loss_final": 0.6586083173751831
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.8,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773151945.9185896,
+        "task": "Image_Optimization",
+        "config": {
+            "loss_mode": "circular",
+            "lambda_geo": 0.001,
+            "physics.stability.integrator_type": "rk4"
+        },
+        "accuracy": 0.975,
+        "duration_sec": 65.36,
+        "steps": 500,
+        "loss_final": 0.8561518788337708
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.74,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773152007.8303497,
+        "task": "Image_Optimization",
+        "config": {
+            "loss_mode": "circular",
+            "lambda_geo": 0.01,
+            "physics.stability.integrator_type": "leapfrog"
+        },
+        "accuracy": 0.975,
+        "duration_sec": 61.9,
+        "steps": 500,
+        "loss_final": 0.6586083173751831
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.8,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773152071.2027216,
+        "task": "Image_Optimization",
+        "config": {
+            "loss_mode": "circular",
+            "lambda_geo": 0.01,
+            "physics.stability.integrator_type": "rk4"
+        },
+        "accuracy": 0.975,
+        "duration_sec": 63.36,
+        "steps": 500,
+        "loss_final": 0.8561518788337708
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773152127.0709143,
+        "task": "Image_Optimization",
+        "config": {
+            "loss_mode": "riemannian",
+            "lambda_geo": 0.0,
+            "physics.stability.integrator_type": "leapfrog"
+        },
+        "accuracy": 0.975,
+        "duration_sec": 55.86,
+        "steps": 500,
+        "loss_final": 3.524672269821167
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773152185.9510064,
+        "task": "Image_Optimization",
+        "config": {
+            "loss_mode": "riemannian",
+            "lambda_geo": 0.0,
+            "physics.stability.integrator_type": "rk4"
+        },
+        "accuracy": 0.975,
+        "duration_sec": 58.87,
+        "steps": 500,
+        "loss_final": 3.4427943229675293
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.74,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773152255.2974238,
+        "task": "Image_Optimization",
+        "config": {
+            "loss_mode": "riemannian",
+            "lambda_geo": 0.001,
+            "physics.stability.integrator_type": "leapfrog"
+        },
+        "accuracy": 0.975,
+        "duration_sec": 69.34,
+        "steps": 500,
+        "loss_final": 3.4829890727996826
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.8,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773152334.2171905,
+        "task": "Image_Optimization",
+        "config": {
+            "loss_mode": "riemannian",
+            "lambda_geo": 0.001,
+            "physics.stability.integrator_type": "rk4"
+        },
+        "accuracy": 0.975,
+        "duration_sec": 78.91,
+        "steps": 500,
+        "loss_final": 3.474611759185791
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.74,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773152405.7243757,
+        "task": "Image_Optimization",
+        "config": {
+            "loss_mode": "riemannian",
+            "lambda_geo": 0.01,
+            "physics.stability.integrator_type": "leapfrog"
+        },
+        "accuracy": 0.975,
+        "duration_sec": 71.5,
+        "steps": 500,
+        "loss_final": 3.4829890727996826
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.8,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773152474.9769347,
+        "task": "Image_Optimization",
+        "config": {
+            "loss_mode": "riemannian",
+            "lambda_geo": 0.01,
+            "physics.stability.integrator_type": "rk4"
+        },
+        "accuracy": 0.975,
+        "duration_sec": 69.24,
+        "steps": 500,
+        "loss_final": 3.474611759185791
+    }
+]

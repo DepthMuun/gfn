@@ -1,0 +1,402 @@
+[
+    {
+        "parameters": 147221,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 27.83,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773150286.415798,
+        "task": "Image_Stability",
+        "config": {
+            "physics.stability.integrator_type": "leapfrog",
+            "physics.stability.enable_trace_normalization": true,
+            "physics.stability.adaptive": true
+        },
+        "accuracy": 0.975,
+        "duration_sec": 60.79,
+        "steps": 500,
+        "loss_final": 0.425213098526001
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773150351.7386084,
+        "task": "Image_Stability",
+        "config": {
+            "physics.stability.integrator_type": "leapfrog",
+            "physics.stability.enable_trace_normalization": true,
+            "physics.stability.adaptive": false
+        },
+        "accuracy": 0.975,
+        "duration_sec": 65.31,
+        "steps": 500,
+        "loss_final": 0.425213098526001
+    },
+    {
+        "parameters": 146965,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773150411.5424047,
+        "task": "Image_Stability",
+        "config": {
+            "physics.stability.integrator_type": "leapfrog",
+            "physics.stability.enable_trace_normalization": false,
+            "physics.stability.adaptive": true
+        },
+        "accuracy": 0.975,
+        "duration_sec": 59.8,
+        "steps": 500,
+        "loss_final": 0.4237906336784363
+    },
+    {
+        "parameters": 146965,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773150469.1798317,
+        "task": "Image_Stability",
+        "config": {
+            "physics.stability.integrator_type": "leapfrog",
+            "physics.stability.enable_trace_normalization": false,
+            "physics.stability.adaptive": false
+        },
+        "accuracy": 0.975,
+        "duration_sec": 57.62,
+        "steps": 500,
+        "loss_final": 0.4237906336784363
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773150533.0285542,
+        "task": "Image_Stability",
+        "config": {
+            "physics.stability.integrator_type": "yoshida",
+            "physics.stability.enable_trace_normalization": true,
+            "physics.stability.adaptive": true
+        },
+        "accuracy": 0.975,
+        "duration_sec": 63.84,
+        "steps": 500,
+        "loss_final": 0.4393724203109741
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773150594.3960755,
+        "task": "Image_Stability",
+        "config": {
+            "physics.stability.integrator_type": "yoshida",
+            "physics.stability.enable_trace_normalization": true,
+            "physics.stability.adaptive": false
+        },
+        "accuracy": 0.975,
+        "duration_sec": 61.36,
+        "steps": 500,
+        "loss_final": 0.4393724203109741
+    },
+    {
+        "parameters": 146965,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773150657.9438086,
+        "task": "Image_Stability",
+        "config": {
+            "physics.stability.integrator_type": "yoshida",
+            "physics.stability.enable_trace_normalization": false,
+            "physics.stability.adaptive": true
+        },
+        "accuracy": 0.975,
+        "duration_sec": 63.54,
+        "steps": 500,
+        "loss_final": 0.41916680335998535
+    },
+    {
+        "parameters": 146965,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773150725.1207063,
+        "task": "Image_Stability",
+        "config": {
+            "physics.stability.integrator_type": "yoshida",
+            "physics.stability.enable_trace_normalization": false,
+            "physics.stability.adaptive": false
+        },
+        "accuracy": 0.975,
+        "duration_sec": 67.17,
+        "steps": 500,
+        "loss_final": 0.41916680335998535
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773150788.4166708,
+        "task": "Image_Stability",
+        "config": {
+            "physics.stability.integrator_type": "rk4",
+            "physics.stability.enable_trace_normalization": true,
+            "physics.stability.adaptive": true
+        },
+        "accuracy": 0.975,
+        "duration_sec": 63.29,
+        "steps": 500,
+        "loss_final": 0.4327322542667389
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773150852.295227,
+        "task": "Image_Stability",
+        "config": {
+            "physics.stability.integrator_type": "rk4",
+            "physics.stability.enable_trace_normalization": true,
+            "physics.stability.adaptive": false
+        },
+        "accuracy": 0.975,
+        "duration_sec": 63.87,
+        "steps": 500,
+        "loss_final": 0.4327322542667389
+    },
+    {
+        "parameters": 146965,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773150910.6095145,
+        "task": "Image_Stability",
+        "config": {
+            "physics.stability.integrator_type": "rk4",
+            "physics.stability.enable_trace_normalization": false,
+            "physics.stability.adaptive": true
+        },
+        "accuracy": 0.975,
+        "duration_sec": 58.31,
+        "steps": 500,
+        "loss_final": 0.4211665093898773
+    },
+    {
+        "parameters": 146965,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773150977.2211607,
+        "task": "Image_Stability",
+        "config": {
+            "physics.stability.integrator_type": "rk4",
+            "physics.stability.enable_trace_normalization": false,
+            "physics.stability.adaptive": false
+        },
+        "accuracy": 0.975,
+        "duration_sec": 66.6,
+        "steps": 500,
+        "loss_final": 0.4211665093898773
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773151036.4693532,
+        "task": "Image_Stability",
+        "config": {
+            "physics.stability.integrator_type": "verlet",
+            "physics.stability.enable_trace_normalization": true,
+            "physics.stability.adaptive": true
+        },
+        "accuracy": 0.975,
+        "duration_sec": 59.24,
+        "steps": 500,
+        "loss_final": 0.42679935693740845
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773151082.7741497,
+        "task": "Image_Stability",
+        "config": {
+            "physics.stability.integrator_type": "verlet",
+            "physics.stability.enable_trace_normalization": true,
+            "physics.stability.adaptive": false
+        },
+        "accuracy": 0.975,
+        "duration_sec": 46.3,
+        "steps": 500,
+        "loss_final": 0.42679935693740845
+    },
+    {
+        "parameters": 146965,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773151125.4898684,
+        "task": "Image_Stability",
+        "config": {
+            "physics.stability.integrator_type": "verlet",
+            "physics.stability.enable_trace_normalization": false,
+            "physics.stability.adaptive": true
+        },
+        "accuracy": 0.975,
+        "duration_sec": 42.71,
+        "steps": 500,
+        "loss_final": 0.4235329031944275
+    },
+    {
+        "parameters": 146965,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773151169.5800793,
+        "task": "Image_Stability",
+        "config": {
+            "physics.stability.integrator_type": "verlet",
+            "physics.stability.enable_trace_normalization": false,
+            "physics.stability.adaptive": false
+        },
+        "accuracy": 0.975,
+        "duration_sec": 44.08,
+        "steps": 500,
+        "loss_final": 0.4235329031944275
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773151213.5855513,
+        "task": "Image_Stability",
+        "config": {
+            "physics.stability.integrator_type": "heun",
+            "physics.stability.enable_trace_normalization": true,
+            "physics.stability.adaptive": true
+        },
+        "accuracy": 0.975,
+        "duration_sec": 44.0,
+        "steps": 500,
+        "loss_final": 0.43016716837882996
+    },
+    {
+        "parameters": 147221,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773151257.6504266,
+        "task": "Image_Stability",
+        "config": {
+            "physics.stability.integrator_type": "heun",
+            "physics.stability.enable_trace_normalization": true,
+            "physics.stability.adaptive": false
+        },
+        "accuracy": 0.975,
+        "duration_sec": 44.06,
+        "steps": 500,
+        "loss_final": 0.43016716837882996
+    },
+    {
+        "parameters": 146965,
+        "vram_mb": 21.32,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773151301.2360377,
+        "task": "Image_Stability",
+        "config": {
+            "physics.stability.integrator_type": "heun",
+            "physics.stability.enable_trace_normalization": false,
+            "physics.stability.adaptive": true
+        },
+        "accuracy": 0.975,
+        "duration_sec": 43.58,
+        "steps": 500,
+        "loss_final": 0.42314693331718445
+    },
+    {
+        "parameters": 146965,
+        "vram_mb": 20.57,
+        "peak_vram_mb": 32.15,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1773151345.3212974,
+        "task": "Image_Stability",
+        "config": {
+            "physics.stability.integrator_type": "heun",
+            "physics.stability.enable_trace_normalization": false,
+            "physics.stability.adaptive": false
+        },
+        "accuracy": 0.975,
+        "duration_sec": 44.08,
+        "steps": 500,
+        "loss_final": 0.42314693331718445
+    }
+]

@@ -1,0 +1,242 @@
+[
+    {
+        "parameters": 60038,
+        "vram_mb": 16.74,
+        "peak_vram_mb": 18.93,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772838893.7279406,
+        "task": "Arithmetic_Sum",
+        "config": {
+            "dynamics_type": "direct",
+            "integrator": "yoshida",
+            "topology_type": "torus"
+        },
+        "accuracy": 0.125,
+        "duration_sec": 19.9,
+        "steps": 150,
+        "loss_final": 0.2364858090877533
+    },
+    {
+        "parameters": 34054,
+        "vram_mb": 16.55,
+        "peak_vram_mb": 18.19,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772838906.991137,
+        "task": "Arithmetic_Sum",
+        "config": {
+            "dynamics_type": "direct",
+            "integrator": "yoshida",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 0.1875,
+        "duration_sec": 13.25,
+        "steps": 150,
+        "loss_final": 0.0010792218381538987
+    },
+    {
+        "parameters": 60038,
+        "vram_mb": 16.74,
+        "peak_vram_mb": 18.89,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772838927.1638453,
+        "task": "Arithmetic_Sum",
+        "config": {
+            "dynamics_type": "direct",
+            "integrator": "rk4",
+            "topology_type": "torus"
+        },
+        "accuracy": 0.125,
+        "duration_sec": 20.16,
+        "steps": 150,
+        "loss_final": 3.066659450531006
+    },
+    {
+        "parameters": 34054,
+        "vram_mb": 16.55,
+        "peak_vram_mb": 18.32,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772838942.9597728,
+        "task": "Arithmetic_Sum",
+        "config": {
+            "dynamics_type": "direct",
+            "integrator": "rk4",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 0.1875,
+        "duration_sec": 15.79,
+        "steps": 150,
+        "loss_final": 9.892808884615079e-05
+    },
+    {
+        "parameters": 60038,
+        "vram_mb": 16.74,
+        "peak_vram_mb": 18.65,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772838955.2569559,
+        "task": "Arithmetic_Sum",
+        "config": {
+            "dynamics_type": "direct",
+            "integrator": "leapfrog",
+            "topology_type": "torus"
+        },
+        "accuracy": 0.125,
+        "duration_sec": 12.29,
+        "steps": 150,
+        "loss_final": 1.3218655586242676
+    },
+    {
+        "parameters": 34054,
+        "vram_mb": 16.55,
+        "peak_vram_mb": 18.08,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772838964.14128,
+        "task": "Arithmetic_Sum",
+        "config": {
+            "dynamics_type": "direct",
+            "integrator": "leapfrog",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 0.1875,
+        "duration_sec": 8.87,
+        "steps": 150,
+        "loss_final": 3.705668495967984e-05
+    },
+    {
+        "parameters": 60044,
+        "vram_mb": 16.75,
+        "peak_vram_mb": 19.11,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772838984.166813,
+        "task": "Arithmetic_Sum",
+        "config": {
+            "dynamics_type": "residual",
+            "integrator": "yoshida",
+            "topology_type": "torus"
+        },
+        "accuracy": 0.1875,
+        "duration_sec": 20.02,
+        "steps": 150,
+        "loss_final": 0.0013415309367701411
+    },
+    {
+        "parameters": 34060,
+        "vram_mb": 16.56,
+        "peak_vram_mb": 18.25,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772838998.6095128,
+        "task": "Arithmetic_Sum",
+        "config": {
+            "dynamics_type": "residual",
+            "integrator": "yoshida",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 0.1875,
+        "duration_sec": 14.43,
+        "steps": 150,
+        "loss_final": 0.000594220997299999
+    },
+    {
+        "parameters": 60044,
+        "vram_mb": 16.75,
+        "peak_vram_mb": 19.06,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772839021.6355996,
+        "task": "Arithmetic_Sum",
+        "config": {
+            "dynamics_type": "residual",
+            "integrator": "rk4",
+            "topology_type": "torus"
+        },
+        "accuracy": 0.1875,
+        "duration_sec": 23.01,
+        "steps": 150,
+        "loss_final": 0.9776406288146973
+    },
+    {
+        "parameters": 34060,
+        "vram_mb": 16.56,
+        "peak_vram_mb": 18.37,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772839038.108336,
+        "task": "Arithmetic_Sum",
+        "config": {
+            "dynamics_type": "residual",
+            "integrator": "rk4",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 0.1875,
+        "duration_sec": 16.46,
+        "steps": 150,
+        "loss_final": 0.00048043509013950825
+    },
+    {
+        "parameters": 60044,
+        "vram_mb": 16.75,
+        "peak_vram_mb": 18.82,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772839052.006912,
+        "task": "Arithmetic_Sum",
+        "config": {
+            "dynamics_type": "residual",
+            "integrator": "leapfrog",
+            "topology_type": "torus"
+        },
+        "accuracy": 0.125,
+        "duration_sec": 13.89,
+        "steps": 150,
+        "loss_final": 0.17951446771621704
+    },
+    {
+        "parameters": 34060,
+        "vram_mb": 16.56,
+        "peak_vram_mb": 18.13,
+        "health": {
+            "param_nans": [],
+            "grad_nans": []
+        },
+        "timestamp": 1772839061.4770072,
+        "task": "Arithmetic_Sum",
+        "config": {
+            "dynamics_type": "residual",
+            "integrator": "leapfrog",
+            "topology_type": "euclidean"
+        },
+        "accuracy": 0.1875,
+        "duration_sec": 9.46,
+        "steps": 150,
+        "loss_final": 0.00038527557626366615
+    }
+]
