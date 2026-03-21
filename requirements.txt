@@ -1,0 +1,47 @@
+# GFN Framework - Ultra-Complete Research Requirements
+# Version: 2.7.0
+# Date: 2026-03-21
+
+# --- Core Deep Learning & Analytics ---
+torch>=2.0.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
+numpy>=1.24.0
+scipy>=1.10.0
+pyyaml>=6.0
+ninja>=1.11.1
+
+# --- Visualization & Analysis ---
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.15.0
+tensorboard>=2.13.0
+wandb>=0.15.0
+
+# --- UI & Deployment ---
+gradio>=4.0.0
+streamlit>=1.25.0
+huggingface_hub>=0.16.0
+datasets>=2.13.0
+transformers>=4.31.0
+tokenizers>=0.13.3
+
+# --- Logging & Performance ---
+tqdm>=4.65.0
+rich>=13.4.0
+psutil>=5.9.0
+nvidia-ml-py>=12.0.0
+colorama>=0.4.6
+
+# --- Data Engineering ---
+pandas>=2.0.0
+scikit-learn>=1.3.0
+einops>=0.6.1
+
+# --- Development & Testing (Optional) ---
+pytest>=7.4.0
+pytest-cov>=4.1.0
+black>=23.7.0
+isort>=5.12.0
+flake8>=6.1.0
+mypy>=1.5.0
