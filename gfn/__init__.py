@@ -16,7 +16,7 @@ from .realizations.api import create, load, save
 REALIZATIONS = api.list_available()
 
 # ── Package Metadata ──────────────────────────────────────────────────────────
-__version__ = "2.7.0"
+__version__ = "2.7.1"
 __author__ = "DepthMuun"
 
 __all__ = [

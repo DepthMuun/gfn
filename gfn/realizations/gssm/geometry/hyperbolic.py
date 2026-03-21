@@ -79,12 +79,11 @@ class HyperRiemannianGeometry(LowRankRiemannianGeometry):
             x_flat_for_mu = x
             v_flat_for_mu = v
 
-        # Friction
+        # Friction (position-dependent, gated)
         x_in = torch.cat([torch.sin(x_flat), torch.cos(x_flat)], dim=-1) \
             if self.topology_type == TOPOLOGY_TORUS else x_flat
-        mu_base = self.friction + self.friction_gate(x_in, force=force)
-        v_norm = torch.norm(v, dim=-1, keepdim=True) / (self.dim ** 0.5 + EPS)
-        mu = mu_base * (1.0 + self.velocity_friction_scale * v_norm)
+        mu = self.friction_gate(x_in, force=force)
+        
         if mu.shape != v.shape:
             mu = mu.view_as(v) if mu.numel() == v.numel() else mu.mean(dim=-1, keepdim=True)
 

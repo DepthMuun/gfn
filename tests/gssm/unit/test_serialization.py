@@ -18,6 +18,7 @@ def test_serialization():
     dim = 64
     heads = 4
     model = gfn.create(
+        'gssm',
         vocab_size=vocab_size, 
         dim=dim, 
         heads=heads, 

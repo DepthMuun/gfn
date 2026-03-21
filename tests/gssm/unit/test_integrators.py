@@ -6,7 +6,7 @@ from gfn.realizations.gssm.config.schema import PhysicsConfig
 @pytest.fixture
 def test_config():
     cfg = PhysicsConfig()
-    cfg.topology.type = 'torus'
+    cfg.topology.type = 'euclidean'
     return cfg
 
 class MockPhysicsEngine:
@@ -23,7 +23,7 @@ class MockPhysicsEngine:
 
 class MockGeometry:
     """Geometry that simply returns state (Identity) to test pure integration formulas"""
-    def __call__(self, x, v, physics_config=None):
+    def __call__(self, x, v, physics_config=None, **kwargs):
         return x, torch.zeros_like(x) # Gamma = x, Friction = 0
 
 def test_symplectic_yoshida_energy_conservation(test_config):

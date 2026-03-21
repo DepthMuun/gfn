@@ -8,7 +8,7 @@ import gfn
 
 def test_sync():
     # 1. Test flat kwarg sync
-    model = gfn.create(vocab_size=2, integrator='yoshida', impulse_scale=80.0)
+    model = gfn.create('gssm', vocab_size=2, integrator='yoshida', impulse_scale=80.0)
     
     # Check if integrator is Yoshida
     integrator = model.layers[0].integrator
@@ -24,7 +24,7 @@ def test_sync():
         'embedding': {'impulse_scale': 123.0},
         'stability': {'integrator_type': 'verlet'}
     }
-    model2 = gfn.create(vocab_size=2, physics=physics_config)
+    model2 = gfn.create('gssm', vocab_size=2, physics=physics_config)
     
     print(f"Model2 Integrator: {type(model2.layers[0].integrator).__name__}")
     assert "Verlet" in type(model2.layers[0].integrator).__name__

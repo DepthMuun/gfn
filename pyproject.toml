@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gfn"
-version = "2.7.0"
+version = "2.7.1"
 description = "Geometric Flow Networks: A Physics-Informed Paradigm for Sequential Intelligence"
 readme = "README.md"
 license = { text = "Apache-2.0" }

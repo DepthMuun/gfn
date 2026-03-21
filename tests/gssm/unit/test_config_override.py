@@ -124,6 +124,7 @@ class TestGfnCreatePhysicsKwarg:
     def test_create_with_physics_dict(self, tiny_kwargs):
         """Flujo principal: gfn.create(preset_name=..., physics={...})"""
         model = gfn.create(
+            'gssm',
             # preset_name='stable-torus', # Deprecated
             physics={
                 'stability': {'base_dt': 0.1, 'friction': 0.01},
@@ -136,6 +137,7 @@ class TestGfnCreatePhysicsKwarg:
     def test_create_with_physics_topology_override(self, tiny_kwargs):
         """Override de topología vía dict de physics."""
         model = gfn.create(
+            'gssm',
             # preset_name='stable-torus', # Deprecated
             physics={'topology': {'type': 'euclidean'}},
             holographic=False,
@@ -146,6 +148,7 @@ class TestGfnCreatePhysicsKwarg:
     def test_create_physics_plus_flat_kwargs(self, tiny_kwargs):
         """Dict de physics y kwargs planos coexisten sin conflicto."""
         model = gfn.create(
+            'gssm',
             # preset_name='stable-torus', # Deprecated
             physics={'stability': {'friction': 0.1}},
             integrator='yoshida',
@@ -167,6 +170,7 @@ class TestGfnCreatePhysicsKwarg:
     def test_forward_with_physics_dict_model(self, tiny_kwargs):
         """El modelo creado con physics dict hace forward sin error."""
         model = gfn.create(
+            'gssm',
             # preset_name='stable-torus', # Deprecated
             physics={'active_inference': {'enabled': False}},
             holographic=True,
@@ -181,6 +185,7 @@ class TestGfnCreatePhysicsKwarg:
         from gfn.errors import ConfigurationError
         with pytest.raises(ConfigurationError):
             gfn.create(
+                'gssm',
                 # preset_name='stable-torus', # Deprecated
                 physics="esto_no_es_valido",
                 **tiny_kwargs,
@@ -209,6 +214,7 @@ class TestECGPhysicsConfig:
     def test_ecg_config_dict_applies_without_crash(self):
         """El ECG_PHYSICS_CONFIG del benchmark se aplica sin crash."""
         model = gfn.create(
+            'gssm',
             # preset_name='stable-torus', # Deprecated
             physics=self.ECG_PHYSICS_CONFIG,
             vocab_size=2, dim=16, heads=2, depth=1, rank=4,

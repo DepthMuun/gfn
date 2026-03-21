@@ -76,6 +76,13 @@ class ModelFactory:
                          - 'topology_type', 'base_dt', 'friction', 'integrator'
         """
         # ── 0. Resolver configuración base ───────────────────────────────────
+        if isinstance(config, str):
+            if config.lower() == 'gssm':
+                config = None
+            else:
+                preset_name = config
+                config = None
+                
         # Keep track of explicitly provided kwargs to avoid heuristic-only sync
         explicit_keys = set(kwargs.keys())
         

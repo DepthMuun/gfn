@@ -19,9 +19,10 @@ tensorboard>=2.13.0
 wandb>=0.15.0
 
 # --- UI & Deployment ---
-gradio>=4.0.0
+gradio>=4.44.1,<5.0.0
+gradio-client==1.3.0
+huggingface_hub>=0.16.0,<0.25.0
 streamlit>=1.25.0
-huggingface_hub>=0.16.0
 datasets>=2.13.0
 transformers>=4.31.0
 tokenizers>=0.13.3
