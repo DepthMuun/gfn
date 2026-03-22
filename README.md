@@ -162,6 +162,12 @@ The internal world enables latent planning:
 | All Pillars Combined | No KV-cache, no O(N²) attention |
 
 ---
+# Install
+
+Install with PyPi:
+```
+pip install  gfn
+```
 
 ## Paradigm Documentation
 
