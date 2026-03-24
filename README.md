@@ -6,6 +6,7 @@
 [![Models: Hugging Face](https://img.shields.io/badge/Models-Hugging%20Face-orange.svg)](https://huggingface.co/DepthMuun)
 [![DOI: 10.5281/zenodo.19141133](https://img.shields.io/badge/DOI-10.5281/zenodo.19141133-blue.svg)](https://doi.org/10.5281/zenodo.19141133)
 [![Status: Active](https://img.shields.io/badge/Status-Active-green.svg)]()
+[![Package: GFN PyPi](https://static.pepy.tech/personalized-badge/gfn?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pypi.org/project/gfn/)
 
 > "Intelligence is not statistical correlation; it is the continuous evolution of a persistent world-state governed by physical invariants."
 
