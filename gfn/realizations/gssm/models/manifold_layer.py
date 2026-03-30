@@ -6,9 +6,10 @@ from ..interfaces.integrator import Integrator
 from ..interfaces.physics import PhysicsEngine
 from ..config.schema import PhysicsConfig
 from ..constants import TOPOLOGY_TORUS, TOPOLOGY_EUCLIDEAN
+from .components.mixer import FlowMixer
 from .plugins import LAYER_PLUGIN_REGISTRY
 # Import plugins to trigger registration
-from .plugins import dynamic_time, fractal, mixing
+from .plugins import dynamic_time, fractal
 import logging
 
 logger = logging.getLogger(__name__)
@@ -89,6 +90,10 @@ class ManifoldLayer(nn.Module):
             resolved_dyn_type, dim_total, self.norm_v, topology=TOPOLOGY_EUCLIDEAN
         )
         self.dynamics_type = resolved_dyn_type
+
+        # ── Mixer (obligatorio, NO es plugin) ──────────────────────────────────
+        self.mixer_dim = self.heads * self.head_dim
+        self.mixer = FlowMixer(self.mixer_dim, topology=self.topology)
 
         # ── Fractal Sub-Manifold (optional, now handled by fractal plugin) ─────
         # Keep config reference for backward compatibility
@@ -192,30 +197,33 @@ class ManifoldLayer(nn.Module):
         res = self.integrator.step(x_3d, v_3d, force=f_3d, dt=dt_eff)
         x_stepped, v_stepped = res["x"], res["v"]
 
-        # 4. Plugin: Post-integrate hooks (e.g., mixing)
+        # 4. Plugin: Post-integrate hooks
         for plugin in self.plugins.values():
             x_stepped, v_stepped = plugin.post_integrate(
                 x_stepped, v_stepped, x_prev, v_prev
             )
 
-        # 5. Dynamics routing (aplica mixing proposal)
-        # x_stepped puede ser [B, D] (partición) o [B, H, D] (ensemble)
-        if x_stepped.dim() == 2:
+        # 5. Mixing de cabezas (obligatorio, no plugin)
+        x_mix, v_mix = self.mixer(x_stepped, v_stepped)
+
+        # 6. Dynamics routing (aplica mixing proposal)
+        # x_mix puede ser [B, D] (partición) o [B, H, D] (ensemble)
+        if x_mix.dim() == 2:
             # Modo partición: aplicar dynamics en espacio aplanado y redistribuir
             x_ref_h = x_3d.reshape(B_eff, -1)
             v_ref_h = v_3d.reshape(B_eff, -1)
-            x_next_flat = self.dynamics_x(x_ref_h, x_stepped, context_x=x_ref_h)
-            v_next_flat = self.dynamics_v(v_ref_h, v_stepped, context_x=x_ref_h)
+            x_next_flat = self.dynamics_x(x_ref_h, x_mix, context_x=x_ref_h)
+            v_next_flat = self.dynamics_v(v_ref_h, v_mix, context_x=v_ref_h)
             x_next = x_next_flat.view(B_eff, self.heads, self.head_dim)
             v_next = v_next_flat.view(B_eff, self.heads, self.head_dim)
         else:
             # Modo ensemble: aplicar por cabeza
             x_next = self.dynamics_x(x_3d.reshape(B_eff, -1),
-                                     x_stepped.reshape(B_eff, -1),
+                                     x_mix.reshape(B_eff, -1),
                                      context_x=x_3d.reshape(B_eff, -1)).view(B_eff, self.heads, self.head_dim)
             v_next = self.dynamics_v(v_3d.reshape(B_eff, -1),
-                                     v_stepped.reshape(B_eff, -1),
-                                     context_x=x_3d.reshape(B_eff, -1)).view(B_eff, self.heads, self.head_dim)
+                                     v_mix.reshape(B_eff, -1),
+                                     context_x=v_3d.reshape(B_eff, -1)).view(B_eff, self.heads, self.head_dim)
 
         # Apply topology boundary wrapping to maintain manifold constraints
         x_next = self.integrator._resolve_topology(x_next)
