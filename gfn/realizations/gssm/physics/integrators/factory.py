@@ -13,6 +13,7 @@ from ...physics.integrators.symplectic import yoshida    # 'yoshida'
 from ...physics.integrators.symplectic import leapfrog  # 'leapfrog'
 from ...physics.integrators.symplectic import verlet    # 'verlet'
 from ...physics.integrators.symplectic import forest_ruth  # 'forest_ruth'
+from ...physics.integrators.symplectic import omelyan   # 'omelyan'
 from ...physics.integrators.runge_kutta import heun     # 'heun'
 from ...physics.integrators.runge_kutta import rk4      # 'rk4'
 
