@@ -65,7 +65,21 @@ class AdjointBuilder(ComponentBuilder):
         return AdjointPlugin(self.config)
 
 
+class LensingBuilder(ComponentBuilder):
+    """Builder for optional lensing plugin."""
+    
+    def build(self) -> Optional[nn.Module]:
+        """Build lensing plugin if enabled, otherwise return None."""
+        if not getattr(self.config, 'lensing_enabled', False):
+            return None
+        
+        from ..components.lensing import LensingPlugin
+        
+        return LensingPlugin()
+
+
 # Register the builders
 MODEL_BUILDER_REGISTRY.register('pooling', PoolingBuilder)
 MODEL_BUILDER_REGISTRY.register('checkpointing', CheckpointingBuilder)
 MODEL_BUILDER_REGISTRY.register('adjoint', AdjointBuilder)
+MODEL_BUILDER_REGISTRY.register('lensing', LensingBuilder)

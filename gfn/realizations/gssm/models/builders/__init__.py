@@ -64,7 +64,7 @@ MODEL_BUILDER_REGISTRY = BuilderRegistry()
 from .embedding_builder import EmbeddingBuilder
 from .layer_builder import LayerBuilder
 from .readout_builder import ReadoutBuilder
-from .plugin_builders import PoolingBuilder, CheckpointingBuilder, AdjointBuilder
+from .plugin_builders import PoolingBuilder, CheckpointingBuilder, AdjointBuilder, LensingBuilder
 
 
 __all__ = [
@@ -77,4 +77,5 @@ __all__ = [
     'PoolingBuilder',
     'CheckpointingBuilder',
     'AdjointBuilder',
+    'LensingBuilder',
 ]
