@@ -47,7 +47,7 @@ def test_architecture_mechanisms(dyn_type, mix_type, mechanism_telemetry):
     # 2. Mini-XOR Training loop
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     # Using the standard ToroidalLoss since we're in holographic mode
-    from gfn.losses.toroidal import ToroidalLoss
+    from gfn.realizations.gssm.losses.toroidal import ToroidalLoss
     criterion = ToroidalLoss()
     
     B, L = 16, 12

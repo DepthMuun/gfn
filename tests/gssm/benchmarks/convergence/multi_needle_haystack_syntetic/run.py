@@ -63,7 +63,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import gfn
 from gfn.realizations.gssm.models.g_ssm import GSSM as Model, create, loss
-from gfn.losses import ToroidalDistanceLoss
+from gfn.realizations.gssm.losses import ToroidalDistanceLoss
 
 
 # ══════════════════════════════════════════════════════════════════════════════

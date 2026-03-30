@@ -21,7 +21,7 @@ from gfn.aggregation import HamiltonianPooling, GeodesicAttention, MomentumAccum
 from gfn import CircularDistanceLoss, geodesic_regularization, hamiltonian_loss
 from gfn.data_pipeline.loaders.math_loader import MathDataset
 from gfn import RiemannianAdam
-from gfn.geometry.boundaries import toroidal_dist_python
+from gfn.realizations.gssm.geometry.boundaries import toroidal_dist_python
 
 
 class ComplexMathTask:

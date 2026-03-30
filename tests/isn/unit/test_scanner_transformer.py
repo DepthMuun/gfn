@@ -5,7 +5,7 @@ from pathlib import Path
 # Add project root
 sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 
-from gfn.realizations.isn.components.scanners.transformer_scanner import TransformerScanner
+from gfn.realizations.isn.projections.scanners.transformer import TransformerScanner
 
 def test_transformer_scanner_output_shape():
     """Verificar que el scanner devuelve las dimensiones correctas."""

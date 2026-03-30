@@ -1,7 +1,7 @@
 import pytest
 import torch
 import math
-from gfn.geometry import (
+from gfn.realizations.gssm.geometry import (
     ToroidalRiemannianGeometry,
     ReactiveRiemannianGeometry,
     HyperRiemannianGeometry,

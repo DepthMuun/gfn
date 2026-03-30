@@ -41,6 +41,7 @@ _eval_out
 *.ckpt
 memory/
 *.csv
+.agents/
 
 # Checkpoints (Exclude all model weights everywhere)
 checkpoints/

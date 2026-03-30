@@ -5,7 +5,7 @@ from pathlib import Path
 # Add project root
 sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 
-from gfn.realizations.isn.components.worlds.topological_world import TopologicalWorld
+from gfn.realizations.isn.physics.topological import TopologicalWorld
 
 def test_topological_world_simulation():
     """Validación del Kernel C++ nativo sin mocks."""

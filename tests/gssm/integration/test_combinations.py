@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from gfn.realizations.gssm.models.factory import ModelFactory
 from gfn.realizations.gssm.config.schema import ManifoldConfig, PhysicsConfig
-from gfn.constants import (
+from gfn.realizations.gssm.constants import (
     TOPOLOGY_TORUS, TOPOLOGY_EUCLIDEAN
 )
 from tests.utils.telemetry import TelemetryAnalyzer

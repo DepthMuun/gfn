@@ -52,6 +52,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import torch
+import torch.nn as nn
 import torch.optim as optim
 from tqdm import tqdm
 
@@ -62,8 +63,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import gfn
-from gfn import Model, create, loss
-from gfn.realizations.gssm.losses.toroidal import ToroidalDistanceLoss
+
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -357,7 +357,7 @@ class ResultsWriter:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def train(
-    model: Model,
+    model: nn.Module,
     cfg: BenchmarkConfig,
     device: torch.device,
     ckpt_dir: Path,
@@ -378,7 +378,7 @@ def train(
     scheduler = optim.lr_scheduler.OneCycleLR(
         optimizer, max_lr=cfg.max_lr, total_steps=cfg.train_steps, pct_start=0.2
     )
-    criterion = ToroidalDistanceLoss()
+    criterion = gfn.gssm.loss('toroidal')
     model.train()
 
     best_acc = 0.0
@@ -464,7 +464,7 @@ def train(
 # ══════════════════════════════════════════════════════════════════════════════
 
 def evaluate_length(
-    model: Model,
+    model: nn.Module,
     length: int,
     num_needles: int,
     eval_batch_size: int,
@@ -572,6 +572,7 @@ def run_benchmark(cfg: BenchmarkConfig, quicktest: bool, seed: int):
     print('=' * 68)
 
     model = gfn.create(
+        'gssm',
         vocab_size=2,
         dim=cfg.dim,
         depth=cfg.depth,

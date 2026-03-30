@@ -1,19 +1,19 @@
 """
 GFN Realizations Subpackage
 ===========================
-Contains specific implementations of the GFN paradigm:
-- G-SSM: Geodesic State Space Model (Riemannian/Symplectic)
-- ISN: Inertial State Network (Physics-Informed Interaction Engine)
+Contains specific implementations of the GFN paradigm.
+Registration is handled dynamically by each realization module.
 """
 
-from . import api
-from .api import create, list_available
-
 # Trigger registration of standard realizations
-from . import gssm
-from . import isn
+try:
+    from . import gssm
+except ImportError:
+    pass
 
-# Future realizations can be added here or via external plugins
-# from . import rt
+try:
+    from . import isn
+except ImportError:
+    pass
 
-__all__ = ['gssm', 'isn', 'api', 'create', 'list_available']
+__all__ = ['gssm', 'isn']

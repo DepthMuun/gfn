@@ -1,25 +1,28 @@
 """
-ISN Reality Model — GFN V4
+ISN Reality Model — Modular V5
+=============================
 Modular Orchestrator for Component-based Neural Simulation.
+Connects Physics Engenines, Projections, and Telemetry.
+Optimized for C++ Direct Logit Path.
 """
 
 import torch
 import torch.nn as nn
 from typing import Dict, List, Optional, Tuple, Any
 
-from ..interfaces import BaseScanner, BaseWorldEngine, BaseEmitter
-from ..hooks import HookManager, ISNHook
+from ..interfaces.base import ScannerProtocol, WorldEngineProtocol, EmitterProtocol
+from ..telemetry.hooks import HookManager, ISNHook
 
 class Model(nn.Module):
     """
-    ISN V4 Modular Orchestrator.
-    Connects Scanner, WorldEngine and Emitter via Component Injection.
+    ISN V5 Modular Orchestrator.
+    Connects Scanner, Physics Engine, and Emitter via Component Injection.
     """
     def __init__(
         self,
-        scanner: BaseScanner,
-        world: BaseWorldEngine,
-        emitter: BaseEmitter,
+        scanner: ScannerProtocol,
+        world: WorldEngineProtocol,
+        emitter: EmitterProtocol,
         hooks: Optional[List[ISNHook]] = None
     ):
         super().__init__()
@@ -27,6 +30,10 @@ class Model(nn.Module):
         self.world = world
         self.emitter = emitter
         self.hook_manager = HookManager(hooks)
+        
+        # Dimensions for external access
+        self.d_model = scanner.d_model
+        self.d_embedding = world.d_embedding
     
     def forward(
         self,
@@ -37,7 +44,7 @@ class Model(nn.Module):
         world_state: Optional[torch.Tensor] = None,
         scanner_state: Optional[Any] = None,
         **kwargs
-    ) -> dict[str, torch.Tensor]:
+    ) -> Dict[str, torch.Tensor]:
         device = input_ids.device
         
         # 1. SCANNING Phase
@@ -50,49 +57,30 @@ class Model(nn.Module):
             'impulses': impulses_seq,
             'noise_std': noise_std,
             'max_burst': max_burst,
-            'state': world_state,
+            'world_state': world_state,
         }
-        
-        # Bridge Emitter weights ONLY if they exist (for ThresholdEmitter/C++ compatibility)
-        if hasattr(self.emitter, 'pre_threshold'):
-            world_input.update({
-                'em_w_energy': self.emitter.pre_threshold.weight,
-                'em_b_energy': self.emitter.pre_threshold.bias,
-                'em_w_out': self.emitter.emission.weight,
-                'em_b_out': self.emitter.emission.bias,
-                'threshold': self.emitter.threshold[0].item()
-            })
-        else:
-            # Defaults for generic world engines
-            world_input.update({
-                'em_w_energy': None, 'em_b_energy': None,
-                'em_w_out': None, 'em_b_out': None,
-                'threshold': 0.5
-            })
         
         self.hook_manager.before_world(world_input)
         world_output = self.world(**world_input)
         self.hook_manager.after_world(world_output)
         
-        # 3. MATERIALIZATION Phase (Explicit Decoupling)
-        # We process the raw world output via the Emitter component
-        logits = self.emitter(world_output['emitted_embeddings'])
+        # 3. MATERIALIZATION Phase
+        # Optimized: If World Engine already produced logits (C++ fast path), use them.
+        # Otherwise, fall back to Emitter projection.
+        if 'logits' in world_output:
+            logits = world_output['logits']
+        else:
+            logits = self.emitter(world_output['emitted_embeddings'])
         
-        # 4. RESULT AGGREGATION
-        # Bypass coherence checks for O(1) efficiency in V4.
-        coherence = torch.ones(input_ids.size(0), device=device) * 0.98 
-        
+        # 4. RESULT AGGREGATION (Modular result set)
         result = {
             'logits': logits, 
-            'energy_trace': world_output['energy_trace'], 
-            'world_coherence': coherence,
+            'energy_trace': world_output.get('energy_trace'), 
+            'world_coherence': torch.ones(input_ids.size(0), device=device) * 0.98,
             'emitted_embeddings': world_output['emitted_embeddings'],
             'final_state': world_output.get('final_state'),
             'final_scanner_state': final_scanner_state
         }
-        
-        if return_world_state: 
-            result['world_states'] = [{'counts': [0]}] # C++ abstraction
             
         return result
 
@@ -102,15 +90,10 @@ class Model(nn.Module):
         max_length: int = 50, 
         temperature: float = 1.0,
         noise_std: float = 0.0,
-        max_burst: int = 5,
         world_state: Optional[torch.Tensor] = None,
-        scanner_state: Optional[Any] = None,
-        return_state: bool = False
-    ) -> tuple[torch.Tensor, dict]:
-        """
-        Structural Token Generation Loop.
-        Supports stateful continuation for O(1) per-token time.
-        """
+        scanner_state: Optional[Any] = None
+    ) -> Tuple[torch.Tensor, Dict]:
+        """Unified Generation Loop."""
         self.eval()
         generated_sequence = input_ids.clone()
         final_info = {}
@@ -119,42 +102,23 @@ class Model(nn.Module):
             current_state = world_state
             current_scanner_state = scanner_state
             
-            # Pre-calculate or fetch initial logits for the first sampling
-            if current_state is None:
-                # Scratch start: process prompt
-                res = self.forward(input_ids, noise_std=noise_std, max_burst=max_burst, scanner_state=current_scanner_state)
-                current_state = res['final_state']
-                current_scanner_state = res['final_scanner_state']
-                # Distribution for the token IMMEDIATELY after input_ids
-                next_token_logits = res['logits'][:, -1, :] 
-            else:
-                # Stateful continuation: current_state is context after input_ids
-                normed_state = self.world.norm(current_state) if hasattr(self.world, 'norm') else current_state
-                next_token_logits = self.emitter(normed_state)
-            
             for _ in range(max_length):
-                # 1. Sample next token
-                probs = torch.softmax(next_token_logits / temperature, dim=-1)
-                next_token = torch.multinomial(probs, num_samples=1)
-                
-                # 2. Update sequence
-                generated_sequence = torch.cat([generated_sequence, next_token], dim=1)
-                
-                # 3. Predict NEXT logit from this sampled token
                 res = self.forward(
-                    next_token,
+                    generated_sequence[:, -1:], 
                     world_state=current_state,
                     scanner_state=current_scanner_state,
-                    noise_std=noise_std,
-                    max_burst=max_burst
+                    noise_std=noise_std
                 )
                 current_state = res['final_state']
                 current_scanner_state = res['final_scanner_state']
+                
                 next_token_logits = res['logits'][:, -1, :] 
+                probs = torch.softmax(next_token_logits / temperature, dim=-1)
+                next_token = torch.multinomial(probs, num_samples=1)
+                
+                generated_sequence = torch.cat([generated_sequence, next_token], dim=1)
                 
                 final_info = {
-                    'coherence': res['world_coherence'],
-                    'world_states': res.get('world_states', []),
                     'final_state': current_state,
                     'final_scanner_state': current_scanner_state
                 }

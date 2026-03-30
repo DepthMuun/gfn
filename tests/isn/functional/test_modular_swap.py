@@ -11,8 +11,8 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 
 from gfn.realizations.isn import api
-from gfn.realizations.isn.components.scanners.linear_scanner import LinearScanner
-from gfn.realizations.isn.components.scanners.transformer_scanner import TransformerScanner
+from gfn.realizations.isn.projections.scanners.linear import LinearScanner
+from gfn.realizations.isn.projections.scanners.transformer import TransformerScanner
 
 def test_modular_swap():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
