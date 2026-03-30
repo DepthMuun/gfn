@@ -10,13 +10,12 @@ Soporte para configuración vía:
 """
 import torch
 import torch.nn as nn
-import json
-import os
 import logging
-from typing import Optional, Dict, Any, Union, Set
+import os
+import json
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from .manifold import ManifoldModel
-from .manifold_layer import ManifoldLayer
 from .components.embedding import FunctionalEmbedding
 from .components.mixer import FlowMixer, GeodesicAttentionMixer
 from .components.readout import CategoricalReadout, ReadoutPlugin, IdentityReadout, ImplicitReadout
@@ -29,7 +28,10 @@ from ..constants import TOPOLOGY_TORUS, TOPOLOGY_EUCLIDEAN
 from ..config.loader import dict_to_physics_config, apply_physics_overrides
 from ..registry import MODEL_REGISTRY
 from ..errors import ConfigurationError
-
+from .builders import (
+    EmbeddingBuilder, LayerBuilder, ReadoutBuilder,
+    PoolingBuilder, CheckpointingBuilder, AdjointBuilder
+)
 
 from ..config.serialization import from_dict
 
@@ -234,125 +236,55 @@ class ModelFactory:
             # Local Mode: Heads partition the dim D. Total state is D.
             head_dim = config.dim // config.heads
             
-        dim_total = config.heads * head_dim
-        topology      = topology_cfg.type
-        dynamics_type = config.dynamics_type
-        mixer_type    = getattr(config, 'mixer_type', 'low_rank')
-
-        # ── 4. Token Embedding ────────────────────────────────────────────────
-        embedding = FunctionalEmbedding(
-            vocab_size=config.vocab_size,
-            emb_dim=config.dim,
-            coord_dim=config.physics.embedding.coord_dim,
-            mode=config.physics.embedding.mode,
-            impulse_scale=config.impulse_scale,
-        )
-
-        # ── 5. Layers ─────────────────────────────────────────────────────────
-        layers = nn.ModuleList()
-        # Deep copy the base physics config to ensure modifications in one layer don't affect others
-        # but the config is currently a static object, so we just use it.
-        # The key is to create NEW instances of PhysicsEngine and Integrator.
-        for layer_idx in range(config.depth):
-            # Each layer MUST have its own Geometry, PhysicsEngine and Integrator instances
-            # to prevent stateful leakage (e.g. Hysteresis memory bleeding between layers)
-            geometry = GeometryFactory.create_with_dim(head_dim, config.rank, config.heads, config.physics)
-            physics_engine = ManifoldPhysicsEngine(geometry, config.physics, dim=head_dim, heads=config.heads)
-            integrator = IntegratorFactory.create(physics_engine, config.physics)
-
-            mixer: nn.Module
-            if mixer_type == 'attention':
-                mixer = GeodesicAttentionMixer(dim_total, config.heads, topology=topology)
-            else:
-                mixer = FlowMixer(
-                    dim=dim_total,
-                    rank=config.rank,
-                    heads=config.heads,
-                    topology=topology,
-                    mode=mixer_type,
-                    use_norm=config.physics.stability.enable_trace_normalization,
-                )
-
-            layer = ManifoldLayer(
-                integrator=integrator,
-                mixer=mixer,
-                config=config.physics,
-                heads=config.heads,
-                head_dim=head_dim,
-                dynamics_type=dynamics_type,
-                layer_idx=layer_idx,
-                total_depth=config.depth,
-            )
-            layers.append(layer)
-
-        # ── 6. Estado inicial ─────────────────────────────────────────────────
+        # ── 4. Build Components using Builders ─────────────────────────────
+        
+        # Build embedding
+        embedding_builder = EmbeddingBuilder(config)
+        embedding = embedding_builder.build()
+        
+        # Build layers (and get dimensions)
+        layer_builder = LayerBuilder(config)
+        layers = layer_builder.build()
+        head_dim, dim_total = layer_builder.get_dimensions()
+        
+        topology = config.physics.topology.type
+        
+        # ── 5. Estado inicial ─────────────────────────────────────────────────
         spread = getattr(config, 'initial_spread', 1e-3)
         x0 = nn.Parameter(torch.randn(1, config.heads, head_dim) * spread)
         v0 = nn.Parameter(torch.randn(1, config.heads, head_dim) * spread)
-
-        # ── 7. Ensamblado del modelo ───────────────────────────────────────────
+        
+        # ── 6. Ensamblado del modelo ───────────────────────────────────────────
         model = ManifoldModel(layers, embedding, x0, v0, config.holographic, config=config)
-
-        # ── 8. Readout plugin ─────────────────────────────────────────────────
-        # P2.2 FIX: `holographic` controls geometry scope, NOT the readout type.
-        # Readout type is independently determined by config.physics.readout.type.
-        # This allows holographic geometry + implicit readout (e.g. for regression tasks).
-        readout_type = config.physics.readout.type
-
-        if readout_type == 'implicit':
-            out_dim = getattr(config.physics.readout, 'out_dim', config.vocab_size)
-            hidden_dim = getattr(config.physics.readout, 'hidden_dim', 128)
-            readout = ImplicitReadout(
-                dim_total, out_dim,
-                hidden_dim=hidden_dim,
-                topology_type=topology,
-            )
-        elif readout_type == 'identity':
-            # Explicitly requested: return manifold state directly (latent readout)
-            readout = IdentityReadout()
-        elif readout_type == 'standard' and config.holographic:
-            # Legacy behavior: holographic + standard → identity (backward compat)
-            readout = IdentityReadout()
-        else:
-            readout = CategoricalReadout(dim_total, config.vocab_size, topology_type=topology)
-            
-        plugin = ReadoutPlugin(readout)
-        plugin.register_hooks(model.hooks)
-        model.add_module('readout_plugin', plugin)
-
-        # ── 9. Pooling plugin (Optional) ──────────────────────────────────────
-        pooling_type = getattr(config, 'pooling_type', None)
-        if pooling_type:
-            if pooling_type == 'hamiltonian':
-                pool_mod = HamiltonianPooling(config.dim, topology_type=topology)
-            elif pooling_type == 'hierarchical':
-                # HierarchicalAggregator needs topology to pass down to HamiltonianPooling
-                pool_mod = HierarchicalAggregator(config.dim, topology_type=topology)
-            elif pooling_type == 'momentum':
-                pool_mod = MomentumAggregator(config.dim, topology_type=topology)
-            else:
-                pool_mod = None
-            
-            if pool_mod:
-                pool_plugin = PoolingPlugin(pool_mod)
-                pool_plugin.register_hooks(model.hooks)
-                model.add_module('pooling_plugin', pool_plugin)
-
-        # ── 10. Checkpointing plugin ──────────────────────────────────────────
-        ckpt_cfg = config.physics.checkpointing
-        if ckpt_cfg.get('enabled', False):
-            from ..models.components.checkpointing import CheckpointingPlugin
-            ckpt_plugin = CheckpointingPlugin(chunk_size=ckpt_cfg.get('chunk_size', 32))
+        
+        # ── 7. Readout plugin ─────────────────────────────────────────────────
+        readout_builder = ReadoutBuilder(config, dim_total, topology)
+        readout_plugin = readout_builder.build()
+        readout_plugin.register_hooks(model.hooks)
+        model.add_module('readout_plugin', readout_plugin)
+        
+        # ── 8. Optional Plugins ───────────────────────────────────────────────
+        # Pooling plugin
+        pooling_builder = PoolingBuilder(config, topology)
+        pooling_plugin = pooling_builder.build()
+        if pooling_plugin:
+            pooling_plugin.register_hooks(model.hooks)
+            model.add_module('pooling_plugin', pooling_plugin)
+        
+        # Checkpointing plugin
+        ckpt_builder = CheckpointingBuilder(config)
+        ckpt_plugin = ckpt_builder.build()
+        if ckpt_plugin:
             ckpt_plugin.register_hooks(model.hooks)
             model.add_module('checkpointing_plugin', ckpt_plugin)
-
-        # ── 11. Adjoint plugin ────────────────────────────────────────────────
-        if getattr(config, 'adjoint_enabled', False):
-            from ..models.components.adjoint import AdjointPlugin
-            adj_plugin = AdjointPlugin(config)
-            adj_plugin.register_hooks(model.hooks)
-            model.add_module('adjoint_plugin', adj_plugin)
-
+        
+        # Adjoint plugin
+        adjoint_builder = AdjointBuilder(config)
+        adjoint_plugin = adjoint_builder.build()
+        if adjoint_plugin:
+            adjoint_plugin.register_hooks(model.hooks)
+            model.add_module('adjoint_plugin', adjoint_plugin)
+        
         return model
 
     @staticmethod
