@@ -31,7 +31,7 @@ from ..errors import ConfigurationError
 from ..config.normalizer import normalize_config
 from .builders import (
     EmbeddingBuilder, LayerBuilder, ReadoutBuilder,
-    PoolingBuilder, CheckpointingBuilder, AdjointBuilder
+    PoolingBuilder, CheckpointingBuilder, AdjointBuilder, LensingBuilder
 )
 
 from ..config.serialization import from_dict
@@ -199,6 +199,13 @@ class ModelFactory:
         if adjoint_plugin:
             adjoint_plugin.register_hooks(model.hooks)
             model.add_module('adjoint_plugin', adjoint_plugin)
+        
+        # Lensing plugin
+        lensing_builder = LensingBuilder(config)
+        lensing_plugin = lensing_builder.build()
+        if lensing_plugin:
+            lensing_plugin.register_hooks(model.hooks)
+            model.add_module('lensing_plugin', lensing_plugin)
         
         return model
 
