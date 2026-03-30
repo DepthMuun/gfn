@@ -28,6 +28,7 @@ from ..constants import TOPOLOGY_TORUS, TOPOLOGY_EUCLIDEAN
 from ..config.loader import dict_to_physics_config, apply_physics_overrides
 from ..registry import MODEL_REGISTRY
 from ..errors import ConfigurationError
+from ..config.normalizer import normalize_config
 from .builders import (
     EmbeddingBuilder, LayerBuilder, ReadoutBuilder,
     PoolingBuilder, CheckpointingBuilder, AdjointBuilder
@@ -131,100 +132,14 @@ class ModelFactory:
             else:
                 raise ConfigurationError(f"physics must be a dict or PhysicsConfig, got {type(physics)}")
 
-        # ── 2. Mapeo de Kwargs Planos y Dotted ──────────────────────────────
-        for k, v in list(kwargs.items()):
-            # A. Intento recursivo si hay puntos (e.g. 'physics.topology.type')
-            if '.' in k:
-                try:
-                    ModelFactory._recursive_setattr(config, k, v)
-                    kwargs.pop(k)
-                    continue
-                except (AttributeError, KeyError):
-                    pass # Intentar con las otras reglas si falla
-
-            # B. Buscar en el primer nivel de ManifoldConfig
-            if hasattr(config, k):
-                setattr(config, k, v)
-                kwargs.pop(k)
-                continue
-
-            # C. Intento directo en sub-configs de física (e.g. 'base_dt' -> stability)
-            found = False
-            for sub_name in ['topology', 'stability', 'dynamics', 'active_inference', 'embedding', 'readout', 'mixture', 'fractal', 'hysteresis', 'singularities']:
-                target = getattr(config.physics, sub_name, None)
-                if target and hasattr(target, k):
-                    setattr(target, k, v)
-                    kwargs.pop(k)
-                    found = True
-                    break
-            if found: continue
-
-            # D. Intento por prefijo solo para sub-configs válidos (e.g. 'topology_type')
-            if '_' in k:
-                for prefix in ['topology', 'stability', 'dynamics', 'embedding', 'readout', 'mixture', 'fractal', 'hysteresis', 'singularities']:
-                    if k.startswith(prefix + '_'):
-                        real_k = k[len(prefix)+1:]
-                        apply_physics_overrides(config.physics, {prefix: {real_k: v}})
-                        kwargs.pop(k)
-                        found = True
-                        break
-                if found: continue
-                
-                # Caso especial para active_inference (contiene '_')
-                if k.startswith('active_inference_'):
-                    real_k = k[len('active_inference_')+1:]
-                    apply_physics_overrides(config.physics, {'active_inference': {real_k: v}})
-                    kwargs.pop(k)
-                    continue
-
-        # ── 3. Sincronizar parámetros entre ManifoldConfig y PhysicsConfig ─────
-        # Priorizamos ManifoldConfig si el valor fue provisto explícitamente en kwargs
-        # de lo contrario sincronizamos en ambas direcciones.
-
-        # 1. Integrator
-        if 'integrator' in explicit_keys:
-            config.physics.stability.integrator_type = config.integrator
-        else:
-            config.integrator = config.physics.stability.integrator_type
-
-        # 2. Impulse Scale
-        if 'impulse_scale' in explicit_keys:
-            config.physics.embedding.impulse_scale = config.impulse_scale
-        else:
-            config.impulse_scale = config.physics.embedding.impulse_scale
-
-        # 3. Rank
-        if 'rank' in explicit_keys:
-            config.physics.topology.riemannian_rank = config.rank
-        else:
-            config.rank = config.physics.topology.riemannian_rank
-
-        # 4. Dynamics Type
-        if 'dynamics_type' in explicit_keys:
-            config.physics.dynamics.type = config.dynamics_type
-        else:
-            config.dynamics_type = config.physics.dynamics.type
-
-        # 5. Trajectory Mode
-        if 'trajectory_mode' in explicit_keys:
-            config.physics.trajectory_mode = config.trajectory_mode
-        else:
-            config.trajectory_mode = config.physics.trajectory_mode
-
-        # 6. Coupler Mode
-        if 'coupler_mode' in explicit_keys:
-            config.physics.mixture.coupler_mode = config.coupler_mode
-        else:
-            config.coupler_mode = config.physics.mixture.coupler_mode
-
-        # 7. Holographic
-        if 'holographic' in explicit_keys:
-            config.physics.active_inference.holographic_geometry = config.holographic
-        else:
-            # Sincronizar bidireccionalmente: si cualquiera es True, activar.
-            # Pero prioritizar config.holographic si se pasó un objeto config pre-armado.
-            config.holographic = config.holographic or config.physics.active_inference.holographic_geometry
-            config.physics.active_inference.holographic_geometry = config.holographic
+        # ── 2. Normalizar Configuración (usando ConfigNormalizer) ─────────────
+        remaining_kwargs, validation_errors = normalize_config(config, kwargs, explicit_keys)
+        if validation_errors:
+            logger.warning(f"Config validation warnings: {validation_errors}")
+        
+        # Los kwargs restantes no fueron mapeados (posiblemente argumentos desconocidos)
+        if remaining_kwargs:
+            logger.debug(f"Unmapped kwargs: {list(remaining_kwargs.keys())}")
 
         topology_cfg = config.physics.topology
         geometry_scope = getattr(topology_cfg, 'geometry_scope', 'local')
