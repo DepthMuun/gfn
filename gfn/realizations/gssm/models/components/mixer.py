@@ -61,13 +61,13 @@ class FlowMixer(nn.Module):
         nn.init.xavier_uniform_(self.out_proj_v.weight)
         nn.init.zeros_(self.out_proj_v.bias)
         
-        # Consistencia física: la mezcla de velocidad no debe sphericalizarse vía RMSNorm
-        # ya que destruiría la información de magnitud acumulada (momentum).
-        # Usamos Identity y dejamos que el regulador dinámico de la capa maneje el clamp.
+        # Physical consistency: velocity mixing should not be sphericalized via RMSNorm
+        # because it would destroy the accumulated magnitude information (momentum).
+        # We use Identity and let the layer's dynamic regulator handle the clamp.
         self.mixed_norm_v = nn.Identity()
 
     def _build_ensemble_coupler(self):
-        """Ensemble coupler: mantiene [B, H, D] con consenso ponderado."""
+        """Ensemble coupler: maintains [B, H, D] with weighted consensus."""
         self.ensemble_attn = nn.Parameter(torch.ones(self.heads) / self.heads)
         self.coupling_proj = nn.Linear(self.head_dim, self.head_dim)
         if self.use_norm:
@@ -81,19 +81,19 @@ class FlowMixer(nn.Module):
                 history: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Args:
-            x: [B, H, D] — estado de posición por cabeza
-            v: [B, H, D] — estado de velocidad por cabeza (opcional, usa x si None)
-            history: ignorado (compat. legacy JacobiAttention)
+            x: [B, H, D] — position state per head
+            v: [B, H, D] — velocity state per head (optional, uses x if None)
+            history: ignored (compat. legacy JacobiAttention)
 
         Returns:
-            (x_out, v_out) — formas según modo:
+            (x_out, v_out) — shapes according to mode:
               low_rank/attention: [B, D]
               ensemble:           [B, H, D]
         """
         if v is None:
             v = x
 
-        # Caso especial: cabeza única
+        # Special case: single head
         if self.heads == 1 or (x.dim() == 3 and x.shape[1] == 1):
             return x.squeeze(1) if x.dim() == 3 else x, \
                    v.squeeze(1) if v.dim() == 3 else v
@@ -135,7 +135,7 @@ class FlowMixer(nn.Module):
 
     def _forward_ensemble(self, x: torch.Tensor, v: torch.Tensor
                           ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """[B, H, D] → consenso ponderado → [B, H, D]"""
+        """[B, H, D] → weighted consensus → [B, H, D]"""
         weights = torch.softmax(self.ensemble_attn, dim=0).view(1, -1, 1)
         
         if self.topology == TOPOLOGY_TORUS:
@@ -149,7 +149,7 @@ class FlowMixer(nn.Module):
             
         v_center = (v * weights).sum(dim=1, keepdim=True)   # [B, 1, D]
 
-        # Converger cada trayectoria hacia el consenso (acoplamiento suave)
+        # Converge each trajectory towards consensus (soft coupling)
         if self.topology == TOPOLOGY_TORUS:
             diff_x = x_center - x
             # Wrapped difference for torus
@@ -165,10 +165,9 @@ class FlowMixer(nn.Module):
 
 class GeodesicAttentionMixer(nn.Module):
     """
-    Geodesic Attention Mixer — mezcla cabezas vía distancias Riemannianas.
+    Geodesic Attention Mixer — mixes heads via Riemannian distances.
 
-    Modo attention: las cabezas más cercanas en el espacio geodésico
-    tienen mayor peso en la mezcla.
+    Attention mode: heads closer in geodesic space have higher weight in the mix.
     """
 
     def __init__(self, dim: int, heads: int, temperature: float = 1.0,
@@ -186,7 +185,7 @@ class GeodesicAttentionMixer(nn.Module):
         self.out_proj = nn.Linear(dim, dim)
 
     def _compute_distance(self, q: torch.Tensor, k: torch.Tensor) -> torch.Tensor:
-        """Distancias pairwise [B, H, H]."""
+        """Pairwise distances [B, H, H]."""
         if self.topology == TOPOLOGY_TORUS:
             q_exp = q.unsqueeze(2)
             k_exp = k.unsqueeze(1)
@@ -217,7 +216,7 @@ class GeodesicAttentionMixer(nn.Module):
         distances = self._compute_distance(q, k)
         attn_weights = torch.softmax(-distances / self.temperature, dim=-1)
 
-        # Mezclar posiciones y velocidades
+        # Mix positions and velocities
         if self.topology == TOPOLOGY_TORUS:
             # Geodesic Averaging: atan2(sum(w*sin), sum(w*cos))
             sin_x = torch.sin(x)
@@ -233,5 +232,5 @@ class GeodesicAttentionMixer(nn.Module):
         return self.out_proj(x_mixed), self.out_proj(v_mixed)
 
 
-# Alias hacia atrás
+# Backward compatibility alias
 ManifoldMixer = FlowMixer
