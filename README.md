@@ -26,7 +26,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Traditional (Attention)          GFN (Geometric Flow)  │
+│  Traditional (Attention)          GFN (Geometric Flow)      │
 ├─────────────────────────────────────────────────────────────┤
 │  Token → Correlation → Token      Token → Perturbation →    │
 │  (with KV-cache buffer)           World State Evolution     │
