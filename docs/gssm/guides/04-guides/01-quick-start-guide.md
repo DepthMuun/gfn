@@ -16,19 +16,16 @@ If you see a version number, the installation is correct. If there are errors, r
 
 ### Step 2: Run a Simple Experiment
 
-The project includes an example configuration for a quick overfitting experiment. This experiment trains on 10,000 examples to verify the system works.
+The project includes training examples in the `tests/gssm/benchmarks/` directory. To verify the system works, run one of the benchmark tests:
 
 ```bash
-python demos/tinystories/train_tinystories.py \
-    --config configs/demos/tinystories.yaml
+python tests/gssm/benchmarks/convergence/math/train_math.py
 ```
 
 This command:
-- Loads the overfitting configuration from the embedded yaml.
-- Trains using the parameters specified in the config (`max_steps`, `batch_size`).
-- Limits the HuggingFace dataset to avoid memory issues automatically.
-
-If you want to manually adjust steps or batch size, you will need to edit `configs/demos/tinystories.yaml` directly before running.
+- Loads a configuration for a simple mathematical task
+- Trains using the parameters specified in the config
+- Verifies the G-SSM implementation works correctly
 
 ### Step 3: Monitor Training
 
@@ -43,19 +40,21 @@ If the loss diverges (goes to NaN or infinity), stop training with Ctrl+C and re
 
 ### Step 4: Inspect the Model
 
-After training, the model saves checkpoints. Inspect the latest checkpoint:
+After training, the model saves checkpoints in the `logs/` directory. You can load and inspect them using standard PyTorch:
 
-```bash
-python scripts/inspect_checkpoint.py \
-    --checkpoint logs/tinystories/run_xxx/checkpoints/last.ckpt \
-    --output inspection.json
+```python
+import torch
+
+# Load checkpoint
+checkpoint = torch.load('logs/math/run_xxx/checkpoints/last.ckpt')
+print(checkpoint.keys())  # View available data
 ```
 
-The JSON file contains model metrics and architecture.
+The checkpoint contains model state, training metrics, and configuration.
 
 ## Anatomy of a Configuration
 
-The YAML configuration files control all aspects of the experiment. Examine `configs/demos/tinystories.yaml`:
+The YAML configuration files control all aspects of the experiment. Below is an example configuration:
 
 ```yaml
 model:
@@ -87,10 +86,11 @@ Main sections:
 
 ## Your Own Experiment
 
-To create your own experiment, copy the base configuration to a new file:
+To create your own experiment, create a new configuration file:
 
 ```bash
-cp configs/demos/tinystories.yaml configs/demos/my_experiment.yaml
+# Create a new config file
+nano my_experiment.yaml
 ```
 
 Edit the file with your parameters. For example, for a larger model:
@@ -112,8 +112,7 @@ training:
 Run your experiment:
 
 ```bash
-python demos/tinystories/train_tinystories.py \
-    --config configs/demos/my_experiment.yaml
+python my_experiment.py --config my_experiment.yaml
 ```
 
 ## Log Structure
@@ -121,17 +120,17 @@ python demos/tinystories/train_tinystories.py \
 Results are saved in the directory specified by --output. Typical structure:
 
 ```
-logs/tinystories/mi_experimento/
-â”œâ”€â”€ checkpoints/
-â”‚   â”œâ”€â”€ last.ckpt
-â”‚   â””â”€â”€ best.ckpt
-â”œâ”€â”€ events.out.tfevents.xxx
-â”œâ”€â”€ config.yaml
-â””â”€â”€ metrics.json
+logs/my_experiment/
+├── checkpoints/
+│   ├── last.ckpt
+│   └── best.ckpt
+├── events.out.tfevents.xxx
+├── config.yaml
+└── metrics.json
 ```
 
-- `checkpoint_epoch_X.pt`: Models saved during training. Include state, loss, and vocab.
-- `best_model.pt`: The model state scoring the lowest validation loss.
+- `last.ckpt`: Most recent model checkpoint
+- `best.ckpt`: Best performing checkpoint based on validation loss
 
 ## Monitoring
 
@@ -142,7 +141,7 @@ Now that you have an experiment running, you can:
 
 1. Read the advanced configuration guide to tune parameters
 2. Review the constants reference to understand each parameter
-3. Explore demos/sorting/ for other experiment types
+3. Explore the benchmarks in `tests/gssm/benchmarks/` for other experiment types
 4. Run the test suite to verify correctness
 
 If you run into problems, consult the troubleshooting guide.
