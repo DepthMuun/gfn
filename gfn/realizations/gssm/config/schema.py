@@ -5,7 +5,7 @@
 from dataclasses import dataclass, field, asdict
 from typing import Dict, Any, Optional, List
 
-# Importar constantes físicas正确adas
+# Importar constantes físicas correctas
 from ..constants import (
     EPSILON_STANDARD,
     TOPOLOGY_TORUS,

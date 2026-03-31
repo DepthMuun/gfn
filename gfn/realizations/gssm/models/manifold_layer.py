@@ -125,12 +125,12 @@ class ManifoldLayer(nn.Module):
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Args:
-            x, v: [B, S, H, D] (secuencia con cabezas)
-                  o [B, H, D]  (batch sin secuencia)
-            force: [B, S, D] o [B, D] — fuerza externa
+            x, v: [B, S, H, D] (sequence with heads)
+                  or [B, H, D]  (batch without sequence)
+            force: [B, S, D] or [B, D] — external force
 
         Returns:
-            (x_next, v_next) — misma forma que entrada
+            (x_next, v_next) — same shape as input
         """
         original_shape = x.shape
 
@@ -149,7 +149,7 @@ class ManifoldLayer(nn.Module):
                         (self.geometry_scope == 'global' and force.dim() == 2 and force.shape == (B, self.head_dim))):
                     raise ValueError(f"Force shape {force.shape} incompatible with x shape {x.shape} for 3D x")
 
-        # 1. Reshape: homogeneizar a [B_eff, H, D]
+        # 1. Reshape: homogenize to [B_eff, H, D]
         if x.dim() == 4:
             B, S = x.shape[:2]
             x_3d = x.reshape(B * S, self.heads, self.head_dim)
@@ -165,7 +165,7 @@ class ManifoldLayer(nn.Module):
             else:
                 f_3d = None
         elif x.dim() == 3:
-            x_3d = x  # ya es [B, H, D]
+            x_3d = x  # already is [B, H, D]
             v_3d = v
             if force is not None:
                 if force.dim() == 2:
@@ -182,7 +182,7 @@ class ManifoldLayer(nn.Module):
             else:
                 f_3d = None
         else:
-            raise ValueError(f"ManifoldLayer: forma de x no soportada: {x.shape}")
+            raise ValueError(f"ManifoldLayer: unsupported x shape: {x.shape}")
 
         B_eff = x_3d.shape[0]
 
@@ -192,7 +192,7 @@ class ManifoldLayer(nn.Module):
         for plugin in self.plugins.values():
             x_3d, v_3d, dt_eff = plugin.pre_integrate(x_3d, v_3d, dt_eff, f_3d)
 
-        # 3. Paso de integración (vectorizado sobre cabezas [B, H, D])
+        # 3. Integration step (vectorized over heads [B, H, D])
         x_prev, v_prev = x_3d, v_3d
         res = self.integrator.step(x_3d, v_3d, force=f_3d, dt=dt_eff)
         x_stepped, v_stepped = res["x"], res["v"]
@@ -203,13 +203,13 @@ class ManifoldLayer(nn.Module):
                 x_stepped, v_stepped, x_prev, v_prev
             )
 
-        # 5. Mixing de cabezas (obligatorio, no plugin)
+        # 5. Head mixing (required, not a plugin)
         x_mix, v_mix = self.mixer(x_stepped, v_stepped)
 
-        # 6. Dynamics routing (aplica mixing proposal)
-        # x_mix puede ser [B, D] (partición) o [B, H, D] (ensemble)
+        # 6. Dynamics routing (applies mixing proposal)
+        # x_mix can be [B, D] (partition) or [B, H, D] (ensemble)
         if x_mix.dim() == 2:
-            # Modo partición: aplicar dynamics en espacio aplanado y redistribuir
+            # Partition mode: apply dynamics in flat space and redistribute
             x_ref_h = x_3d.reshape(B_eff, -1)
             v_ref_h = v_3d.reshape(B_eff, -1)
             x_next_flat = self.dynamics_x(x_ref_h, x_mix, context_x=x_ref_h)
@@ -217,7 +217,7 @@ class ManifoldLayer(nn.Module):
             x_next = x_next_flat.view(B_eff, self.heads, self.head_dim)
             v_next = v_next_flat.view(B_eff, self.heads, self.head_dim)
         else:
-            # Modo ensemble: aplicar por cabeza
+            # Ensemble mode: apply per head
             x_next = self.dynamics_x(x_3d.reshape(B_eff, -1),
                                      x_mix.reshape(B_eff, -1),
                                      context_x=x_3d.reshape(B_eff, -1)).view(B_eff, self.heads, self.head_dim)
@@ -232,7 +232,7 @@ class ManifoldLayer(nn.Module):
         for plugin in self.plugins.values():
             x_next, v_next = plugin.finalize(x_next, v_next)
 
-        # 7. Restaurar forma original
+        # 7. Restore original shape
         if len(original_shape) == 4:
             B, S = original_shape[:2]
             x_next = x_next.view(B, S, self.heads, self.head_dim)
@@ -246,7 +246,7 @@ class ManifoldLayer(nn.Module):
     # Removed _fractal_step as it's now handled by fractal plugin
 
     def debug_state(self, x: torch.Tensor, v: torch.Tensor, label: str = "") -> None:
-        """Utilidad de monitoreo de salud numérica del estado de la capa."""
+        """Utility for numerical health monitoring of layer state."""
         with torch.no_grad():
             x_mag = x.abs().mean().item()
             v_mag = v.abs().mean().item()
@@ -256,5 +256,5 @@ class ManifoldLayer(nn.Module):
                 logger.warning(f"NaN detected in Layer {self.layer_idx}")
 
 
-# Alias de compatibilidad
+# Compatibility alias
 MLayer = ManifoldLayer

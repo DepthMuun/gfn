@@ -76,7 +76,6 @@ class LowRankRiemannianGeometry(BaseGeometry):
         self.topology = topo
         self.clamp_val = self.config.stability.curvature_clamp
         self.enable_trace_normalization = self.config.stability.enable_trace_normalization
-        self.enable_trace_normalization = self.config.stability.enable_trace_normalization
         # Friction parameters are now handled by PhysicsEngine to avoid duplication
 
         # Feature dimension for gate input (Fourier for torus)
