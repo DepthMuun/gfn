@@ -1,11 +1,11 @@
 # schema.py — GFN V5
-# Definiciones de clases de configuración (Schema)
-# SEPARACIÓN: Los valores por defecto van a defaults.py, las constantes físicas a constants.py
+# Configuration class definitions (Schema)
+# SEPARATION: Default values go to defaults.py, physical constants to constants.py
 
 from dataclasses import dataclass, field, asdict
 from typing import Dict, Any, Optional, List
 
-# Importar constantes físicas correctas
+# Import correct physical constants
 from ..constants import (
     EPSILON_STANDARD,
     TOPOLOGY_TORUS,
@@ -23,23 +23,23 @@ from ..constants import (
 
 @dataclass
 class TopologyConfig:
-    """Configuración de topología del manifold."""
+    """Manifold topology configuration."""
     type: str = TOPOLOGY_TORUS 
-    R: float = 2.0           # Radio mayor del toro (default)
-    r: float = 1.0           # Radio menor del toro (default)
+    R: float = 2.0           # Major radius of torus (default)
+    r: float = 1.0           # Minor radius of torus (default)
     curvature: float = 0.0
     riemannian_type: str = 'reactive' 
     riemannian_rank: int = 16
     riemannian_class: Optional[str] = None
     geometry_scope: str = 'local'  # 'local' (dim/heads) or 'global' (full dim)
-    # NUEVO: Parámetros aprendibles
-    learnable_R: bool = True   # Hacer R aprendible (como dice el paper)
-    learnable_r: bool = True   # Hacer r aprendible (como dice el paper)
+    # NEW: Learnable parameters
+    learnable_R: bool = True   # Make R learnable (as per paper)
+    learnable_r: bool = True   # Make r learnable (as per paper)
 
 
 @dataclass
 class StabilityConfig:
-    """Configuración de estabilidad numérica."""
+    """Numerical stability configuration."""
     base_dt: float = DEFAULT_DT 
     adaptive: bool = True
     dt_min: float = MIN_DT
@@ -141,7 +141,7 @@ class SingularityConfig:
 
 @dataclass
 class PhysicsConfig:
-    """Configuración completa de física."""
+    """Complete physics configuration."""
     topology: TopologyConfig = field(default_factory=TopologyConfig)
     stability: StabilityConfig = field(default_factory=StabilityConfig)
     dynamics: DynamicsConfig = field(default_factory=DynamicsConfig)
@@ -175,7 +175,7 @@ class TrainerConfig:
 
 @dataclass
 class ManifoldConfig:
-    """Configuración principal del modelo Manifold."""
+    """Main Manifold model configuration."""
     vocab_size: int
     dim: int = 512
     depth: int = 4
