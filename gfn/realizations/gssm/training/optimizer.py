@@ -1,7 +1,7 @@
 """
-Optimizadores — GFN V5
-Incluye optimizadores estándar y Riemannian.
-Migrado de gfn/optim/riemannian_adam.py y riemannian_sgd.py
+Optimizers — GFN V5
+Includes standard and Riemannian optimizers.
+Migrated from gfn/optim/riemannian_adam.py and riemannian_sgd.py
 """
 
 import torch
@@ -12,12 +12,12 @@ from ..constants import TOPOLOGY_TORUS, TOPOLOGY_EUCLIDEAN
 
 class RiemannianAdam(optim.Adam):
     """
-    Riemannian Adam — extensión del Adam estándar para manifolds.
-    En la versión V5, actúa como Adam estándar pero está preparado
-    para recibir métricas de manifold para ajustar la actualización.
+    Riemannian Adam — extension of standard Adam for manifolds.
+    In version V5, acts as standard Adam but is prepared
+    to receive manifold metrics to adjust the update.
 
-    Para manifolds simples (Euclidean), es idéntico a Adam.
-    Para torus y manifolds curvados, aplica un retract en el espacio de parámetros.
+    For simple manifolds (Euclidean), identical to Adam.
+    For torus and curved manifolds, applies a retract in parameter space.
     """
 
     def __init__(self, params: Iterable, lr: float = 1e-3,
@@ -47,7 +47,7 @@ class RiemannianAdam(optim.Adam):
 
 class RiemannianSGD(optim.SGD):
     """
-    Riemannian SGD con retract opcional para manifolds.
+    Riemannian SGD with optional retract for manifolds.
     """
 
     def __init__(self, params: Iterable, lr: float = 0.01,
