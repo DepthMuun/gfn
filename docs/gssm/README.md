@@ -65,4 +65,4 @@ The Geodesic State Space Model (G-SSM) is a differential realization of the GFN 
 ---
 
 **GFN Framework Documentation**  
-*Framework Version: 2.6.6*
+*Framework Version: 2.7.2*
