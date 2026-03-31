@@ -17,17 +17,17 @@ logger = logging.getLogger(__name__)
 
 class ManifoldLayer(nn.Module):
     """
-    Capa de Manifold GFN V5 con feature parity completo respecto a V4.
+    GFN V5 Manifold Layer with full feature parity with V4.
 
-    Configuración via `PhysicsConfig`:
+    Configuration via `PhysicsConfig`:
       topology.type             — TOPOLOGY_TORUS | TOPOLOGY_EUCLIDEAN
-      stability.base_dt         — step de tiempo base
-      stability.enable_trace_normalization — activa norm Riemanniana
-      dynamics.type (o kwargs)  — 'direct' | 'residual' | 'mix' | 'gated' | 'stochastic'
-      active_inference.dynamic_time.enabled  — gating adaptativo por cabeza
+      stability.base_dt         — base time step
+      stability.enable_trace_normalization — activates Riemannian norm
+      dynamics.type (or kwargs)  — 'direct' | 'residual' | 'mix' | 'gated' | 'stochastic'
+      active_inference.dynamic_time.enabled  — adaptive gating per head
       active_inference.dynamic_time.type     — 'riemannian' | 'thermo'
-      fractal.enabled           — tunneling por curvatura alta
-      fractal.threshold / alpha — parámetros del fractal
+      fractal.enabled           — tunneling for high curvature
+      fractal.threshold / alpha — fractal parameters
     """
 
     def __init__(
