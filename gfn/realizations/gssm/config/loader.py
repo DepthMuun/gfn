@@ -1,7 +1,7 @@
 """
 config/loader.py — GFN V5
-Conversión de dicts de configuración a PhysicsConfig tipado.
-Soporte para overrides anidados sobre configs existentes.
+Conversion of configuration dicts to typed PhysicsConfig.
+Support for nested overrides on existing configs.
 """
 from typing import Dict, Any, Optional
 from .schema import (
@@ -13,11 +13,11 @@ from .schema import (
 
 def dict_to_physics_config(d: Dict[str, Any]) -> PhysicsConfig:
     """
-    Convierte un dict anidado en un PhysicsConfig tipado.
+    Converts a nested dict into a typed PhysicsConfig.
 
-    Soporta todos los sub-campos de PhysicsConfig. Los campos no presentes
-    en el dict mantienen sus valores default del schema.
-    Si `d` ya es PhysicsConfig, lo devuelve intacto.
+    Supports all PhysicsConfig sub-fields. Fields not present
+    in the dict maintain their default values from the schema.
+    If `d` is already PhysicsConfig, returns it unchanged.
     """
     if isinstance(d, PhysicsConfig):
         return d
@@ -29,18 +29,18 @@ def dict_to_physics_config(d: Dict[str, Any]) -> PhysicsConfig:
 
 def apply_physics_overrides(cfg: PhysicsConfig, overrides: Dict[str, Any]) -> PhysicsConfig:
     """
-    Aplica un dict de overrides sobre un PhysicsConfig EXISTENTE (in-place).
+    Applies a dict of overrides on an EXISTING PhysicsConfig (in-place).
 
-    A diferencia de dict_to_physics_config(), esta función NO parte de defaults
-    sino que modifica solo los campos presentes en el dict, dejando el resto intacto.
-    Es la función que usa ModelFactory cuando se combina preset + physics kwarg.
+    Unlike dict_to_physics_config(), this function does NOT start from defaults
+    but only modifies the fields present in the dict, leaving the rest intact.
+    This is the function that ModelFactory uses when combining preset + physics kwarg.
 
     Args:
-        cfg:       PhysicsConfig existente (ej. resultado de get_preset())
-        overrides: Dict anidado con los campos a sobreescribir
+        cfg:       Existing PhysicsConfig (e.g., result of get_preset())
+        overrides: Nested dict with fields to overwrite
 
     Returns:
-        El mismo cfg modificado in-place (también retornado para encadenamiento).
+        The same cfg modified in-place (also returned for chaining).
     """
     if not overrides:
         return cfg
