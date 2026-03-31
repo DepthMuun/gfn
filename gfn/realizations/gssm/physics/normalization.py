@@ -1,10 +1,10 @@
 """
 gfn/physics/normalization.py — GFN V5
-Portado desde: gfn_old/nn/layers/physics/normalization.py
+Ported from: gfn_old/nn/layers/physics/normalization.py
 
-Registry centralizado de normalizaciones dependientes de la geometría del manifold.
-Principio: las normalizaciones de POSICIÓN dependen de la topología; las de VELOCIDAD
-siempre son Euclidianas (espacio tangente).
+Centralized registry of geometry-dependent normalizations for the manifold.
+Principle: POSITION normalizations depend on topology; VELOCITY normalizations
+are always Euclidean (tangent space).
 """
 import torch
 import torch.nn as nn
@@ -22,8 +22,8 @@ class BaseManifoldNormalization(nn.Module, ABC):
 
 class TorusPositionNormalization(BaseManifoldNormalization):
     """
-    Envuelve la posición de forma isométrica en [-π, π].
-    Preserva la topología toroidal: atan2(sin(x), cos(x)).
+    Wraps position isometrically in [-π, π].
+    Preserves toroidal topology: atan2(sin(x), cos(x)).
     """
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return torch.atan2(torch.sin(x), torch.cos(x))
@@ -31,8 +31,8 @@ class TorusPositionNormalization(BaseManifoldNormalization):
 
 class TangentVelocityNormalization(nn.Module):
     """
-    RMSNorm con clamp de velocidad máxima para el espacio tangente.
-    Previene la aceleración descontrolada en regiones de alta curvatura.
+    RMSNorm with maximum velocity clamp for tangent space.
+    Prevents uncontrolled acceleration in high curvature regions.
     """
     def __init__(self, dim: int, eps: float = EPSILON_STANDARD):
         super().__init__()
@@ -40,21 +40,21 @@ class TangentVelocityNormalization(nn.Module):
         self.max_v = MAX_VELOCITY
 
     def forward(self, x: torch.Tensor, context_x: Optional[torch.Tensor] = None) -> torch.Tensor:
-        # Nota: x es la velocidad a normalizar. context_x es la posición (opcional para metric-aware)
+        # Note: x is the velocity to normalize. context_x is position (optional for metric-aware)
         x = torch.clamp(x, -self.max_v, self.max_v)
         return self.rms(x)
 
 
 class MetricAwareVelocityNormalization(nn.Module):
     """
-    Normalización que escala la velocidad basándose en la métrica Riemanniana.
-    Asegura que la norma geodésica ||v||_g no exceda el límite físico.
+    Normalization that scales velocity based on the Riemannian metric.
+    Ensures the geodesic norm ||v||_g does not exceed the physical limit.
     """
     def __init__(self, dim: int, geometry=None, max_v: float = MAX_VELOCITY):
         super().__init__()
         self.geometry = geometry
         self.max_v = max_v
-        self.rms = nn.RMSNorm(dim)  # Fallback si no hay geometría
+        self.rms = nn.RMSNorm(dim)  # Fallback if no geometry
 
     def forward(self, x: torch.Tensor, context_x: Optional[torch.Tensor] = None) -> torch.Tensor:
         if self.geometry is not None and context_x is not None:
