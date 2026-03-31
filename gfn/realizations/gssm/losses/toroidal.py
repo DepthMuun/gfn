@@ -1,8 +1,8 @@
 """
 ToroidalLoss — GFN V5
-Pérdida específica para geometrías toroidales.
-La pérdida toroidal trabaja con distancias angulares en el manifold.
-Versión mejorada para совместимость con el pipeline de entrenamiento.
+Loss specific for toroidal geometries.
+Toroidal loss works with angular distances in the manifold.
+Improved version for compatibility with training pipeline.
 """
 
 import torch
@@ -38,14 +38,8 @@ class ToroidalDistanceLossFunction(torch.autograd.Function):
 @register_loss('toroidal_distance')
 class ToroidalLoss(BaseLoss):
     """
-    Pérdida geodésica para manifolds toroidales.
-
-    PRINCIPIO: Mide distancia angular en [-π, π] usando atan2(sin(d), cos(d)).
-    
-    Esta pérdida funciona cuando:
-    - x_pred y x_target son coordenadas angulares en el toro
-    - El modelo produce representaciones en el espacio angular (no logits categóricos)
-    
+    Angular MSE loss for toroidal geometries.
+    Uses CUDA-accelerated implementation when available.
     Modos disponibles:
     - 'circular': Distancia circular con wrapping (default)
     - 'mse': MSE estándar sobre coordenadas angulares

@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class ManifoldLayer(nn.Module):
     """
-    GFN V5 Manifold Layer with full feature parity with V4.
+    GFN Manifold Layer with full feature parity with V4.
 
     Configuration via `PhysicsConfig`:
       topology.type             — TOPOLOGY_TORUS | TOPOLOGY_EUCLIDEAN
