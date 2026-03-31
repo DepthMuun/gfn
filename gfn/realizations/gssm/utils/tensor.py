@@ -1,6 +1,6 @@
 """
-Utilidades de tensores — GFN V5
-Funciones auxiliares para manipulación de tensores PyTorch.
+Tensor utilities — GFN V5
+Helper functions for PyTorch tensor manipulation.
 """
 
 import torch
@@ -41,17 +41,17 @@ def split_batch_heads(x: torch.Tensor, batch_size: int) -> torch.Tensor:
 
 def causal_mask(seq_len: int, device: torch.device) -> torch.Tensor:
     """
-    Máscara causal de atención: True donde se puede atender.
-    WATCHOUT: verificar causal masking antes de publicar resultados.
+    Causal attention mask: True where attention is allowed.
+    WATCHOUT: verify causal masking before publishing results.
     """
     return torch.tril(torch.ones(seq_len, seq_len, device=device)).bool()
 
 
 def shift_right(x: torch.Tensor, pad_value: int = 0) -> torch.Tensor:
     """
-    Desplaza la secuencia un paso a la derecha (para language modeling).
+    Shifts the sequence one step to the right (for language modeling).
     Input:  [B, S]
-    Output: [B, S] con padding en posición 0
+    Output: [B, S] with padding at position 0
     """
     shifted = torch.zeros_like(x)
     shifted[:, 1:] = x[:, :-1]
@@ -60,16 +60,16 @@ def shift_right(x: torch.Tensor, pad_value: int = 0) -> torch.Tensor:
 
 
 def masked_mean(x: torch.Tensor, mask: torch.Tensor, dim: int = 1) -> torch.Tensor:
-    """Media enmascarada a lo largo de una dimensión."""
+    """Masked mean along a dimension."""
     mask = mask.float()
     return (x * mask).sum(dim=dim) / (mask.sum(dim=dim) + 1e-8)
 
 
 def nan_to_num(x: torch.Tensor, replacement: float = 0.0) -> torch.Tensor:
-    """Reemplaza NaNs e Infs con un valor numérico."""
+    """Replaces NaNs and Infs with a numeric value."""
     return torch.nan_to_num(x, nan=replacement, posinf=replacement, neginf=replacement)
 
 
 def count_parameters(model: torch.nn.Module) -> int:
-    """Cuenta parámetros entrenables del modelo."""
+    """Counts trainable model parameters."""
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
