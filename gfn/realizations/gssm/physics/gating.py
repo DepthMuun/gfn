@@ -70,13 +70,13 @@ class ThermodynamicLayer(nn.Module):
     def forward(self, x: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
         """
         Args:
-            x: [B, head_dim] — posición
-            v: [B, head_dim] — velocidad
+            x: [B, head_dim] — position
+            v: [B, head_dim] — velocity
         Returns:
-            gate: [B, 1] — Factor de escala termodinámico
+            gate: [B, 1] — thermodynamic scaling factor
         """
-        K = 0.5 * (v ** 2).sum(dim=-1, keepdim=True)   # Energía cinética
-        U = 0.5 * (x ** 2).sum(dim=-1, keepdim=True)   # Energía potencial (apróx.)
+        K = 0.5 * (v ** 2).sum(dim=-1, keepdim=True)   # Kinetic energy
+        U = 0.5 * (x ** 2).sum(dim=-1, keepdim=True)   # Potential energy (approx.)
         H = K + U
         T = self.log_temp.exp()
         logits = (self.ref_H - H) / (T * self.sensitivity)
@@ -85,11 +85,11 @@ class ThermodynamicLayer(nn.Module):
 
 class FrictionGate(nn.Module):
     """
-    Gate de Fricción con dependencia de posición y fuerza (Paper 25).
+    Friction Gate with position and force dependency (Paper 25).
     
     mu(x, f) = sigmoid(W_f * x + W_i * f + b) * FRICTION_SCALE
     
-    Soporta modo single-head y multi-head.
+    Supports single-head and multi-head modes.
     """
     def __init__(self, dim: int, gate_input_dim: Optional[int] = None, mode: str = 'mlp'):
         super().__init__()
@@ -113,7 +113,7 @@ class FrictionGate(nn.Module):
                 v: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Returns:
-            mu: [B, dim] — Coeficiente de fricción posición-dependiente
+            mu: [B, dim] — position-dependent friction coefficient
         """
         if self.mode != 'mlp' or self.forget_gate is None:
             return torch.zeros(*x.shape[:-1], self.dim, device=x.device, dtype=x.dtype)
