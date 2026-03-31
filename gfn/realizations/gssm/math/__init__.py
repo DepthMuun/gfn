@@ -1,6 +1,6 @@
 """
 gfn/math/__init__.py
-Abstracciones matemáticas para GFN V5.
+Mathematical abstractions for GFN V5.
 """
 from ..math.distances import geodesic_distance_torus, geodesic_distance_euclidean, wrap_to_pi
 from ..math.differential import christoffel_contraction, parallel_transport_approx
