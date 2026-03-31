@@ -103,15 +103,15 @@ A **Geometric Flow Network (GFN)** is a neural architecture satisfying all five 
 ### Formal Definition
 
 $$
-\mathbf{W}_{t+1} = \mathcal{T}(\mathbf{W}_t, \mathbf{f}_{ext}; \theta)
+W_{t+1} = \mathcal{T}(W_t, f_{ext}; \theta)
 $$
 
 Where:
-- $\mathbf{W}_t$ is the internal world state at time $t$
-- $\mathbf{f}_{ext}$ is the external input (perturbation)
+- $W_t$ is the internal world state at time $t$
+- $f_{ext}$ is the external input (perturbation)
 - $\mathcal{T}$ is a transfer operator that:
   - Preserves at least one invariant
-  - Operates on $\mathbf{W}_t$ and $\mathbf{f}_{ext}$ ONLY (no history)
+  - Operates on $W_t$ and $f_{ext}$ ONLY (no history)
   - Is differentiable with respect to a coherent metric
 
 ---
