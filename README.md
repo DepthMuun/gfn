@@ -2,7 +2,7 @@
 
 ## A Physics-Informed Paradigm for Sequential Intelligence
 
-[![Framework: GFN](https://img.shields.io/badge/Paradigm-GFN_2.7.1-blue.svg)](https://github.com/DepthMuun/gfn)
+[![Framework: GFN](https://img.shields.io/badge/Paradigm-GFN_2.7.2-blue.svg)](https://github.com/DepthMuun/gfn)
 [![Models: Hugging Face](https://img.shields.io/badge/Models-Hugging%20Face-orange.svg)](https://huggingface.co/DepthMuun)
 [![DOI: 10.5281/zenodo.19141133](https://img.shields.io/badge/DOI-10.5281/zenodo.19141133-blue.svg)](https://doi.org/10.5281/zenodo.19141133)
 [![Status: Active](https://img.shields.io/badge/Status-Active-green.svg)]()
@@ -189,8 +189,8 @@ For detailed theoretical foundations and mathematical formalism, see:
 
 ## License
 
-This project is proprietary to DepthMuun Research. See the `LICENSE` file for details.
+This project is licensed under the Apache License 2.0. See the `LICENSE` file for details.
 
 **Author**: Joaquín Stürtz, DepthMuun Research  
-**Version**: 2.7.1  
+**Version**: 2.7.2  
 **Date**: March 2026

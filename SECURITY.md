@@ -6,8 +6,8 @@ The GFN project provides security updates for the following versions. Users runn
 
 | Version | Supported |
 |---------|-----------|
-| 2.6.x   | Yes       |
-| <= 2.5  | No        |
+| 2.7.x   | Yes       |
+| <= 2.6  | No        |
 
 Security updates are prioritized for the latest minor version (2.6.x) and the most recent major version. Critical security patches may be backported to older versions when feasible, depending on the nature of the vulnerability and the scope of required changes.
 
@@ -45,11 +45,11 @@ You will be kept informed throughout the process of the status of your report an
 
 ## Security Best Practices
 
-While we work to secure Manifold itself, users should also follow security best practices when deploying and operating Manifold:
+While we work to secure GFN itself, users should also follow security best practices when deploying and operating GFN:
 
 ### Environment Security
 
-Ensure that the systems running Manifold are properly secured including operating system updates, firewall configuration, and access controls. Use secure configurations for any associated databases or storage systems. Protect API keys, tokens, and other credentials used in production deployments.
+Ensure that the systems running GFN are properly secured including operating system updates, firewall configuration, and access controls. Use secure configurations for any associated databases or storage systems. Protect API keys, tokens, and other credentials used in production deployments.
 
 ### Model Security
 
@@ -57,11 +57,11 @@ When deploying trained models, be aware of potential adversarial inputs that cou
 
 ### Dependency Management
 
-Keep Manifold and its dependencies up to date with the latest security patches. Monitor announcements from PyTorch and other dependencies for security updates. Use dependency scanning tools to identify and address vulnerabilities in transitive dependencies.
+Keep GFN and its dependencies up to date with the latest security patches. Monitor announcements from PyTorch and other dependencies for security updates. Use dependency scanning tools to identify and address vulnerabilities in transitive dependencies.
 
 ### Network Security
 
-If running Manifold as a service, apply appropriate network security controls including TLS for data in transit and network segmentation. Monitor for unusual activity that could indicate exploitation attempts.
+If running GFN as a service, apply appropriate network security controls including TLS for data in transit and network segmentation. Monitor for unusual activity that could indicate exploitation attempts.
 
 ## Scope
 
