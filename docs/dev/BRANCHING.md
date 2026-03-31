@@ -1,39 +1,40 @@
-# Guía de Git y Ramas
+# Git and Branching Guide
 
-Estrategia de branching para mantener la estabilidad del framework Geodesic Flow Networks.
+Branching strategy to maintain stability of the Geodesic Flow Networks framework.
 
-## Ramas Principales
+## Main Branches
 
-- **`main`**: El estado "production-ready". Solo versiones estables (v2.7.x).
-- **`dev`**: La rama de desarrollo principal. Todos los features se integran aquí primero.
+- **`main`**: The "production-ready" state. Only stable versions (v2.7.x).
+- **`dev`**: The main development branch. All features are integrated here first.
 
-## Ramas de Trabajo (Features/Fixes)
+## Working Branches (Features/Fixes)
 
-Usa prefijos para identificar el propósito de la rama:
+Use prefixes to identify the purpose of the branch:
 
-- `feat/nombre-feature`: Nuevas capacidades.
-- `fix/error-especifico`: Corrección de fallos.
-- `docs/aspecto-documentado`: Mejoras puras de documentación.
-- `refactor/area-optimizada`: Cambios que no alteran el comportamiento.
+- `feat/feature-name`: New capabilities.
+- `fix/specific-error`: Bug fixes.
+- `docs/documented-aspect`: Pure documentation improvements.
+- `refactor/optimized-area`: Changes that do not alter behavior.
 
-### Ejemplo de flujo de comandos:
+### Example command flow:
 
 ```bash
-# 1. Empezar en dev
+# 1. Start on dev
 git checkout dev
 git pull origin dev
 
-# 2. Crear rama de trabajo
+# 2. Create working branch
 git checkout -b feat/dynamic-integrator
 
-# 3. (Desarrollo y commits...)
+# 3. (Development and commits...)
 
-# 4. Integrar (si no usas PRs en GitHub)
+# 4. Integrate (if not using GitHub PRs)
 git checkout dev
 git merge feat/dynamic-integrator
 git branch -d feat/dynamic-integrator
 ```
 
-## Mensajes de Commit
-Usa mensajes claros y descriptivos. Recomendamos el formato:
-`tipo: descripción breve` (ej: `fix: corrige desbordamiento en proyector bilateral`).
+## Commit Messages
+
+Use clear and descriptive messages. We recommend the format:
+`type: brief description` (e.g., `fix: fix overflow in bilateral projector`).

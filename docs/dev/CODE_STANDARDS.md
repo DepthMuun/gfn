@@ -1,35 +1,35 @@
-# Estándares de Código y Calidad
+# Code and Quality Standards
 
-Para un desarrollo profesional, el código debe ser legible, tipado y autodocumentado.
+For professional development, code must be readable, typed, and self-documented.
 
-## 1. Estilo de Código
-- **Python**: Seguimos PEP 8.
-- **Formateo**: Usamos `black` o `ruff`. Por favor, formatea tus archivos antes de commitear.
+## 1. Code Style
+- **Python**: We follow PEP 8.
+- **Formatting**: We use `black` or `ruff`. Please format your files before committing.
 - **Naming**: 
-  - Clases: `PascalCase` (ej: `TopologicalIntegrator`).
-  - Funciones/Variables: `snake_case` (ej: `compute_geodesic_loss`).
+  - Classes: `PascalCase` (e.g., `TopologicalIntegrator`).
+  - Functions/Variables: `snake_case` (e.g., `compute_geodesic_loss`).
 
-## 2. Documentación (Docstrings)
-Usamos el estilo de Google para docstrings. Cada función pública debe tener explicación de argumentos y retorno.
+## 2. Documentation (Docstrings)
+We use the Google style for docstrings. Every public function must have explanation of arguments and return.
 
 ```python
 def compute_flow(state: torch.Tensor, dt: float) -> torch.Tensor:
-    """Calcula el flujo geodésico para un estado dado.
+    """Compute the geodesic flow for a given state.
 
     Args:
-        state: El tensor de estado actual (Batch, Dim).
-        dt: El paso de tiempo del integrador.
+        state: The current state tensor (Batch, Dim).
+        dt: The integrator time step.
 
     Returns:
-        El nuevo estado tras la integración.
+        The new state after integration.
     """
     ...
 ```
 
-## 3. Tipado Estático (Type Hinting)
-El uso de `typing` es obligatorio en firmas de funciones públicas. Ayuda a evitar errores de forma temprana y mejora el autocompletado en el IDE.
+## 3. Static Typing (Type Hinting)
+The use of `typing` is mandatory in public function signatures. It helps catch errors early and improves IDE autocompletion.
 
-## 4. Pruebas (Testing)
-- No se aceptan Pull Requests que rompan la suite de `pytest`.
-- Si añades una nueva funcionalidad, añade al menos un test unitario en la carpeta `tests/`.
-- Ejecución: `pytest tests/` desde la raíz del proyecto.
+## 4. Testing
+- Pull Requests that break the `pytest` suite are not accepted.
+- If you add new functionality, add at least one unit test in the `tests/` folder.
+- Execution: `pytest tests/` from the project root.

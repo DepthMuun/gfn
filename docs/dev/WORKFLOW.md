@@ -1,26 +1,26 @@
-# Guía de Desarrollo Humano (GFN Framework)
+# Human Development Guide (GFN Framework)
 
-Este documento define las prácticas de desarrollo para colaboradores humanos en el proyecto GFN. El objetivo es mantener una base de código profesional, escalable y libre de errores técnicos evitables.
+This document defines development practices for human contributors to the GFN project. The goal is to maintain a professional, scalable codebase free from avoidable technical errors.
 
-## 1. El Ciclo de Desarrollo
+## 1. The Development Cycle
 
-Para garantizar un desarrollo "lento y controlado", seguimos estos pasos:
+To ensure "slow and controlled" development, we follow these steps:
 
-1. **Sincronización**: Antes de empezar, asegúrate de estar en `dev` y tener los últimos cambios.
-2. **Aislamiento**: Crea una rama para tu tarea (`feat/` o `fix/`). No trabajes nunca sobre `main` o `dev` directamente.
-3. **Desarrollo Atómico**: Realiza cambios pequeños y enfocados. Si una tarea es muy grande, divídela en sub-tareas.
-4. **Validación de Rigor**: 
-   - **Test Específico**: Ejecuta al menos un test que verifique directamente tu cambio.
-   - **Suite Completa**: Ejecuta toda la suite de pruebas (excluyendo benchmarks) para asegurar que no hay regresiones.
-     - Comando: `python -m pytest tests/ --ignore=tests/gssm/benchmarks --ignore=tests/isn/benchmarks`
-5. **Revisión**: En un entorno de equipo, abre un Pull Request (PR) hacia `dev`.
+1. **Synchronization**: Before starting, ensure you are on `dev` and have the latest changes.
+2. **Isolation**: Create a branch for your task (`feat/` or `fix/`). Never work directly on `main` or `dev`.
+3. **Atomic Development**: Make small, focused changes. If a task is too large, break it down into sub-tasks.
+4. **Rigorous Validation**: 
+   - **Specific Test**: Run at least one test that directly verifies your change.
+   - **Full Suite**: Run the entire test suite (excluding benchmarks) to ensure no regressions.
+     - Command: `python -m pytest tests/ --ignore=tests/gssm/benchmarks --ignore=tests/isn/benchmarks`
+5. **Review**: In a team environment, open a Pull Request (PR) towards `dev`.
 
-## 2. Desarrollo "Lento y Controlado"
-- **Calidad > Velocidad**: Es preferible tardar un día más y entregar código testeado que arreglar bugs en producción.
-- **Refactorización Continua**: Si tocas un archivo y ves algo que puede mejorar sin romper nada, hazlo (pero en un commit separado si es posible).
-- **Sin Hotfixes ciegos**: Todo fix debe ser probado en una rama antes de mergear.
+## 2. "Slow and Controlled" Development
+- **Quality > Speed**: It is preferable to take an extra day and deliver tested code than to fix bugs in production.
+- **Continuous Refactoring**: If you touch a file and see something that can be improved without breaking anything, do it (but in a separate commit if possible).
+- **No Blind Hotfixes**: Every fix must be tested in a branch before merging.
 
-## 3. Integración con el Agente AI
-El proyecto cuenta con un sistema de memoria interna en la carpeta `/memory/`.
-- **Nota**: Como desarrollador humano, **no necesitas editar los archivos en `/memory/`**.
-- El Agente AI se encarga de mantener esa bitácora actualizada basándose en tus cambios y nuestras sesiones de par-programming. Tu foco debe ser el código en `gfn/` y la documentación en `docs/`.
+## 3. Integration with the AI Agent
+The project has an internal memory system in the `/memory/` folder.
+- **Note**: As a human developer, **you do not need to edit files in `/memory/`**.
+- The AI Agent is responsible for keeping that log updated based on your changes and our pair-programming sessions. Your focus should be on the code in `gfn/` and the documentation in `docs/`.
