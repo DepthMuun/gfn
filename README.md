@@ -31,9 +31,9 @@
 │  Token → Correlation → Token      Token → Perturbation →    │
 │  (with KV-cache buffer)           World State Evolution     │
 │                                                             │
-│  ❌ Memory buffer (crutch)        ✅ Persistent simulator   │
-│  ❌ O(N^2) complexity             ✅ O(1) per step            │
-│  ❌ Statistical guessing          ✅ Physical orbits        │
+│  ❌ Memory buffer (crutch)        ✅ Persistent simulator  │
+│  ❌ O(N^2) complexity             ✅ O(1) per step         │
+│  ❌ Statistical guessing          ✅ Physical orbits       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
