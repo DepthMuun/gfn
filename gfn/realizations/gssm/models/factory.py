@@ -1,12 +1,12 @@
 """
 gfn/models/factory.py — GFN V5
-ModelFactory: construye modelos ManifoldModel completos desde ManifoldConfig.
+ModelFactory: builds complete ManifoldModel from ManifoldConfig.
 
-Soporte para configuración vía:
-  - ManifoldConfig directo (config=...)
-  - Preset + overrides planos: gfn.create(preset_name='stable-torus', dim=64, ...)
-  - Preset + dict de física: gfn.create(preset_name='...', physics={'stability': {'base_dt': 0.5}})
-  - Dict de física puro sin preset: gfn.create(config=ManifoldConfig(physics=dict_to_physics_config({...})))
+Configuration support via:
+  - ManifoldConfig directly (config=...)
+  - Preset + flat overrides: gfn.create(preset_name='stable-torus', dim=64, ...)
+  - Preset + physics dict: gfn.create(preset_name='...', physics={'stability': {'base_dt': 0.5}})
+  - Pure physics dict without preset: gfn.create(config=ManifoldConfig(physics=dict_to_physics_config({...})))
 """
 import torch
 import torch.nn as nn
@@ -42,12 +42,12 @@ logger = logging.getLogger(__name__)
 
 class ModelFactory:
     """
-    Factory para construir modelos GFN V5.
+    Factory to build GFN V5 models.
 
-    IMPORTANT: Geometry opera sobre tensores per-head [B, H, HD] donde HD = dim/heads.
-    El factory pasa head_dim a GeometryFactory, no el dim total.
+    IMPORTANT: Geometry operates on per-head tensors [B, H, HD] where HD = dim/heads.
+    The factory passes head_dim to GeometryFactory, not the total dim.
 
-    Flujos de creación soportados:
+    Supported creation flows:
       1. ModelFactory.create(config=ManifoldConfig(...))
       2. ModelFactory.create(vocab_size=100, dim=64, ...)
       3. ModelFactory.from_pretrained('path/to/model')
@@ -68,17 +68,17 @@ class ModelFactory:
         **kwargs
     ) -> ManifoldModel:
         """
-        Construye un ManifoldModel.
+        Builds a ManifoldModel.
 
         Args:
-            config:      ManifoldConfig completo. Si se provee, tiene prioridad.
-            preset_name: (DEPRECADO) Nombre del preset de física.
-            physics:     Dict anidado o PhysicsConfig para sobreescribir la física.
-            **kwargs:    Overrides planos de ManifoldConfig/PhysicsConfig.
-                         Soporta prefijos para llegar a niveles anidados:
+            config:      Complete ManifoldConfig. If provided, takes priority.
+            preset_name: (DEPRECATED) Physics preset name.
+            physics:     Nested dict or PhysicsConfig to override physics.
+            **kwargs:    Flat overrides of ManifoldConfig/PhysicsConfig.
+                         Supports prefixes to reach nested levels:
                          - 'topology_type', 'base_dt', 'friction', 'integrator'
         """
-        # ── 0. Resolver configuración base ───────────────────────────────────
+        # ── 0. Resolve base configuration ────────────────────────────────────
         if isinstance(config, str):
             if config.lower() == 'gssm':
                 config = None
@@ -120,10 +120,10 @@ class ModelFactory:
 
         if config is None:
             vsize = kwargs.pop('vocab_size', 100)
-            # Inicializar con defaults profesionales
+            # Initialize with professional defaults
             config = ManifoldConfig(vocab_size=vsize)
 
-        # ── 1. Aplicar Overrides de Física (Dict/Config) ─────────────────────
+        # ── 1. Apply Physics Overrides (Dict/Config) ─────────────────────────
         if physics is not None:
             if isinstance(physics, dict):
                 apply_physics_overrides(config.physics, physics)
@@ -132,12 +132,12 @@ class ModelFactory:
             else:
                 raise ConfigurationError(f"physics must be a dict or PhysicsConfig, got {type(physics)}")
 
-        # ── 2. Normalizar Configuración (usando ConfigNormalizer) ─────────────
+        # ── 2. Normalize Configuration (using ConfigNormalizer) ────────────────
         remaining_kwargs, validation_errors = normalize_config(config, kwargs, explicit_keys)
         if validation_errors:
             logger.warning(f"Config validation warnings: {validation_errors}")
         
-        # Los kwargs restantes no fueron mapeados (posiblemente argumentos desconocidos)
+        # Remaining kwargs were not mapped (possibly unknown arguments)
         if remaining_kwargs:
             logger.debug(f"Unmapped kwargs: {list(remaining_kwargs.keys())}")
 
@@ -164,12 +164,12 @@ class ModelFactory:
         
         topology = config.physics.topology.type
         
-        # ── 5. Estado inicial ─────────────────────────────────────────────────
+        # ── 5. Initial state ─────────────────────────────────────────────────
         spread = getattr(config, 'initial_spread', 1e-3)
         x0 = nn.Parameter(torch.randn(1, config.heads, head_dim) * spread)
         v0 = nn.Parameter(torch.randn(1, config.heads, head_dim) * spread)
         
-        # ── 6. Ensamblado del modelo ───────────────────────────────────────────
+        # ── 6. Model assembly ────────────────────────────────────────────────
         model = ManifoldModel(layers, embedding, x0, v0, config.holographic, config=config)
         
         # ── 7. Readout plugin ─────────────────────────────────────────────────

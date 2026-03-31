@@ -17,7 +17,7 @@ from .metrics import compute_metrics
 
 class GFNTrainer:
     """
-    Standard trainer for GFN V5.
+    Standard trainer for GFN.
 
     Supports:
     - Callbacks: checkpoint, early stopping, logger
