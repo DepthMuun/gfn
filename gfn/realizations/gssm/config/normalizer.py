@@ -12,28 +12,28 @@ logger = logging.getLogger(__name__)
 
 
 class ConfigNormalizationError(Exception):
-    """Error durante la normalización de configuración."""
+    """Error during configuration normalization."""
     pass
 
 
 class ConfigNormalizer:
     """
-    Normaliza configuración para ModelFactory.
+    Normalizes configuration for ModelFactory.
     
-    Responsabilidades:
-    1. Mapear kwargs planos a estructura anidada (dotted y prefix)
-    2. Sincronizar parámetros entre ManifoldConfig y PhysicsConfig
-    3. Validar configuración resultante
+    Responsibilities:
+    1. Map flat kwargs to nested structure (dotted and prefix)
+    2. Synchronize parameters between ManifoldConfig and PhysicsConfig
+    3. Validate resulting configuration
     """
     
-    # Sub-configs válidos en PhysicsConfig
+    # Valid sub-configs in PhysicsConfig
     PHYSICS_SUBCONFIGS = [
         'topology', 'stability', 'dynamics', 'active_inference',
         'embedding', 'readout', 'mixture', 'fractal', 
         'hysteresis', 'singularities'
     ]
     
-    # Parámetros que requieren sincronización bidireccional
+    # Parameters requiring bidirectional synchronization
     SYNC_PARAMETERS = [
         ('integrator', 'stability', 'integrator_type'),
         ('impulse_scale', 'embedding', 'impulse_scale'),
@@ -51,13 +51,13 @@ class ConfigNormalizer:
     
     def normalize(self, kwargs: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Normaliza kwargs planos en config anidada.
+        Normalizes flat kwargs into nested config.
         
         Args:
-            kwargs: Diccionario de argumentos planos
+            kwargs: Dictionary of flat arguments
             
         Returns:
-            kwargs restantes que no pudieron ser mapeados
+            remaining kwargs that could not be mapped
         """
         remaining = dict(kwargs)
         
@@ -70,32 +70,32 @@ class ConfigNormalizer:
     
     def _try_map_kwarg(self, key: str, value: Any) -> bool:
         """
-        Intenta mapear un kwarg a config. Retorna True si tuvo éxito.
+        Attempts to map a kwarg to config. Returns True if successful.
         
-        Estrategias en orden de prioridad:
+        Strategies in priority order:
         1. Dotted path (e.g., 'physics.topology.type')
-        2. Directo en ManifoldConfig
-        3. Directo en sub-config de física
-        4. Prefijo (e.g., 'topology_type')
+        2. Direct in ManifoldConfig
+        3. Direct in physics sub-config
+        4. Prefix (e.g., 'topology_type')
         """
         # 1. Dotted path
         if '.' in key:
             if self._try_dotted_path(key, value):
                 return True
         
-        # 2. Directo en ManifoldConfig
+        # 2. Direct in ManifoldConfig
         if hasattr(self.config, key):
             setattr(self.config, key, value)
             return True
         
-        # 3. Directo en sub-config de física
+        # 3. Direct in physics sub-config
         for sub_name in self.PHYSICS_SUBCONFIGS:
             target = getattr(self.config.physics, sub_name, None)
             if target and hasattr(target, key):
                 setattr(target, key, value)
                 return True
         
-        # 4. Prefijo
+        # 4. Prefix
         if '_' in key:
             if self._try_prefix_mapping(key, value):
                 return True
@@ -103,7 +103,7 @@ class ConfigNormalizer:
         return False
     
     def _try_dotted_path(self, key: str, value: Any) -> bool:
-        """Mapea dotted path como 'physics.topology.type'."""
+        """Maps dotted path like 'physics.topology.type'."""
         try:
             parts = key.split('.')
             obj = self.config
@@ -138,22 +138,22 @@ class ConfigNormalizer:
         return False
     
     def _apply_physics_override(self, prefix: str, override_dict: Dict[str, Any]) -> None:
-        """Aplica override a sub-config de física."""
+        """Applies override to physics sub-config."""
         from ..config.loader import apply_physics_overrides
         apply_physics_overrides(self.config.physics, {prefix: override_dict})
     
     def synchronize_parameters(self) -> None:
         """
-        Sincroniza parámetros entre ManifoldConfig y PhysicsConfig.
+        Synchronizes parameters between ManifoldConfig and PhysicsConfig.
         
-        Prioriza ManifoldConfig si el valor fue provisto explícitamente.
+        Prioritizes ManifoldConfig if the value was provided explicitly.
         """
         for param_config, sub_config, param_physics in self.SYNC_PARAMETERS:
             self._sync_parameter(param_config, sub_config, param_physics)
     
     def _sync_parameter(self, param_config: str, sub_config: Optional[str], param_physics: str) -> None:
-        """Sincroniza un parámetro individual."""
-        # Si fue provisto explícitamente, priorizar ManifoldConfig -> PhysicsConfig
+        """Synchronizes a single parameter."""
+        # If explicitly set, prioritize ManifoldConfig -> PhysicsConfig
         if param_config in self.explicit_keys:
             val = getattr(self.config, param_config)
             
@@ -161,10 +161,10 @@ class ConfigNormalizer:
                 target = getattr(self.config.physics, sub_config)
                 setattr(target, param_physics, val)
             else:
-                # Parámetro directo en physics (como trajectory_mode)
+                # Parameter is direct in physics (like trajectory_mode)
                 setattr(self.config.physics, param_physics, val)
         else:
-            # Sincronizar PhysicsConfig -> ManifoldConfig
+            # Synchronize PhysicsConfig -> ManifoldConfig
             if sub_config:
                 source = getattr(self.config.physics, sub_config)
                 val = getattr(source, param_physics)
