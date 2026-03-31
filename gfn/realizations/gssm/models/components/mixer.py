@@ -1,16 +1,16 @@
 """
 gfn/models/components/mixer.py — GFN V5
-Portado y unificado desde: gfn_old/nn/layers/flow/mixer.py
+Ported and unified from: gfn_old/nn/layers/flow/mixer.py
 
-FlowMixer: Único mezclador unificado para ManifoldLayer.
+FlowMixer: Unified mixer for ManifoldLayer.
 
-Modos disponibles:
-  'low_rank'  — [B, H, D] → [B, D]  via proyección Low-Rank (partición)
-  'attention' — [B, H, D] → [B, D]  via Geodesic Attention (partición)
-  'ensemble'  — [B, H, D] → [B, H, D] via consenso ponderado (preserva trayectorias)
-  'geodesic'  — Alias de 'attention' con temperatura adaptativa
+Available modes:
+  'low_rank'  — [B, H, D] → [B, D]  via Low-Rank projection (partition)
+  'attention' — [B, H, D] → [B, D]  via Geodesic Attention (partition)
+  'ensemble'  — [B, H, D] → [B, H, D] via weighted consensus (preserves trajectories)
+  'geodesic'  — Alias of 'attention' with adaptive temperature
 
-Topología toro: posiciones se proyectan vía [sin(x), cos(x)] para circular averaging.
+Torus topology: positions are projected via [sin(x), cos(x)] for circular averaging.
 """
 import torch
 import torch.nn as nn
@@ -20,10 +20,10 @@ from ...constants import TOPOLOGY_TORUS, TOPOLOGY_EUCLIDEAN
 
 class FlowMixer(nn.Module):
     """
-    Mezclador unificado de estado geodésico para ManifoldLayer V5.
+    Unified geodesic state mixer for ManifoldLayer V5.
 
-    En modo 'low_rank' y 'attention' colapsa cabezas a estado único [B, D].
-    En modo 'ensemble' preserva la estructura de trayectorias [B, H, D].
+    In 'low_rank' and 'attention' modes, collapses heads to single state [B, D].
+    In 'ensemble' mode, preserves trajectory structure [B, H, D].
     """
 
     def __init__(self, dim: int, rank: int = 16, heads: int = 4,
@@ -43,16 +43,16 @@ class FlowMixer(nn.Module):
         elif self.mode == 'ensemble':
             self._build_ensemble_coupler()
         else:
-            # Fallback seguro
+            # Safe fallback
             self.mode = 'low_rank'
             self._build_partition_mixer()
 
-    # ── Construcción ──────────────────────────────────────────────────────────
+    # ── Construction ──────────────────────────────────────────────────────────
 
     def _build_partition_mixer(self):
-        """Mixer de partición: colapsa [B, H, D] → [B, D]."""
-        # Torus: proyectar via [sin(x), cos(x), tanh(v/10)] — 3×dim de entrada
-        # Euclidean: proyectar vía x directamente — 1×dim de entrada
+        """Partition mixer: collapses [B, H, D] → [B, D]."""
+        # Torus: project via [sin(x), cos(x), tanh(v/10)] — 3×dim input
+        # Euclidean: project directly via x — 1×dim input
         mixer_in_x_dim = (3 if self.topology == TOPOLOGY_TORUS else 1) * self.dim
         self.out_proj_x = nn.Linear(mixer_in_x_dim, self.dim)
         self.out_proj_v = nn.Linear(self.dim, self.dim)
