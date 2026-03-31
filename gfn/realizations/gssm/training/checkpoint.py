@@ -1,30 +1,30 @@
 """
 gfn/training/checkpoint.py
 ===========================
-Checkpoint multi-módulo para pipelines GFN con proyectores y cabezas externas.
+Multi-module checkpoint for GFN pipelines with projectors and external heads.
 
-El gfn.api.save() usa formato Hugging Face (directorio). Este módulo cubre
-el caso de múltiples módulos distintos (projector + manifold + detection_head)
-donde se quiere un solo archivo .pt con metadata.
+The gfn.api.save() uses Hugging Face format (directory). This module covers
+the case of multiple distinct modules (projector + manifold + detection_head)
+where a single .pt file with metadata is desired.
 
-Uso:
+Usage:
     from ..training.checkpoint import save_checkpoint, load_checkpoint
 
-    # Guardar
+    # Save
     save_checkpoint(
         "checkpoints/best.pt",
         modules={'projector': proj, 'manifold': manifold, 'det_head': head},
         metadata={'epoch': 3, 'score': 0.95, 'img_size': 64, 'dim': 64},
     )
 
-    # Cargar
+    # Load
     states, meta = load_checkpoint("checkpoints/best.pt")
     projector.load_state_dict(states['projector'])
     manifold.load_state_dict(states['manifold'])
     det_head.load_state_dict(states['det_head'])
     print(meta['epoch'], meta['score'])
 
-    # Cargar con módulos ya instanciados (más cómodo):
+    # Load with pre-instantiated modules (more convenient):
     load_checkpoint("best.pt", modules={'projector': proj, 'manifold': manifold, 'det_head': head})
 """
 
@@ -39,8 +39,8 @@ import torch.nn as nn
 
 __all__ = ['save_checkpoint', 'load_checkpoint']
 
-# Prefijos de submodules internos del GFN que NO deben guardarse en el
-# checkpoint del manifold (son diagnóstico, no arquitectura).
+# Prefixes of internal GFN submodules that should NOT be saved in the
+# manifold checkpoint (they are diagnostic, not architecture).
 _SKIP_PREFIXES = ('physics_monitor.',)
 
 
