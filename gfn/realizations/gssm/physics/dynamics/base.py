@@ -1,6 +1,6 @@
 """
 gfn/physics/dynamics/base.py — GFN V5
-Base abstracta para los módulos de Dynamics.
+Abstract base for Dynamics modules.
 """
 import torch
 import torch.nn as nn
@@ -11,13 +11,13 @@ from ...physics.normalization import IdentityNormalization
 
 class BaseDynamics(nn.Module, ABC):
     """
-    Clase base abstracta para los módulos de actualización de estado del manifold.
+    Abstract base class for manifold state update modules.
 
-    Contrato:
+    Contract:
       forward(current_state, absolute_proposal) → state_next
 
-    topology='torus':     wrapping isométrico en [-π, π]
-    topology='euclidean': aplica norm_layer (generalmente RMSNorm o Identity)
+    topology='torus':     isometric wrapping in [-π, π]
+    topology='euclidean': applies norm_layer (usually RMSNorm or Identity)
     """
 
     def __init__(self, dim: int, norm_layer: Optional[nn.Module] = None,
@@ -28,9 +28,9 @@ class BaseDynamics(nn.Module, ABC):
         self.norm = norm_layer if norm_layer is not None else IdentityNormalization()
 
     def _apply_norm(self, x: torch.Tensor, context_x: Optional[torch.Tensor] = None) -> torch.Tensor:
-        """Aplicación de la normalización geométrica inyectada por ManifoldLayer."""
+        """Application of geometric normalization injected by ManifoldLayer."""
         if self.topology == 'torus':
-            # Wrapping isométrico: preserva invarianza de fase circular
+            # Isometric wrapping: preserves circular phase invariance
             return torch.atan2(torch.sin(x), torch.cos(x))
         try:
             return self.norm(x, context_x=context_x)
