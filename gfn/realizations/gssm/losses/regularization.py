@@ -1,7 +1,7 @@
 """
-Regularization Losses — GFN V5
+Regularization Losses — GFN
 Module for exogenous auxiliary losses such as Dynamic Balancing and Noether Symmetries.
-Migrated and modernized from gfn_old/losses/physics/
+Migrated and modernized.
 """
 
 import torch
@@ -64,18 +64,18 @@ class DynamicLossBalancer(nn.Module):
 
     def forward(self, loss_components: List[torch.Tensor]) -> List[torch.Tensor]:
         """
-        Pondera las pérdidas dinámicamente.
+        Weighs losses dynamically.
         Args:
-            loss_components: Lista de tensores escalares de pérdida.
+            loss_components: List of scalar loss tensors.
         """
         if len(loss_components) <= 1:
             return loss_components
             
-        # Calcula escalas basadas en las normas sin afectar el grafo de cómputo original
+        # Compute scales based on norms without affecting the original computation graph
         with torch.no_grad():
             norms = torch.stack([l.detach().abs() + EPS for l in loss_components])
             mean_norm = norms.mean()
             scales = self.target_ratio * mean_norm / norms
             
-        # Multiplica la pérdida original por su escala detached para que fluya el gradiente
+        # Multiply original loss by its detached scale so gradient flows
         return [l * s for l, s in zip(loss_components, scales)]
