@@ -37,11 +37,16 @@ def save(model: nn.Module, path: str):
         # Fallback for models that don't inherit from BaseModel
         torch.save({'state_dict': model.state_dict()}, path)
 
-def load(path: str, device: Optional[str] = None):
+def load(path: str, **kwargs) -> nn.Module:
     """
     Loads a saved model along with its configuration.
     Supports directories (HF Style) or legacy .pth/.bin files.
+    
+    Args:
+        path: Path to model directory (HF format) or checkpoint file
+        **kwargs: Additional arguments (e.g., device for loading)
     """
+    device: Optional[str] = kwargs.get('device')
     import os
     if os.path.isdir(path):
         return ModelFactory.from_pretrained(path)
@@ -72,10 +77,16 @@ def load(path: str, device: Optional[str] = None):
     return model
 
 def benchmark(model: nn.Module, dataloader: torch.utils.data.DataLoader, 
-              device: Optional[str] = None) -> Dict[str, float]:
+              **kwargs) -> Dict[str, float]:
     """
-    Ejecuta una evaluación rápida de métricas geométricas y de tarea.
+    Runs a quick evaluation of geometric and task metrics.
+    
+    Args:
+        model: The model to evaluate
+        dataloader: DataLoader with evaluation data
+        **kwargs: Additional arguments (e.g., device)
     """
+    device: Optional[str] = kwargs.get('device')
     device = device or ('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
     model.eval()
