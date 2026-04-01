@@ -1,5 +1,5 @@
 """
-PhysicsLoss — GFN V5
+PhysicsLoss — GFN
 Consolidated physics-informed losses.
 Migrated and consolidated from gfn/losses/orchestration/physics_informed.py
 """
@@ -56,12 +56,12 @@ def kinetic_regularization(v_seq: torch.Tensor, max_kinetic: float = 10.0) -> to
 @register_loss('physics')
 class PhysicsLoss(BaseLoss):
     """
-    Pérdida física combinada, configurable por componentes.
+    Combined physics loss, configurable by components.
 
-    Componentes disponibles:
-    - 'geodesic':   Regularización geodésica (penaliza curvatura excesiva)
-    - 'hamiltonian': Conservación del Hamiltoniano
-    - 'kinetic':    Regularización de energía cinética
+    Available components:
+    - 'geodesic':   Geodesic regularization (penalizes excessive curvature)
+    - 'hamiltonian': Hamiltonian conservation
+    - 'kinetic':    Kinetic energy regularization
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
@@ -100,9 +100,9 @@ class PhysicsLoss(BaseLoss):
 @register_loss('generative_physics')
 class PhysicsInformedLoss(BaseLoss):
     """
-    Pérdida generativa + regularización física combinada.
-    La pérdida principal es CrossEntropy (sobre logits, no representaciones toroidales).
-    El término físico actúa como regularizador.
+    Combined generative + physics regularization loss.
+    The main loss is CrossEntropy (over logits, not toroidal representations).
+    The physics term acts as a regularizer.
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
@@ -113,10 +113,10 @@ class PhysicsInformedLoss(BaseLoss):
 
     def forward(self, x_pred: torch.Tensor, x_target: torch.Tensor,
                 state_info: Optional[Dict[str, Any]] = None, **kwargs) -> torch.Tensor:
-        # CrossEntropy sobre logits [B, S, V] → scalar
+        # CrossEntropy over logits [B, S, V] → scalar
         ce = F.cross_entropy(x_pred.view(-1, x_pred.size(-1)), x_target.view(-1))
 
-        # Entropy bonus (opcional)
+        # Entropy bonus (optional)
         if self.entropy_coef > 0:
             probs = F.softmax(x_pred, dim=-1)
             entropy = -(probs * torch.log(probs + EPS)).sum(dim=-1).mean()
