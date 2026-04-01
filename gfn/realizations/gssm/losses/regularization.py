@@ -1,7 +1,7 @@
 """
-Regularization Losses — GFN V5
-Módulo para pérdidas auxiliares exógenas como Balance Dinámico y Simetrías de Noether.
-Migrado y modernizado desde gfn_old/losses/physics/
+Regularization Losses — GFN
+Module for exogenous auxiliary losses such as Dynamic Balancing and Noether Symmetries.
+Migrated and modernized.
 """
 
 import torch
@@ -21,12 +21,12 @@ class NoetherSymmetryLoss(nn.Module):
 
     def forward(self, accelerations: torch.Tensor, isomeric_groups: List[List[int]]) -> torch.Tensor:
         """
-        Calcula la penalización por asimetría entre flujos paralelos.
+        Computes the penalty for asymmetry between parallel flows.
         
         Args:
-            accelerations: Tensor de aceleraciones [Batch, Heads, HeadDim]
-            isomeric_groups: Grupos de índices de cabezas que deben comportarse idénticamente.
-                             Ej: [[0, 1], [2, 3]]
+            accelerations: Acceleration tensor [Batch, Heads, HeadDim]
+            isomeric_groups: Groups of head indices that should behave identically.
+                             E.g.: [[0, 1], [2, 3]]
         """
         if not isomeric_groups or accelerations.dim() != 3:
             return torch.zeros(1, device=accelerations.device, requires_grad=True)
@@ -64,18 +64,18 @@ class DynamicLossBalancer(nn.Module):
 
     def forward(self, loss_components: List[torch.Tensor]) -> List[torch.Tensor]:
         """
-        Pondera las pérdidas dinámicamente.
+        Weighs losses dynamically.
         Args:
-            loss_components: Lista de tensores escalares de pérdida.
+            loss_components: List of scalar loss tensors.
         """
         if len(loss_components) <= 1:
             return loss_components
             
-        # Calcula escalas basadas en las normas sin afectar el grafo de cómputo original
+        # Compute scales based on norms without affecting the original computation graph
         with torch.no_grad():
             norms = torch.stack([l.detach().abs() + EPS for l in loss_components])
             mean_norm = norms.mean()
             scales = self.target_ratio * mean_norm / norms
             
-        # Multiplica la pérdida original por su escala detached para que fluya el gradiente
+        # Multiply original loss by its detached scale so gradient flows
         return [l * s for l, s in zip(loss_components, scales)]

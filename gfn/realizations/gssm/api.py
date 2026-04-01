@@ -1,7 +1,7 @@
 """
 gfn/api.py — GFN V5
-Interfaz pública simplificada y orquestación de alto nivel.
-Centraliza la creación, carga y evaluación de modelos.
+Simplified public interface and high-level orchestration.
+Centralizes model creation, loading and evaluation.
 """
 
 import torch
@@ -14,43 +14,43 @@ from .losses.factory import LossFactory
 from .training.trainer import GFNTrainer
 from .training.evaluation import ManifoldMetricEvaluator
 
-# -- Alias principales
+# -- Main aliases
 Model = ManifoldModel
 Manifold = ManifoldModel
 Trainer = GFNTrainer
 
 def create(*args, **kwargs):
-    """Factory para modelos Manifold (V5)."""
+    """Factory for Manifold models (V5)."""
     return ModelFactory.create(*args, **kwargs)
 
 def loss(config, **kwargs):
-    """Factory para funciones de pérdida (V5)."""
+    """Factory for loss functions (V5)."""
     return LossFactory.create(config, **kwargs)
 
 def save(model: nn.Module, path: str):
     """
-    Guarda el modelo y su configuración (HuggingFace Style).
+    Saves the model and its configuration (HuggingFace Style).
     """
     if hasattr(model, 'save_pretrained'):
         model.save_pretrained(path)
     else:
-        # Fallback para modelos que no heredan de BaseModel
+        # Fallback for models that don't inherit from BaseModel
         torch.save({'state_dict': model.state_dict()}, path)
 
 def load(path: str, device: Optional[str] = None):
     """
-    Carga un modelo guardado junto con su configuración.
-    Soporta directorios (HF Style) o archivos .pth/.bin legados.
+    Loads a saved model along with its configuration.
+    Supports directories (HF Style) or legacy .pth/.bin files.
     """
     import os
     if os.path.isdir(path):
         return ModelFactory.from_pretrained(path)
     
-    # Fallback para archivos aislados legados
+    # Fallback for isolated legacy files
     checkpoint = torch.load(path, map_location=device or 'cpu', weights_only=True)
     config = checkpoint.get('config')
     if config is None:
-        raise ValueError(f"No se encontró configuración en el checkpoint {path}. Use directorios HF para carga completa.")
+        raise ValueError(f"Configuration not found in checkpoint {path}. Use HF directories for full loading.")
         
     model = create(config=config)
     

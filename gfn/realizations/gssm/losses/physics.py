@@ -1,7 +1,7 @@
 """
-PhysicsLoss — GFN V5
-Pérdidas physics-informed consolidadas.
-Migradas y consolidadas de gfn/losses/orchestration/physics_informed.py
+PhysicsLoss — GFN
+Consolidated physics-informed losses.
+Migrated and consolidated from gfn/losses/orchestration/physics_informed.py
 """
 
 import torch
@@ -12,12 +12,12 @@ from ..registry import register_loss
 from ..constants import EPS
 
 
-# ─── Primitivas de pérdida físicas ──────────────────────────────────────────
+# ─── Physical loss primitives ────────────────────────────────────────────
 
 def geodesic_regularization(christoffels: torch.Tensor, velocities: torch.Tensor) -> torch.Tensor:
     """
-    Penaliza la magnitud de la aceleración geodésica.
-    L_geo = ||Γ(v,v)||² — mide cuánto 'curva' la trayectoria.
+    Penalizes the magnitude of geodesic acceleration.
+    L_geo = ||Γ(v,v)||² — measures how much the trajectory 'curves'.
     """
     if christoffels is None or velocities is None:
         return torch.zeros(1, device='cpu', requires_grad=True)
@@ -26,23 +26,23 @@ def geodesic_regularization(christoffels: torch.Tensor, velocities: torch.Tensor
 
 def hamiltonian_conservation(x_seq: torch.Tensor, v_seq: torch.Tensor) -> torch.Tensor:
     """
-    Penaliza la variación de la energía de Hamiltonian a lo largo de la trayectoria.
-    H = 0.5 * ||v||² (energía cinética, en ausencia de potencial explícito).
-    Una trayectoria simpléctica debería conservar H.
+    Penalizes the variation of Hamiltonian energy along the trajectory.
+    H = 0.5 * ||v||² (kinetic energy, in absence of explicit potential).
+    A symplectic trajectory should conserve H.
     """
     if x_seq is None or v_seq is None:
         return torch.zeros(1, device='cpu', requires_grad=True)
-    # H en cada tiempo [B, S]
+    # H at each time [B, S]
     H = 0.5 * (v_seq ** 2).sum(dim=-1)
-    # Varianza temporal de H como medida de não-conservación
+    # Temporal variance of H as measure of non-conservation
     H_var = H.var(dim=1).mean()
     return H_var
 
 
 def kinetic_regularization(v_seq: torch.Tensor, max_kinetic: float = 10.0) -> torch.Tensor:
     """
-    Penaliza energía cinética excesiva.
-    Previene explosión de velocidades.
+    Penalizes excessive kinetic energy.
+    Prevents velocity explosion.
     """
     if v_seq is None:
         return torch.zeros(1, device='cpu', requires_grad=True)
@@ -51,17 +51,17 @@ def kinetic_regularization(v_seq: torch.Tensor, max_kinetic: float = 10.0) -> to
     return excess.mean()
 
 
-# ─── Clases de pérdida ──────────────────────────────────────────────────────
+# ─── Loss classes ────────────────────────────────────────────────────────
 
 @register_loss('physics')
 class PhysicsLoss(BaseLoss):
     """
-    Pérdida física combinada, configurable por componentes.
+    Combined physics loss, configurable by components.
 
-    Componentes disponibles:
-    - 'geodesic':   Regularización geodésica (penaliza curvatura excesiva)
-    - 'hamiltonian': Conservación del Hamiltoniano
-    - 'kinetic':    Regularización de energía cinética
+    Available components:
+    - 'geodesic':   Geodesic regularization (penalizes excessive curvature)
+    - 'hamiltonian': Hamiltonian conservation
+    - 'kinetic':    Kinetic energy regularization
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
@@ -100,9 +100,9 @@ class PhysicsLoss(BaseLoss):
 @register_loss('generative_physics')
 class PhysicsInformedLoss(BaseLoss):
     """
-    Pérdida generativa + regularización física combinada.
-    La pérdida principal es CrossEntropy (sobre logits, no representaciones toroidales).
-    El término físico actúa como regularizador.
+    Combined generative + physics regularization loss.
+    The main loss is CrossEntropy (over logits, not toroidal representations).
+    The physics term acts as a regularizer.
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
@@ -113,10 +113,10 @@ class PhysicsInformedLoss(BaseLoss):
 
     def forward(self, x_pred: torch.Tensor, x_target: torch.Tensor,
                 state_info: Optional[Dict[str, Any]] = None, **kwargs) -> torch.Tensor:
-        # CrossEntropy sobre logits [B, S, V] → scalar
+        # CrossEntropy over logits [B, S, V] → scalar
         ce = F.cross_entropy(x_pred.view(-1, x_pred.size(-1)), x_target.view(-1))
 
-        # Entropy bonus (opcional)
+        # Entropy bonus (optional)
         if self.entropy_coef > 0:
             probs = F.softmax(x_pred, dim=-1)
             entropy = -(probs * torch.log(probs + EPS)).sum(dim=-1).mean()

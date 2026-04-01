@@ -1,7 +1,7 @@
 """
 config/loader.py — GFN V5
-Conversión de dicts de configuración a PhysicsConfig tipado.
-Soporte para overrides anidados sobre configs existentes.
+Conversion of configuration dicts to typed PhysicsConfig.
+Support for nested overrides on existing configs.
 """
 from typing import Dict, Any, Optional
 from .schema import (
@@ -13,11 +13,11 @@ from .schema import (
 
 def dict_to_physics_config(d: Dict[str, Any]) -> PhysicsConfig:
     """
-    Convierte un dict anidado en un PhysicsConfig tipado.
+    Converts a nested dict into a typed PhysicsConfig.
 
-    Soporta todos los sub-campos de PhysicsConfig. Los campos no presentes
-    en el dict mantienen sus valores default del schema.
-    Si `d` ya es PhysicsConfig, lo devuelve intacto.
+    Supports all PhysicsConfig sub-fields. Fields not present
+    in the dict maintain their default values from the schema.
+    If `d` is already PhysicsConfig, returns it unchanged.
     """
     if isinstance(d, PhysicsConfig):
         return d
@@ -29,18 +29,18 @@ def dict_to_physics_config(d: Dict[str, Any]) -> PhysicsConfig:
 
 def apply_physics_overrides(cfg: PhysicsConfig, overrides: Dict[str, Any]) -> PhysicsConfig:
     """
-    Aplica un dict de overrides sobre un PhysicsConfig EXISTENTE (in-place).
+    Applies a dict of overrides on an EXISTING PhysicsConfig (in-place).
 
-    A diferencia de dict_to_physics_config(), esta función NO parte de defaults
-    sino que modifica solo los campos presentes en el dict, dejando el resto intacto.
-    Es la función que usa ModelFactory cuando se combina preset + physics kwarg.
+    Unlike dict_to_physics_config(), this function does NOT start from defaults
+    but only modifies the fields present in the dict, leaving the rest intact.
+    This is the function that ModelFactory uses when combining preset + physics kwarg.
 
     Args:
-        cfg:       PhysicsConfig existente (ej. resultado de get_preset())
-        overrides: Dict anidado con los campos a sobreescribir
+        cfg:       Existing PhysicsConfig (e.g., result of get_preset())
+        overrides: Nested dict with fields to overwrite
 
     Returns:
-        El mismo cfg modificado in-place (también retornado para encadenamiento).
+        The same cfg modified in-place (also returned for chaining).
     """
     if not overrides:
         return cfg
@@ -49,7 +49,7 @@ def apply_physics_overrides(cfg: PhysicsConfig, overrides: Dict[str, Any]) -> Ph
 
 
 def _apply_dict_to_physics_config(cfg: PhysicsConfig, d: Dict[str, Any]) -> None:
-    """Función interna — aplica los campos del dict sobre cfg in-place."""
+    """Internal function — applies dict fields to cfg in-place."""
 
     # ── Topology ──────────────────────────────────────────────────────────────
     t_d = d.get('topology', d.get('topology_config', {}))
@@ -71,10 +71,10 @@ def _apply_dict_to_physics_config(cfg: PhysicsConfig, d: Dict[str, Any]) -> None
             'friction', 'velocity_friction_scale',
             'curvature_clamp', 'friction_mode',
             'integrator_type',
-            # alias legacy
-            'velocity_saturation',   # → ignorado, no existe en StabilityConfig
+            # Legacy name aliases
+            'velocity_saturation',   # → ignored, does not exist in StabilityConfig
         ])
-        # Alias de nombres legacy
+        # Legacy name aliases
         if 'toroidal_curvature_scale' in s_d:
             cfg.stability.curvature_clamp = s_d['toroidal_curvature_scale']
 
@@ -95,19 +95,19 @@ def _apply_dict_to_physics_config(cfg: PhysicsConfig, d: Dict[str, Any]) -> None
         dt_d = ai_d.get('dynamic_time', {})
         if isinstance(dt_d, dict) and dt_d:
             _apply(cfg.active_inference.dynamic_time, dt_d, ['enabled', 'type'])
-        # Reactive curvature — es un dict interno
+        # Reactive curvature — internal dict
         rc_d = ai_d.get('reactive_curvature', {})
         if isinstance(rc_d, dict) and rc_d:
             cfg.active_inference.reactive_curvature.update(rc_d)
-        # Stochasticity — es un dict interno
+        # Stochasticity — internal dict
         st_d = ai_d.get('stochasticity', {})
         if isinstance(st_d, dict) and st_d:
             cfg.active_inference.stochasticity.update(st_d)
-        # Curiosity — es un dict interno
+        # Curiosity — internal dict
         cu_d = ai_d.get('curiosity', {})
         if isinstance(cu_d, dict) and cu_d:
             cfg.active_inference.curiosity.update(cu_d)
-    # ── Hysteresis (pueden estar en raíz O dentro de active_inference) ────────
+    # ── Hysteresis (can be at root OR inside active_inference) ────────
     hyst_src = d.get('hysteresis', ai_d.get('hysteresis', {}) if isinstance(ai_d, dict) else {})
     if isinstance(hyst_src, dict) and hyst_src:
         _apply(cfg.hysteresis, hyst_src, [
@@ -116,7 +116,7 @@ def _apply_dict_to_physics_config(cfg: PhysicsConfig, d: Dict[str, Any]) -> None
             'hyst_readout_w', 'hyst_readout_b',
         ])
 
-    # ── Singularities (pueden estar en raíz O dentro de active_inference) ─────
+    # ── Singularities (can be at root OR inside active_inference) ─────
     sing_src = d.get('singularities', ai_d.get('singularities', {}) if isinstance(ai_d, dict) else {})
     if isinstance(sing_src, dict) and sing_src:
         _apply(cfg.singularities, sing_src, [
@@ -150,14 +150,14 @@ def _apply_dict_to_physics_config(cfg: PhysicsConfig, d: Dict[str, Any]) -> None
         cfg.trajectory_mode = d['trajectory_mode']
 
     # ── Attention/mixer alias (legacy ECG configs) ────────────────────────────
-    # 'attention': {'mixer_type': 'low_rank'} — se ignora acá, aplica en ManifoldConfig
+    # 'attention': {'mixer_type': 'low_rank'} — ignored here, applied in ManifoldConfig
 
 
 def _apply(target, source: dict, keys: list) -> None:
-    """Copia las claves presentes en source hacia target (setattr)."""
+    """Copies keys present in source to target (setattr)."""
     for k in keys:
         if k in source:
             try:
                 setattr(target, k, source[k])
             except AttributeError:
-                pass  # clave no existe en el dataclass — ignorar silenciosamente
+                pass  # key does not exist in dataclass — silently ignore

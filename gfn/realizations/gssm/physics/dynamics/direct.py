@@ -6,7 +6,8 @@ from .base import BaseDynamics
 class DirectDynamics(BaseDynamics):
     """
     Direct (Geodesic) Dynamics: state_next = norm(proposal).
-    El flujo geodésico directo — la propuesta del integrador es el resultado.
+    
+    The direct geodesic flow — the integrator proposal is the result.
     """
     def forward(self, current_state: torch.Tensor,
                 absolute_proposal: torch.Tensor, 
