@@ -50,7 +50,7 @@ class HamiltonianTrajectorySolver:
             force: Optional external force
 
         Returns:
-            (x_history, v_history): tensores de forma [steps+1, B, ...]
+            (x_history, v_history): tensors of shape [steps+1, B, ...]
         """
         x_history = [x0]
         v_history = [v0]
@@ -58,11 +58,10 @@ class HamiltonianTrajectorySolver:
         curr_x, curr_v = x0, v0
 
         for _ in range(steps):
-            result = self.integrator.step(
+            out = self.integrator.step(
                 curr_x, curr_v, force=force, dt=self.dt, **kwargs
             )
-            curr_x = result["x"]
-            curr_v = result["v"]
+            curr_x, curr_v = out["x"], out["v"]
             x_history.append(curr_x)
             v_history.append(curr_v)
 
@@ -70,11 +69,11 @@ class HamiltonianTrajectorySolver:
 
     def compute_hamiltonian(self, x: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
         """
-        Calcula la energía total del sistema: H = T + V.
+        Calculates the total energy of the system: H = T + V.
 
-        T (cinética): usa `geometry.compute_kinetic_energy` si existe,
-                      si no usa la norma L2 estándar.
-        V (potencial): usa `geometry.compute_potential_energy` si existe.
+        T (kinetic): uses `geometry.compute_kinetic_energy` if available,
+                     otherwise uses the standard L2 norm.
+        V (potential): uses `geometry.compute_potential_energy` if available.
         """
         if hasattr(self.geometry, 'compute_kinetic_energy'):
             kinetic = self.geometry.compute_kinetic_energy(x, v)
@@ -91,13 +90,13 @@ class HamiltonianTrajectorySolver:
 
     def energy_drift(self, x_hist: torch.Tensor, v_hist: torch.Tensor) -> torch.Tensor:
         """
-        Calcula el drift de energía relativo a lo largo de la trayectoria.
+        Calculates the relative energy drift along the trajectory.
 
-        Un drift bajo indica que el integrador es simplécticamente preciso.
-        Útil para métricas de debugging y verificación de integradores.
+        A low drift indicates that the integrator is symplectically accurate.
+        Useful for debugging metrics and integrator verification.
 
         Returns:
-            drift (escalar): drift medio normalizado por la energía inicial.
+            drift (scalar): mean drift normalized by the initial energy.
         """
         H_t = torch.stack([
             self.compute_hamiltonian(x_hist[i], v_hist[i])
