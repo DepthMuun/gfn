@@ -49,13 +49,13 @@ class PhysicsMonitorPlugin(Plugin):
         self.enabled = enabled
         self.window = window
 
-        # Resultados — accesibles después del forward pass
+        # Results — accessible after forward pass
         self.energy_drift: float = 0.0
         self.mean_KE: float = 0.0
         self.mean_speed: float = 0.0
         self.H_history: List[float] = []
 
-        # Buffer interno por batch
+        # Internal buffer per batch
         self._x_buf: List[torch.Tensor] = []
         self._v_buf: List[torch.Tensor] = []
 
