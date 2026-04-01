@@ -1,7 +1,7 @@
 """
 Regularization Losses — GFN V5
-Módulo para pérdidas auxiliares exógenas como Balance Dinámico y Simetrías de Noether.
-Migrado y modernizado desde gfn_old/losses/physics/
+Module for exogenous auxiliary losses such as Dynamic Balancing and Noether Symmetries.
+Migrated and modernized from gfn_old/losses/physics/
 """
 
 import torch
@@ -21,12 +21,12 @@ class NoetherSymmetryLoss(nn.Module):
 
     def forward(self, accelerations: torch.Tensor, isomeric_groups: List[List[int]]) -> torch.Tensor:
         """
-        Calcula la penalización por asimetría entre flujos paralelos.
+        Computes the penalty for asymmetry between parallel flows.
         
         Args:
-            accelerations: Tensor de aceleraciones [Batch, Heads, HeadDim]
-            isomeric_groups: Grupos de índices de cabezas que deben comportarse idénticamente.
-                             Ej: [[0, 1], [2, 3]]
+            accelerations: Acceleration tensor [Batch, Heads, HeadDim]
+            isomeric_groups: Groups of head indices that should behave identically.
+                             E.g.: [[0, 1], [2, 3]]
         """
         if not isomeric_groups or accelerations.dim() != 3:
             return torch.zeros(1, device=accelerations.device, requires_grad=True)
