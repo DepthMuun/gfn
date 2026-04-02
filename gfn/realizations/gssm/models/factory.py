@@ -165,7 +165,7 @@ class ModelFactory:
         topology = config.physics.topology.type
         
         # ── 5. Initial state ─────────────────────────────────────────────────
-        spread = getattr(config, 'initial_spread', 1e-3)
+        spread = getattr(config, 'initial_spread', 0.1)
         x0 = nn.Parameter(torch.randn(1, config.heads, head_dim) * spread)
         v0 = nn.Parameter(torch.randn(1, config.heads, head_dim) * spread)
         

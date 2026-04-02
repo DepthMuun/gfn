@@ -193,7 +193,7 @@ class ManifoldConfig:
     mixer_type: str = 'low_rank'
     trajectory_mode: str = 'partition'
     coupler_mode: str = 'mean_field'
-    initial_spread: float = 1e-3
+    initial_spread: float = 0.1  # 0.1 recommended for better gradient flow
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
