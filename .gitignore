@@ -43,6 +43,7 @@ memory/
 *.csv
 .agents/
 *json
+*.png
 
 # Checkpoints (Exclude all model weights everywhere)
 checkpoints/
