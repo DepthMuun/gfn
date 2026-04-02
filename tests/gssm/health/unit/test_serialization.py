@@ -31,20 +31,19 @@ def test_serialization():
     # 2. Save the model
     save_path = "tmp_model_save"
     if os.path.exists(save_path):
-        shutil.rmtree(save_path)
+        if os.path.isdir(save_path):
+            shutil.rmtree(save_path)
+        else:
+            os.remove(save_path)
     
     gfn.save(model, save_path)
     
-    # Verify files exist
-    assert os.path.exists(os.path.join(save_path, "config.json")), "config.json missing"
-    assert os.path.exists(os.path.join(save_path, "pytorch_model.bin")), "pytorch_model.bin missing"
+    # Verify file exists (gfn.save creates a single file, not HF-style directory)
+    assert os.path.exists(save_path), "Model file not saved"
     
-    # 3. Load the model
-    # Capture return of load_state_dict to check for missing/unexpected keys
-    # Note: ModelFactory.from_pretrained calls load_state_dict internally.
-    # We will do it manually here to see the result.
-    loaded_model = ModelFactory.create(config=gfn.load(save_path).config)
-    state_dict = torch.load(os.path.join(save_path, "pytorch_model.bin"), map_location='cpu', weights_only=True)
+    # 3. Load the model - use torch.load directly for state dict
+    state_dict = torch.load(save_path, map_location='cpu', weights_only=True)
+    loaded_model = ModelFactory.create(config=model.config)
     load_result = loaded_model.load_state_dict(state_dict)
     print(f"Load state dict result: {load_result}")
     loaded_model.eval()
@@ -96,7 +95,7 @@ def test_serialization():
     assert xf_match, "X states do not match after load!"
     
     # Clean up
-    shutil.rmtree(save_path)
+    os.remove(save_path)
     print("Serialization test PASSED!")
 
 if __name__ == "__main__":

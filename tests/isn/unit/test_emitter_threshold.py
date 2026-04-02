@@ -31,7 +31,7 @@ def test_emitter_output():
     
     # Verificar que el gradiente fluye
     logits.sum().backward()
-    assert emitter.emission.weight.grad is not None, "Gradient flow broken in Emitter"
+    assert emitter.projection.weight.grad is not None, "Gradient flow broken in Emitter"
     
     print("✓ Emitter output and gradient flow tests passed")
 
