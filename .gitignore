@@ -42,7 +42,7 @@ _eval_out
 memory/
 *.csv
 .agents/
-*json
+*.json
 *.png
 
 # Checkpoints (Exclude all model weights everywhere)
