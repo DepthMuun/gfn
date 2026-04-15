@@ -1,0 +1,12 @@
+{
+  "test_name": "christoffel_symmetry",
+  "category": "research",
+  "timestamp": "2026-04-01T16:14:41.097298",
+  "elapsed_seconds": 0.017047405242919922,
+  "passed": false,
+  "metrics": {},
+  "history": [],
+  "errors": [
+    "too many indices for tensor of dimension 1"
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "test_name": "torus_positive_definite",
+  "category": "health",
+  "timestamp": "2026-04-01T14:42:34.929451",
+  "elapsed_seconds": 0.046541690826416016,
+  "passed": true,
+  "metrics": {
+    "min_eigenvalue": 1.0,
+    "eigenvalues": [
+      1.0,
+      9.0
+    ]
+  },
+  "history": [
+    {
+      "name": "min_eigenvalue",
+      "value": 1.0,
+      "timestamp": 1775065354.9286058,
+      "step": null
+    },
+    {
+      "name": "eigenvalues",
+      "value": [
+        1.0,
+        9.0
+      ],
+      "timestamp": 1775065354.9294372,
+      "step": null
+    }
+  ],
+  "errors": []
+}

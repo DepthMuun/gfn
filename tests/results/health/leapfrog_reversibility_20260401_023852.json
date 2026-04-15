@@ -1,0 +1,12 @@
+{
+  "test_name": "leapfrog_reversibility",
+  "category": "health",
+  "timestamp": "2026-04-01T02:38:52.725602",
+  "elapsed_seconds": 0.0018486976623535156,
+  "passed": false,
+  "metrics": {},
+  "history": [],
+  "errors": [
+    "unsupported operand type(s) for +: 'Tensor' and 'function'"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "test_name": "manifold_layer_shape",
+  "category": "health",
+  "timestamp": "2026-04-01T02:40:02.875056",
+  "elapsed_seconds": 0.0018165111541748047,
+  "passed": false,
+  "metrics": {},
+  "history": [],
+  "errors": [
+    "FlowMixer.__init__() got an unexpected keyword argument 'num_heads'"
+  ]
+}

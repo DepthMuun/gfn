@@ -1,0 +1,33 @@
+{
+  "test_name": "embedding_trajectory",
+  "category": "embedding_dynamics",
+  "timestamp": "2026-04-02T01:08:55.850726",
+  "elapsed_seconds": 0.1904299259185791,
+  "passed": true,
+  "metrics": {
+    "avg_path_length": 5.9764249910910925,
+    "avg_direct_distance": 0.9589096918702126,
+    "avg_trajectory_efficiency": 0.3034748854893056
+  },
+  "history": [
+    {
+      "name": "avg_path_length",
+      "value": 5.9764249910910925,
+      "timestamp": 1775102935.850709,
+      "step": null
+    },
+    {
+      "name": "avg_direct_distance",
+      "value": 0.9589096918702126,
+      "timestamp": 1775102935.8507142,
+      "step": null
+    },
+    {
+      "name": "avg_trajectory_efficiency",
+      "value": 0.3034748854893056,
+      "timestamp": 1775102935.8507164,
+      "step": null
+    }
+  ],
+  "errors": []
+}

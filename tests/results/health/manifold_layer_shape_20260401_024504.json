@@ -1,0 +1,12 @@
+{
+  "test_name": "manifold_layer_shape",
+  "category": "health",
+  "timestamp": "2026-04-01T02:45:04.543813",
+  "elapsed_seconds": 0.0017228126525878906,
+  "passed": false,
+  "metrics": {},
+  "history": [],
+  "errors": [
+    "ManifoldLayer: unsupported x shape: torch.Size([2, 16])"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "test_name": "christoffel_symmetry",
+  "category": "research",
+  "timestamp": "2026-04-01T14:42:35.415034",
+  "elapsed_seconds": 0.0013349056243896484,
+  "passed": false,
+  "metrics": {},
+  "history": [],
+  "errors": [
+    "ToroidalRiemannianGeometry.connection() missing 2 required positional arguments: 'w' and 'x'"
+  ]
+}

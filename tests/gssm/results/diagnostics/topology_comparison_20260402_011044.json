@@ -1,0 +1,68 @@
+{
+  "test_name": "topology_comparison",
+  "category": "diagnostics",
+  "timestamp": "2026-04-02T01:10:44.447008",
+  "elapsed_seconds": 0.17125391960144043,
+  "passed": true,
+  "metrics": {
+    "torus_x_norm_final": 21.79773712158203,
+    "torus_v_norm_final": 60.796478271484375,
+    "torus_condition_number": 786.4664916992188,
+    "torus_x_norm_change": 0.7265377044677734,
+    "euclidean_x_norm_final": 50.61601257324219,
+    "euclidean_v_norm_final": 187.30780029296875,
+    "euclidean_condition_number": 648.3286743164062,
+    "euclidean_x_norm_change": 45.73702526092529
+  },
+  "history": [
+    {
+      "name": "torus_x_norm_final",
+      "value": 21.79773712158203,
+      "timestamp": 1775103044.3568196,
+      "step": null
+    },
+    {
+      "name": "torus_v_norm_final",
+      "value": 60.796478271484375,
+      "timestamp": 1775103044.3568225,
+      "step": null
+    },
+    {
+      "name": "torus_condition_number",
+      "value": 786.4664916992188,
+      "timestamp": 1775103044.356824,
+      "step": null
+    },
+    {
+      "name": "torus_x_norm_change",
+      "value": 0.7265377044677734,
+      "timestamp": 1775103044.3568254,
+      "step": null
+    },
+    {
+      "name": "euclidean_x_norm_final",
+      "value": 50.61601257324219,
+      "timestamp": 1775103044.4469988,
+      "step": null
+    },
+    {
+      "name": "euclidean_v_norm_final",
+      "value": 187.30780029296875,
+      "timestamp": 1775103044.4470015,
+      "step": null
+    },
+    {
+      "name": "euclidean_condition_number",
+      "value": 648.3286743164062,
+      "timestamp": 1775103044.447003,
+      "step": null
+    },
+    {
+      "name": "euclidean_x_norm_change",
+      "value": 45.73702526092529,
+      "timestamp": 1775103044.4470043,
+      "step": null
+    }
+  ],
+  "errors": []
+}

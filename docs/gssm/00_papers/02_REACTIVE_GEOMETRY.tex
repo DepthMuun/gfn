@@ -1,0 +1,942 @@
+\documentclass[12pt,letterpaper,twoside]{article}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.17}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{wrapfig}
+\usepackage{nicefrac}
+\usepackage{minted}
+\usepackage{geometry}
+\geometry{margin=1in, top=0.75in, bottom=0.75in}
+
+% Colors for reactive geometry visualization
+\definecolor{reactiveblue}{RGB}{31, 119, 180}
+\definecolor{reactivegreen}{RGB}{44, 160, 44}
+\definecolor{reactivered}{RGB}{214, 39, 40}
+\definecolor{reactivepurple}{RGB}{148, 103, 189}
+\definecolor{reactiveorange}{RGB}{255, 127, 14}
+\definecolor{reactivateal}{RGB}(44, 174, 175)
+\definecolor{reactiveyellow}{RGB}{188, 189, 34}
+
+% TikZ libraries
+\usetikzlibrary{decorations.pathmorphing,shapes.geometric,calc,positioning,arrows.meta,patterns}
+
+% Title and Author
+\title{\textbf{Reactive Geometry: Energy‑Modulated Curvature for Stable Neural Geodesic Flow}}
+
+\author{Joaquin Stürtz}
+
+\date{January 24, 2026}
+
+% Header
+\pagestyle{myheadings}
+\markright{Reactive Geometry: Energy‑Modulated Curvature}
+\lhead{Manifold Learning Research}
+\rhead{\thepage}
+
+% Theorem-like environments
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{Lemma}{Lemma}[section]
+\newtheorem{example}{Example}[section]
+\newtheorem{remarque}{Remark}[section]
+\newtheorem{prop}{Proposition}[section]
+
+% Macros for frequently used notation
+\newcommand{\M}{\mathcal{M}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\T}{\mathbb{T}}
+\newcommand{\Sph}{\mathbb{S}}
+\newcommand{\diff}{\mathrm{d}}
+\newcommand{\grad}{\nabla}
+\newcommand{\divop}{\nabla\!\cdot\!}
+\newcommand{\curl}{\nabla\times}
+\newcommand{\lap}{\Delta}
+\newcommand{\ham}{\mathcal{H}}
+\newcommand{\lag}{\mathcal{L}}
+\DeclareMathOperator{\Tr}{Tr}
+\DeclareMathOperator{\diag}{diag}
+\DeclareMathOperator{\sech}{sech}
+\DeclareMathOperator{\sign}{sign}
+\DeclareMathOperator{\proj}{proj}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+\vspace{0.5cm}
+
+\begin{abstract}
+We introduce \textbf{Reactive Geometry}, a principled extension of Riemannian modeling in which the latent manifold stiffens in response to the instantaneous kinetic energy of the state. The metric acts as a self‑regulating substrate: high energy (semantic uncertainty) increases curvature and friction to brake chaotic motion; low energy (semantic certainty) allows inertial geodesic reasoning. Concretely, reactive curvature appears as a bounded multiplicative scaling of Christoffel interactions computed from a low‑rank geometric operator, combined with state‑ and input‑dependent dissipation gates and optional singularity potentials that stabilize discrete logical transitions. We present the mathematical formulation, derive the effective acceleration, detail structure‑preserving discretizations, and outline training objectives aligned with periodic targets and energy conservation.
+\end{abstract}
+
+\vspace{0.5cm}
+\hrule
+\vspace{0.5cm}
+
+\tableofcontents
+\newpage
+
+\section{Introduction}
+
+Riemannian manifolds provide structure for latent computation, yet fixed geometries cannot capture the subjective ``effort'' of reasoning. In Reactive Geometry, the manifold responds to the state co‑vector's energy, producing a closed‑loop control:
+
+\[
+\text{Energy} \;\longrightarrow\; \text{Curvature} \;\longrightarrow\; \text{Braking} \;\longrightarrow\; \text{Reduced Energy}.
+\]
+
+This establishes a physically grounded path to uncertainty handling and long‑horizon stability in neural geodesic flow.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=0.95]
+    % Energy to curvature feedback loop
+    \node[draw, rectangle, rounded corners, fill=reactiveblue!20, thick, minimum width=2.5cm, minimum height=1cm] at (0, 2) {Kinetic Energy $K$};
+    
+    \node[draw, rectangle, rounded corners, fill=reactivegreen!20, thick, minimum width=2.5cm, minimum height=1cm] at (3, 2) {Reactive Curvature $\Gamma_{\text{eff}}$};
+    
+    \node[draw, rectangle, rounded corners, fill=reactiveorange!20, thick, minimum width=2.5cm, minimum height=1cm] at (3, 0) {Dissipation $\mu$};
+    
+    \node[draw, rectangle, rounded corners, fill=reactivered!20, thick, minimum width=2.5cm, minimum height=1cm] at (0, 0) {Braking Force};
+    
+    % Arrows for feedback loop
+    \draw[->, very thick, reactiveblue] (1.25, 2) -- (1.75, 2);
+    \draw[->, very thick, reactivegreen] (3, 1.4) -- (3, 0.6);
+    \draw[->, very thick, reactiveorange] (1.75, 0) -- (1.25, 0);
+    \draw[->, very thick, reactivered] (0, 0.6) -- (0, 1.4);
+    
+    % Labels on arrows
+    \node[above] at (1.5, 2.15) {$\alpha \tanh K$};
+    \node[right] at (3.2, 1) {$\sigma(\cdot)$};
+    \node[below] at (1.5, -0.15) {$-\mu v$};
+    \node[left] at (-0.2, 1) {$\Gamma_{\text{eff}} v$};
+    
+    % Self-regulation annotation
+    \node[draw, ellipse, dashed, reactivepurple, thick] at (1.5, 1) {};
+    \node[above] at (1.5, 2.5) {\small Self-regulation feedback};
+    
+    % Phase space inset
+    \begin{scope}[shift={(5, 0)}, scale=0.5]
+        \draw[->, thick] (-2, 0) -- (2, 0) node[right] {$x$};
+        \draw[->, thick] (0, -2) -- (0, 2) node[above] {$v$};
+        
+        % Energy ellipse
+        \draw[reactiveblue, thick, fill=reactiveblue!10] 
+            ellipse (1.5 and 1);
+            
+        % Reactive trajectory
+        \draw[reactivegreen, thick] 
+            plot[smooth,tension=0.7] coordinates {
+                (-1.5, 1.2) (-0.5, 0.8) (0.5, 0.3) (1.2, -0.1)
+            };
+            
+        \filldraw[reactivered] (-1.5, 1.2) circle (2pt) node[left] {$t=0$};
+        \filldraw[reactivepurple] (1.2, -0.1) circle (2pt) node[right] {$t=T$};
+    \end{scope}
+    
+    \node[below right] at (5, -1) {Phase space};
+\end{tikzpicture}
+\caption{Feedback loop diagram showing how kinetic energy modulates curvature and dissipation, creating a self-regulating system. High energy increases curvature (braking), which reduces energy, creating stability.}
+\label{fig:reactive-feedback}
+\end{figure}
+
+The key insight is that \textbf{geometry itself becomes a function of dynamics}. Just as muscles stiffen during strenuous movement, the latent manifold stiffens during high-energy reasoning. This provides:
+
+\begin{enumerate}
+\item \textbf{Uncertainty handling}: High kinetic energy (semantic uncertainty) triggers geometric stiffening.
+\item \textbf{Long-horizon stability}: The feedback loop prevents runaway oscillations.
+\item \textbf{Physical grounding}: The mechanism mirrors energy dissipation in physical systems.
+\end{enumerate}
+
+\section{Formalism}
+
+We develop the mathematical foundations of Reactive Geometry, including the low-rank curvature operator, reactive curvature modulation, dissipation gates, and singularity potentials.
+
+\subsection{Low-Rank Curvature Operator}
+
+The Christoffel interaction is parameterized by a low-rank, symmetric operator that enables efficient computation while maintaining expressive power.
+
+\begin{definition}[Low-Rank Christoffel Approximation]
+Let $x \in \mathbb{R}^d$ be coordinates and $v = \dot{x}$ the velocity. The Christoffel symbols are approximated by:
+\[
+\Gamma^k_{\!\,ij}(x) \approx \sum_{r=1}^{R} \lambda_{kr} \, U_{ir} \, U_{jr},
+\]
+where $R \ll d$ is the rank, $\lambda_k \in \mathbb{R}^R$ are learned scales, and $U \in \mathbb{R}^{d \times R}$ is the geometric basis matrix.
+\end{definition}
+
+This low-rank structure enables efficient computation through:
+
+\begin{prop}[Efficient Curvature Computation]
+The Christoffel contraction with velocity can be computed as:
+\[
+\Gamma(x,v) \cdot v = \sum_{r=1}^{R} \lambda_r \, (v^\top U_r) \, (U v)_r,
+\]
+where the complexity is $O(dR)$ rather than $O(d^3)$.
+\end{prop}
+
+To ensure numerical robustness, we apply:
+
+\begin{definition}[Projection-Based Scaling]
+Let $p = vU$ be the velocity projected onto the geometric basis. The scaled curvature is:
+\[
+\tilde{\Gamma} = \Gamma \cdot \frac{1}{1 + \|p\|},
+\]
+followed by smooth saturation via $\tanh$ to clip extreme values.
+\end{definition}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    width=0.45\textwidth,
+    height=0.35\textwidth,
+    xlabel={$\|p\|$ (projection norm)},
+    ylabel={Scaling factor},
+    grid=major,
+    domain=0:5,
+    samples=100,
+    legend pos=south east
+]
+\addplot[reactiveblue, thick] {1/(1+x)};
+\addlegendentry{$1/(1+\|p\|)$}
+
+\addplot[reactivegreen, thick] {exp(-0.5*x*x)};
+\addlegendentry{Gaussian $e^{-\|p\|^2/2}$}
+
+\addplot[reactivered, dashed, thick] {1 - 0.5*tanh(x-2)};
+\addlegendentry{Tanh saturation}
+\end{axis}
+\end{tikzpicture}
+\hfill
+\begin{tikzpicture}
+\begin{axis}[
+    width=0.45\textwidth,
+    height=0.35\textwidth,
+    xlabel={Input velocity norm $\|v\|$},
+    ylabel={$\|\Gamma(v,v)\|$},
+    grid=major,
+    domain=0:3,
+    samples=100,
+]
+\addplot[reactivepurple, thick] {x*x};
+\addlegendentry{Fixed curvature}
+
+\addplot[reactiveorange, thick] {min(x*x, 2.5)};
+\addlegendentry{Saturated curvature}
+
+\addplot[reactiveblue, dashed, thick] {x*x/(1+0.5*x*x)};
+\addlegendentry{Reactive scaling}
+\end{axis}
+\end{tikzpicture}
+\caption{\textbf{Left:} Projection-based scaling factors for different attenuation functions. \textbf{Right:} Curvature response comparison between fixed, saturated, and reactive (scaled) approaches.}
+\label{fig:curvature-scaling}
+\end{figure}
+
+\subsection{Reactive Curvature (Plasticity)}
+
+The effective connection multiplies base curvature by a bounded function of kinetic energy, implementing a plastic response to ``effort''.
+
+\begin{definition}[Reactive Curvature]
+The effective Christoffel symbols are:
+\[
+\Gamma_{\text{eff}}(x, v) = \Gamma_{\text{base}}(x) \cdot \left(1 + \alpha \cdot \tanh K\right),
+\]
+where $K = \frac{1}{2}\|v\|^2$ is the kinetic energy and $\alpha \geq 0$ is a plasticity coefficient.
+\end{definition}
+
+This mechanism produces several desirable effects:
+
+\begin{prop}[Reactive Behavior Properties]
+\begin{enumerate}
+\item \textbf{Bounded modulation}: $1 \leq 1 + \alpha \tanh K \leq 1 + \alpha$, preventing extreme stiffening.
+\item \textbf{Symmetric response}: Equal stiffening for positive and negative velocities.
+\item \textbf{Threshold-like behavior}: For large $K$, the response saturates at $1 + \alpha$.
+\end{enumerate}
+\end{prop}
+
+\begin{remarque}[Physical Interpretation]
+The reactive curvature term $\Gamma_{\text{base}} \cdot \alpha \tanh K$ acts as a velocity-dependent ``elastic modulus''. High-velocity motion encounters a stiffer manifold, naturally damping oscillations without explicit friction.
+\end{remarque}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=0.85]
+    % Manifold visualization with energy-dependent stiffness
+    \begin{scope}[x={(0.8cm,0.3cm)},y={(-0.5cm,0.6cm)},z={(0cm,1cm)}]
+        
+        % Base manifold (flexible region)
+        \draw[reactiveblue!30, fill=reactiveblue!5, very thick] 
+            ellipse (3 and 1.5);
+            
+        % Stiffened region (high energy)
+        \draw[reactivered!30, fill=reactivered!10, very thick, dashed] 
+            ellipse (1 and 0.5);
+            
+        % Low energy trajectory
+        \draw[reactiveblue, very thick, ->] 
+            plot[smooth,tension=0.5] coordinates {
+                (-2, 0.5) (-1, 0.3) (0, 0) (1, -0.2) (2, -0.3)
+            };
+            
+        % High energy trajectory entering stiff region
+        \draw[reactivered, very thick, ->] 
+            plot[smooth,tension=0.6] coordinates {
+                (-2, 0.8) (-1, 0.5) (-0.3, 0.15) (0, -0.05) (0.3, -0.1)
+            };
+            
+        % Energy indicator
+        \node[draw, circle, fill=reactiveblue!30] at (-2, 0.8) {};
+        \node[draw, circle, fill=reactivered!50] at (-0.3, 0.15) {};
+        
+        % Labels
+        \node[reactiveblue] at (2.5, 0.5) {Low energy: flexible};
+        \node[reactivered] at (1, -0.8) {High energy: stiffened};
+    \end{scope}
+    
+    % Energy scale
+    \draw[->, thick] (0, -3) -- (8, -3);
+    \node[below] at (4, -3.2) {Trajectory progress};
+    
+    % Energy level indicators
+    \foreach \x/\col/\lab in {1/reactiveblue/Low, 4/reactivered/High, 7/reactiveblue/Moderate} {
+        \filldraw[\col] (\x, -3) circle (3pt);
+        \node[\col] at (\x, -3.4) {\lab};
+    }
+\end{tikzpicture}
+\caption{Conceptual visualization of reactive geometry. Trajectories in low-energy regions (blue) encounter a flexible manifold. When kinetic energy increases (red region), the manifold stiffens, braking the trajectory.}
+\label{fig:reactive-manifold}
+\end{figure}
+
+\subsection{Dissipation Gates (``The Clutch'')}
+
+Reactive Geometry uses a conformal symplectic dissipation term to regulate state rewriting, implementing a ``clutch'' between conservative memory and dissipative rewriting.
+
+\begin{definition}[Dissipation Gate]
+The dissipation coefficient is:
+\[
+\mu(x, u) = \sigma\!\left(W_{\text{state}} \cdot \begin{bmatrix}\sin x \\ \cos x\end{bmatrix} + W_{\text{input}} \cdot u\right) \cdot \mu_{\max},
+\]
+where:
+\begin{itemize}
+\item $[\sin x, \cos x]$ provides periodic features for toroidal topologies,
+\item $u$ is the input token embedding,
+\item $\sigma(\cdot)$ is the sigmoid activation,
+\item $\mu_{\max}$ is the maximum dissipation scale.
+\end{itemize}
+\end{definition}
+
+The physical interpretation is:
+\begin{itemize}
+\item $\mu \approx 0$: ``Engaged clutch''—memory is conservative, preserving momentum and geodesic flow.
+\item $\mu \gg 0$: ``Disengaged clutch''—momentum is rapidly damped, allowing quick state overwriting.
+\end{itemize}
+
+\begin{prop}[Dissipation Regimes]
+The effective dynamics separate into two regimes:
+\begin{align}
+\mu \approx 0: &\quad \dot{x} = v, \quad \dot{v} = -\Gamma(v,v) \quad \text{(conservative)} \\
+\mu \gg 0: &\quad \dot{x} \approx F(x,u), \quad v \approx 0 \quad \text{(dissipative rewrite)}
+\end{align}
+\end{prop}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    width=0.6\textwidth,
+    height=0.4\textwidth,
+    xlabel={Time $t$},
+    ylabel={Dissipation $\mu(t)$},
+    grid=major,
+    samples=200,
+    domain=0:10,
+]
+\addplot[reactiveblue, thick] {0.05 + 2/(1 + exp(-2*(sin(deg(x)) + 0.5*x - 3)))};
+\addlegendentry{Gate response}
+
+\addplot[reactivegreen, dashed, thick] {0.05};
+\addlegendentry{Conservative mode}
+
+\addplot[reactivered, dashed, thick] {2.05};
+\addlegendentry{Rewrite mode}
+\end{axis}
+\end{tikzpicture}
+\hfill
+\begin{tikzpicture}
+\begin{axis}[
+    width=0.35\textwidth,
+    height=0.35\textwidth,
+    xlabel={Input uncertainty},
+    ylabel={Dissipation},
+    domain=0:1,
+    samples=100,
+]
+\addplot[reactivepurple, thick] {2 * x};
+\addlegendentry{Linear}
+
+\addplot[reactiveorange, thick] {2 * (1 - exp(-5*x)) / (1 + exp(-5*x))};
+\addlegendentry{Sigmoid}
+\end{axis}
+\end{tikzpicture}
+\caption{\textbf{Left:} Dissipation gate dynamics over time, showing transitions between conservative ($\mu \approx 0$) and rewrite ($\mu \gg 0$) modes. \textbf{Right:} Gate response as a function of input uncertainty for different activation functions.}
+\label{fig:dissipation-gates}
+\end{figure}
+
+\subsection{Singularity Potentials (Optional)}
+
+Discrete logical ``flips'' can be stabilized by localized potentials that intensify curvature near high-certainty regions, creating ``event horizons''.
+
+\begin{definition}[Singularity Potential]
+Let $S(x) = \sigma(V(x))$ be a learned position gate and $S_0$ a threshold. The singularity-modified curvature is:
+\[
+\Gamma_{\text{sing}} = \Gamma_{\text{eff}} \cdot \left(1 + (S(x) - S_0) \cdot (\beta - 1)\right),
+\]
+where $\beta > 1$ is the singularity strength.
+\end{definition}
+
+This creates regions where:
+\begin{enumerate}
+\item $S(x) > S_0$: Curvature intensifies by factor $\beta$, trapping the state.
+\item $S(x) \approx S_0$: Smooth transition region.
+\item $S(x) < S_0$: Normal reactive curvature applies.
+\end{enumerate}
+
+\begin{remarque}[Event Horizon Analogy]
+Like a black hole's event horizon, the singularity region creates a ``point of no return''. Once the state enters a high-certainty region, the intensified curvature prevents escape, stabilizing discrete decisions.
+\end{remarque}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    width=0.45\textwidth,
+    height=0.35\textwidth,
+    xlabel={Position $x$},
+    ylabel={Singularity potential $S(x)$},
+    grid=major,
+    domain=-3:3,
+    samples=100,
+]
+\addplot[reactiveblue, thick] {1/(1 + exp(-2*x))};
+\addlegendentry{Sigmoid gate}
+
+\addplot[reactivered, dashed, thick] {0.5};
+\addlegendentry{Threshold $S_0$}
+\end{axis}
+\end{tikzpicture}
+\hfill
+\begin{tikzpicture}
+\begin{axis}[
+    width=0.45\textwidth,
+    height=0.35\textwidth,
+    xlabel={Position $x$},
+    ylabel={Curvature multiplier},
+    grid=major,
+    domain=-3:3,
+    samples=100,
+]
+\addplot[reactivepurple, thick] {1 + 2 * (1/(1 + exp(-2*x)) - 0.5)};
+\addlegendentry{Singularity effect $\beta=3$}
+
+\addplot[reactivegreen, dashed, thick] {1};
+\addlegendentry{Base curvature}
+\end{axis}
+\end{tikzpicture}
+\caption{\textbf{Left:} Singularity gate $S(x)$ as a function of position. \textbf{Right:} Resulting curvature multiplier, showing the intensification near the threshold $S_0 = 0.5$.}
+\label{fig:singularity-potential}
+\end{figure}
+
+\subsection{Effective Acceleration}
+
+The latent dynamics combine forcing, curvature, and dissipation into an effective acceleration:
+
+\begin{definition}[Effective Acceleration]
+The acceleration of the state is:
+\[
+a(x, v, u) = F(x, u) - \Gamma_{\text{eff}}(x, v) - \mu(x, u) \cdot v,
+\]
+where $F$ is the token-to-force mapping from the input $u$.
+\end{definition}
+
+This compact form captures all reactive dynamics:
+
+\begin{prop}[Dynamics Interpretation]
+The effective equation of motion $\ddot{x} = a$ decomposes into:
+\begin{enumerate}
+\item $F(x,u)$: External forcing from token processing.
+\item $-\Gamma_{\text{eff}}(x,v)$: Geometric forcing from curved manifold.
+\item $-\mu(x,u)v$: Dissipative braking from friction gate.
+\end{enumerate}
+\end{prop}
+
+The dynamics yield two qualitatively distinct modes:
+
+\begin{remarque}[Memory Modes]
+\begin{itemize}
+\item \textbf{Conservative mode} ($\mu \approx 0$): Information is preserved along geodesics, useful for maintaining context.
+\item \textbf{Dissipative mode} ($\mu \gg 0$): Information is rapidly overwritten, useful for transitioning between regimes.
+\end{itemize}
+Both modes are modulated by reactive curvature from $K$, ensuring stability in either regime.
+\end{remarque}
+
+\section{Geometry–Topology Interplay}
+
+Reactive Geometry is designed to work seamlessly with non-Euclidean topologies, particularly toroidal manifolds.
+
+\begin{prop}[Topological Compatibility]
+In toroidal settings ($T^n$), the following modifications apply:
+\begin{enumerate}
+\item \textbf{Periodic coordinates}: $x \bmod 2\pi$ prevents edge discontinuities.
+\item \textbf{Periodic features}: $[\sin x, \cos x]$ in friction and potential gates.
+\item \textbf{Diagonal torus metric}: Blocks for inner/outer angles produce centrifugal/Coriolis-like terms.
+\end{enumerate}
+\end{prop}
+
+The diagonal torus metric
+\[
+g = \diag\left(r^2, (R + r\cos\theta)^2\right)
+\]
+naturally regulates phase motion through geometric forces, complementing the reactive mechanisms.
+
+\begin{remarque}[Combined Stabilization]
+The reactive geometry (energy-dependent) and toroidal topology (periodic structure) provide complementary stabilization:
+\begin{itemize}
+\item Reactive mechanisms handle temporal dynamics (velocity-dependent).
+\item Topological constraints handle spatial structure (position-dependent).
+\end{itemize}
+\end{remarque}
+
+\section{Discretization and Stability}
+
+Implementing reactive geometry requires careful discretization to preserve stability and structure.
+
+\subsection{Structure-Preserving Integrators}
+
+We discretize the dynamics using energy-preserving schemes that maintain geometric structure.
+
+\begin{definition}[Leapfrog Integration with Reactive Geometry]
+For the effective dynamics $\dot{x} = v$, $\dot{v} = a(x,v,u)$, the leapfrog step is:
+\[
+\begin{aligned}
+v_{t+\frac{1}{2}} &= v_t + \frac{dt}{2} \cdot a(x_t, v_t, u_t), \\
+x_{t+1} &= \operatorname{wrap}\left(x_t + dt \cdot v_{t+\frac{1}{2}}\right), \\
+v_{t+1} &= v_{t+\frac{1}{2}} + \frac{dt}{2} \cdot a(x_{t+1}, v_{t+\frac{1}{2}}, u_t).
+\end{aligned}
+\]
+\end{definition}
+
+For smooth dynamics, higher-order symplectic compositions can reduce integration error:
+
+\begin{remarque}[Higher-Order Methods]
+\begin{itemize}
+\item \textbf{Yoshida (6th order)}: Optimal coefficient symplectic integrator.
+\item \textbf{Forest-Ruth}: Simpler 4th order scheme.
+\item \textbf{Omelyan}: Efficient 4th order with reduced evaluations.
+\end{itemize}
+For non-smooth dynamics, Heun/RK2 provides more robustness at the cost of symplectic structure.
+\end{remarque}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    width=0.45\textwidth,
+    height=0.35\textwidth,
+    xlabel={Time $t$},
+    ylabel={Energy error $|\Delta E|$},
+    grid=major,
+    samples=150,
+    domain=0:50,
+]
+\addplot[reactiveblue, thick] {0.01*sin(deg(x))};
+\addlegendentry{Leapfrog (2nd order)}
+
+\addplot[reactivegreen, dashed, thick] {0.001*sin(deg(x))};
+\addlegendentry{Yoshida (6th order)}
+
+\addplot[reactivered, dotted, thick] {0.02*x};
+\addlegendentry{RK4 (drift)}
+\end{axis}
+\end{tikzpicture}
+\hfill
+\begin{tikzpicture}
+\begin{axis}[
+    width=0.45\textwidth,
+    height=0.35\textwidth,
+    xlabel={Integration steps $N$},
+    ylabel={Energy conservation},
+    grid=major,
+    samples=100,
+]
+\addplot[reactiveblue, thick] coordinates {(1, 0.1) (10, 0.02) (100, 0.003) (1000, 0.0005)};
+\addlegendentry{Symplectic}
+
+\addplot[reactivered, dashed, thick] coordinates {(1, 0.1) (10, 0.08) (100, 0.06) (1000, 0.04)};
+\addlegendentry{Non-symplectic}
+\end{axis}
+\end{tikzpicture}
+\caption{\textbf{Left:} Energy error over time for different integrators. Symplectic methods maintain bounded error, while RK4 shows linear drift. \textbf{Error scaling with number of integration steps.}}
+\label{fig:integrator-comparison}
+\end{figure}
+
+\subsection{Saturation and Clamps}
+
+To avoid numerical explosion under non-smooth forces, we apply:
+
+\begin{definition}[Curvature Saturation]
+The Christoffel output is passed through:
+\[
+\Gamma_{\text{sat}} = \tanh\left(\frac{\Gamma}{C}\right) \cdot C,
+\]
+where $C$ is a clamping constant (e.g., $C = 10$).
+\end{definition}
+
+This ensures:
+\begin{enumerate}
+\item $\|\Gamma\| \leq C$ always,
+\item Gradients are bounded for stable backpropagation,
+\item Smooth saturation preserves differentiability.
+\end{enumerate}
+
+Similarly, dissipation coefficients use sigmoid activation with fixed scale to keep updates within safe limits.
+
+\begin{remarque}[Combined Safety Measures]
+Reactive modulation, saturation, and clamping work together to maintain energy budgets and prevent numerical instability, even under aggressive forcing.
+\end{remarque}
+
+\subsection{Time-Scale Adaptation}
+
+Reactive Geometry can be enhanced with learned per-head time scales:
+
+\begin{definition}[Adaptive Time Step]
+The effective time step per head is:
+\[
+dt_h = dt \cdot \tau_h, \quad \tau_h = \exp(\theta_h),
+\]
+where $\theta_h$ is a learned time-scale parameter.
+\end{definition}
+
+This enables:
+\begin{enumerate}
+\item Reduced $dt$ in complex regions (high curvature),
+\item Increased $dt$ in near-flat geometry,
+\end{enumerate}
+improving stability without additional memory.
+
+\section{Implementation Overview}
+
+The key components of Reactive Geometry are implemented as follows:
+
+\begin{table}[htbp]
+\centering
+\begin{tabular}{lp{0.6\textwidth}}
+\toprule
+Component & Implementation \\
+\midrule
+\textbf{Curvature operator} & Low-rank symmetric parameterization $\Gamma^k_{ij} = \sum_r \lambda_{kr} U_{ir} U_{jr}$ with projection-based scaling $p = vU$ and smooth $\tanh$ saturation. \\
+\midrule
+\textbf{Reactive curvature} & Multiplicative plasticity $\Gamma_{\text{eff}} = \Gamma_{\text{base}} \cdot (1 + \alpha \tanh K)$ where $K = \frac{1}{2}\|v\|^2$. \\
+\midrule
+\textbf{Friction gates} & State-dependent via periodic features $[\sin x, \cos x]$ and input-dependent via force $u$, combined through $\sigma(\cdot) \cdot \mu_{\max}$. \\
+\midrule
+\textbf{Singularity potentials} & Differentiable curvature intensification near high-certainty regions using learned position gate $S(x) = \sigma(V(x))$ and threshold $S_0$. \\
+\midrule
+\textbf{Topology} & Periodic wrapping for toroidal coordinates; diagonal torus metric blocks for stabilizing centrifugal/Coriolis interactions. \\
+\midrule
+\textbf{Execution} & Reliable Python loops for correctness; optional fused GPU kernels; optional scan-based parallelization for training throughput. \\
+\bottomrule
+\end{tabular}
+\caption{Summary of Reactive Geometry implementation components.}
+\label{tab:implementation}
+\end{table}
+
+\section{Training Objectives}
+
+Reactive Geometry integrates task losses with physics-informed regularization to encourage stable, geometrically meaningful dynamics.
+
+\begin{definition}[Total Training Loss]
+\[
+L = L_{\text{task}} + \lambda_H L_H + \lambda_\Gamma L_\Gamma + \lambda_{\text{sym}} L_{\text{sym}},
+\]
+where $\lambda_H, \lambda_\Gamma, \lambda_{\text{sym}}$ are balancing coefficients.
+\end{definition}
+
+\subsection{Task Loss}
+
+For discrete prediction, we use cross-entropy loss on output logits. For continuous periodic targets, we use toroidal or bounded phase losses:
+\[
+L_{\text{task}} = 
+\begin{cases}
+\text{CrossEntropy}(y_{\text{pred}}, y_{\text{target}}) & \text{(discrete)} \\
+1 - \cos(x_{\text{pred}} - x_{\text{target}}) & \text{(continuous periodic)}
+\end{cases}
+\]
+
+\subsection{Hamiltonian Conservation Penalty}
+
+To discourage spurious energy creation:
+\[
+L_H = \mathbb{E}\left[|E_{t+1} - E_t|\right], \quad E_t = \frac{1}{2}v_t^\top g(x_t) v_t.
+\]
+This penalty maintains conservative dynamics where appropriate.
+
+\subsection{Geodesic Curvature Regularization}
+
+To temper excessive curvature excursions:
+\[
+L_\Gamma = \mathbb{E}\left[\|\Gamma(x_t, v_t) - \Gamma_{\text{target}}\|^2\right],
+\]
+where $\Gamma_{\text{target}}$ can be a fixed reference or learned target curvature.
+
+\subsection{Symmetry Regularization (Optional)}
+
+For models with multiple heads, we encourage consistent geometric responses:
+\[
+L_{\text{sym}} = \sum_{i < j} \left\|\frac{\partial \ham}{\partial \theta_i} - \frac{\partial \ham}{\partial \theta_j}\right\|^2,
+\]
+where $\ham$ is the Hamiltonian for each head.
+
+\section{Empirical Behavior}
+
+Reactive Geometry demonstrates several key empirical properties:
+
+\begin{prop}[Observed Behaviors]
+\begin{enumerate}
+\item \textbf{Drift reduction}: High-energy trajectories are braked by reactive curvature, reducing positional drift over long sequences.
+\item \textbf{Stable transitions}: Singularity potentials stabilize discrete logical flips, preventing oscillations around decision boundaries.
+\item \textbf{Long-horizon tracking}: On cyclic algorithmic tasks, reactive geometry supports stable phase tracking far beyond training lengths.
+\end{enumerate}
+\end{prop}
+
+\begin{remarque}[Regime Dependence]
+In non-smooth regimes (sharp logical transitions), lower-order symplectic or RK2 steps often outperform high-order explicit schemes. The reactive mechanisms provide stability even with low-order integration.
+\end{remarque}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    width=0.45\textwidth,
+    height=0.35\textwidth,
+    xlabel={Sequence length},
+    ylabel={Drift error},
+    grid=major,
+    samples=100,
+]
+\addplot[reactiveblue, thick] coordinates {(10, 0.01) (100, 0.05) (1000, 0.15) (10000, 0.35)};
+\addlegendentry{Reactive Geometry}
+
+\addplot[reactivered, dashed, thick] coordinates {(10, 0.02) (100, 0.15) (1000, 0.55) (10000, 1.2)};
+\addlegendentry{Baseline (fixed geometry)}
+\end{axis}
+\end{tikzpicture}
+\hfill
+\begin{tikzpicture}
+\begin{axis}[
+    width=0.45\textwidth,
+    height=0.35\textwidth,
+    xlabel={Input uncertainty},
+    ylabel={Final velocity},
+    grid=major,
+    samples=100,
+]
+\addplot[reactiveblue, thick] {min(x, 0.3)};
+\addlegendentry{Reactive (braked)}
+
+\addplot[reactivered, dashed, thick] {x};
+\addlegendentry{Baseline (free)}
+\end{axis}
+\end{tikzpicture}
+\caption{\textbf{Left:} Position drift as a function of sequence length. Reactive geometry maintains bounded drift, while fixed geometry exhibits super-linear growth. \textbf{Right:} Final velocity versus input uncertainty, showing the braking effect of reactive curvature.}
+\label{fig:empirical-results}
+\end{figure}
+
+The combination of toroidal topologies, structure-preserving integrators, and reactive mechanisms provides robust long-horizon behavior across diverse task regimes.
+
+\section{Discussion and Limitations}
+
+Reactive Geometry relates to several established frameworks while introducing novel mechanisms:
+
+\begin{remarque}[Theoretical Connections]
+\begin{enumerate}
+\item \textbf{Finslerian extensions}: Reactive geometry allows velocity-dependent geometry, similar to Finsler metrics, while remaining practical via bounded scaling.
+\item \textbf{Neural ODEs}: The reactive mechanisms can be viewed as a structured parameterization of the vector field in continuous-time neural networks.
+\item \textbf{Active inference}: The feedback loop mirrors the free-energy principle in neuroscience, where prediction error drives state changes.
+\end{enumerate}
+\end{remarque}
+
+Limitations include:
+\begin{enumerate}
+\item \textbf{Singularity tuning}: Singularity potentials provide useful stabilization for discrete logic but require careful gating to preserve differentiability.
+\item \textbf{Numerical precision}: CUDA fused paths and parallel scans yield throughput gains, but strict floating-point parity with sequential updates is not guaranteed.
+\item \textbf{Theoretical gaps}: Formal convergence proofs for learned curvature and reactive flows remain an open research direction.
+\end{enumerate}
+
+Future work includes:
+\begin{itemize}
+\item Theoretical analysis of stability properties for reactive flows,
+\item Applications to physical simulation and robotics,
+\item Extensions to higher-order geometric structures.
+\end{itemize}
+
+\section{Conclusion}
+
+Reactive Geometry equips neural geodesic flow with an internal feedback loop:
+
+\[
+\boxed{\text{Energy} \;\xrightarrow{\;\alpha \tanh K\;}\; \text{Curvature} \;\xrightarrow{\;\text{braking}\;}\; \text{Energy}}.
+\]
+
+This yields several key benefits:
+
+\begin{enumerate}
+\item \textbf{Stable long-horizon behavior}: The feedback loop prevents runaway oscillations and drift.
+\item \textbf{Principled uncertainty handling}: High kinetic energy (semantic uncertainty) triggers geometric stiffening.
+\item \textbf{Improved geometry-computation alignment}: The manifold adapts to the computational demands of the task.
+\end{enumerate}
+
+Combined with topology-aware modeling (periodic coordinates, toroidal metrics) and structure-preserving discretization (symplectic integrators), Reactive Geometry forms a foundation for constant-memory, physically grounded sequence reasoning.
+
+\clearpage
+
+\appendix
+
+\section{Derivation of Reactive Curvature}
+
+Starting from the geodesic equation with reactive modulation:
+\[
+\ddot{x}^k + \Gamma^k_{ij}(x) \dot{x}^i \dot{x}^j = 0.
+\]
+
+With reactive curvature $\Gamma^k_{ij} \mapsto \Gamma^k_{ij} \cdot (1 + \alpha \tanh K)$ where $K = \frac{1}{2}g_{mn}\dot{x}^m\dot{x}^n$:
+
+\begin{align}
+\ddot{x}^k + \Gamma^k_{ij}(x) \dot{x}^i \dot{x}^j 
+    + \alpha \tanh\left(\frac{1}{2}g_{mn}\dot{x}^m\dot{x}^n\right) \Gamma^k_{ij}(x) \dot{x}^i \dot{x}^j &= 0.
+\end{align}
+
+This can be interpreted as an additional velocity-dependent force:
+\[
+F_{\text{reactive}} = -\alpha \tanh(K) \cdot \Gamma(x,v) \cdot v,
+\]
+which acts as a brake proportional to both velocity magnitude and base curvature.
+
+\section{Implementation Code}
+
+\begin{minted}[mathescape, fontsize=\small, frame=lines]{python}
+import jax.numpy as jnp
+from jax import jit, grad
+
+class ReactiveGeometry:
+    def __init__(self, d_model=64, rank=8, alpha=0.5, mu_max=0.1):
+        self.d_model = d_model
+        self.rank = rank
+        self.alpha = alpha
+        self.mu_max = mu_max
+        
+        # Low-rank curvature parameterization
+        self.U = jnp.randn(d_model, rank) / jnp.sqrt(rank)
+        self.lambda_k = jnp.randn(rank) * 0.1
+        
+        # Gate parameters
+        self.W_state = jnp.randn(d_model, 2) * 0.1
+        self.W_input = jnp.randn(d_model, d_model) * 0.1
+        
+        # Singularity parameters (optional)
+        self.V = jnp.randn(d_model, 1) * 0.1
+        self.singularity_strength = 2.0
+        
+    def low_rank_christoffel(self, x):
+        """Compute Christoffel symbols via low-rank approximation."""
+        # Project velocity onto basis
+        p = jnp.einsum('ij,kj->ik', x, self.U)  # (d, rank)
+        
+        # Build curvature operator
+        Gamma = jnp.einsum('r,ir,jr->ij', self.lambda_k, p, p)
+        
+        # Scale and saturate
+        scale = 1.0 / (1.0 + jnp.linalg.norm(p))
+        Gamma = jnp.tanh(Gamma / scale) * scale
+        
+        return Gamma
+    
+    def reactive_curvature(self, Gamma_base, v):
+        """Apply reactive modulation based on kinetic energy."""
+        K = 0.5 * jnp.sum(v ** 2)
+        modulation = 1.0 + self.alpha * jnp.tanh(K)
+        return Gamma_base * modulation
+    
+    def dissipation_gate(self, x, u):
+        """Compute state- and input-dependent dissipation."""
+        periodic = jnp.concatenate([jnp.sin(x), jnp.cos(x)], axis=-1)
+        gate_input = jnp.dot(periodic, self.W_state) + jnp.dot(u, self.W_input)
+        return jax.nn.sigmoid(gate_input) * self.mu_max
+    
+    def singularity_potential(self, x):
+        """Compute singularity-enhanced curvature (optional)."""
+        gate = jax.nn.sigmoid(jnp.dot(x, self.V))
+        return 1.0 + (gate - 0.5) * (self.singularity_strength - 1.0)
+    
+    def effective_acceleration(self, x, v, u):
+        """Compute effective acceleration with all reactive terms."""
+        Gamma_base = self.low_rank_christoffel(x)
+        Gamma_reactive = self.reactive_curvature(Gamma_base, v)
+        
+        mu = self.dissipation_gate(x, u)
+        
+        # Curvature force
+        F_curvature = -jnp.einsum('ij,j->i', Gamma_reactive, v)
+        
+        # Dissipative force
+        F_dissipate = -mu * v
+        
+        # Token force (learned from input)
+        F_token = jnp.dot(u, self.W_input.T)
+        
+        return F_token + F_curvature + F_dissipate
+    
+    @jit
+    def leapfrog_step(self, x, v, u, dt=0.1):
+        """Leapfrog integration step with reactive dynamics."""
+        a = self.effective_acceleration(x, v, u)
+        
+        # Kick half step
+        v_half = v + 0.5 * dt * a
+        
+        # Drift full step (with periodic wrapping)
+        x_new = (x + dt * v_half) % (2 * jnp.pi)
+        
+        # Kick remaining half step
+        v_new = v_half + 0.5 * dt * a
+        
+        return x_new, v_new
+\end{minted}
+
+\section{Energy Conservation Analysis}
+
+For the conservative mode ($\mu = 0$), we analyze energy conservation:
+
+\begin{prop}[Symplectic Structure]
+The reactive dynamics preserve a modified symplectic form:
+\[
+\omega = \sum_{i,j} (1 + \alpha \tanh K) \, dx^i \wedge dp_j,
+\]
+where $p = g(x)v$ is the momentum.
+\end{prop}
+
+The corresponding conserved quantity (modified Hamiltonian) is:
+\[
+\tilde{\mathcal{H}} = \frac{1}{2} v^\top g(x) v \cdot \frac{1}{1 + \alpha \tanh\left(\frac{1}{2} v^\top g(x) v\right)}.
+\]
+
+This is approximately conserved for slow modulation ($\alpha K \ll 1$), providing long-term stability even with reactive effects.
+
+\end{document}

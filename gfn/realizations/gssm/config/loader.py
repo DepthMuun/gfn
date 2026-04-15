@@ -71,8 +71,8 @@ def _apply_dict_to_physics_config(cfg: PhysicsConfig, d: Dict[str, Any]) -> None
             'friction', 'velocity_friction_scale',
             'curvature_clamp', 'friction_mode',
             'integrator_type',
-            # Legacy name aliases
-            'velocity_saturation',   # → ignored, does not exist in StabilityConfig
+            # P2.3: velocity_saturation uses tanh-based differentiable clamping
+            'velocity_saturation',
         ])
         # Legacy name aliases
         if 'toroidal_curvature_scale' in s_d:
@@ -133,7 +133,7 @@ def _apply_dict_to_physics_config(cfg: PhysicsConfig, d: Dict[str, Any]) -> None
     # ── Readout ───────────────────────────────────────────────────────────────
     read_d = d.get('readout', d.get('readout_config', {}))
     if isinstance(read_d, dict) and read_d:
-        _apply(cfg.readout, read_d, ['type'])
+        _apply(cfg.readout, read_d, ['type', 'out_dim', 'coord_dim', 'hidden_dim'])
 
     # ── Mixture ───────────────────────────────────────────────────────────────
     mix_d = d.get('mixture', d.get('mixture_config', {}))

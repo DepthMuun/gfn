@@ -1,0 +1,49 @@
+{
+  "test_name": "phase_volume",
+  "category": "energy_hamiltonian",
+  "timestamp": "2026-04-02T01:09:09.347260",
+  "elapsed_seconds": 0.0882711410522461,
+  "passed": false,
+  "metrics": {
+    "initial_x_spread": 36.60554885864258,
+    "final_x_spread": 0.6737809777259827,
+    "initial_v_spread": 1.1293938159942627,
+    "final_v_spread": 1.1293938159942627,
+    "volume_ratio": 0.018406525747364278
+  },
+  "history": [
+    {
+      "name": "initial_x_spread",
+      "value": 36.60554885864258,
+      "timestamp": 1775102949.347243,
+      "step": null
+    },
+    {
+      "name": "final_x_spread",
+      "value": 0.6737809777259827,
+      "timestamp": 1775102949.3472452,
+      "step": null
+    },
+    {
+      "name": "initial_v_spread",
+      "value": 1.1293938159942627,
+      "timestamp": 1775102949.3472464,
+      "step": null
+    },
+    {
+      "name": "final_v_spread",
+      "value": 1.1293938159942627,
+      "timestamp": 1775102949.3472471,
+      "step": null
+    },
+    {
+      "name": "volume_ratio",
+      "value": 0.018406525747364278,
+      "timestamp": 1775102949.347248,
+      "step": null
+    }
+  ],
+  "errors": [
+    "Volume not preserved: 0.018406525747364278"
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "test_name": "embedding_diversity",
+  "category": "diagnostics",
+  "timestamp": "2026-04-02T01:09:48.370339",
+  "elapsed_seconds": 0.18118739128112793,
+  "passed": false,
+  "metrics": {
+    "uniform_condition": 966399808.0,
+    "uniform_effective_rank": 61.000000953674316,
+    "uniform_num_nonzero_eigenvalues": 62
+  },
+  "history": [
+    {
+      "name": "uniform_condition",
+      "value": 966399808.0,
+      "timestamp": 1775102988.278819,
+      "step": null
+    },
+    {
+      "name": "uniform_effective_rank",
+      "value": 61.000000953674316,
+      "timestamp": 1775102988.2788234,
+      "step": null
+    },
+    {
+      "name": "uniform_num_nonzero_eigenvalues",
+      "value": 62,
+      "timestamp": 1775102988.278832,
+      "step": null
+    }
+  ],
+  "errors": [
+    "index -1 is out of bounds for dimension 0 with size 0"
+  ]
+}

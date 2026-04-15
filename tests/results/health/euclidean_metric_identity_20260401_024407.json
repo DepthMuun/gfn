@@ -1,0 +1,12 @@
+{
+  "test_name": "euclidean_metric_identity",
+  "category": "health",
+  "timestamp": "2026-04-01T02:44:07.705137",
+  "elapsed_seconds": 0.0013949871063232422,
+  "passed": false,
+  "metrics": {},
+  "history": [],
+  "errors": [
+    "The size of tensor a (3) must match the size of tensor b (2) at non-singleton dimension 1"
+  ]
+}

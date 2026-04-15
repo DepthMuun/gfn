@@ -1,0 +1,12 @@
+{
+  "test_name": "hessian_spectral",
+  "category": "loss_landscape",
+  "timestamp": "2026-04-02T00:52:11.118100",
+  "elapsed_seconds": 0.3868253231048584,
+  "passed": false,
+  "metrics": {},
+  "history": [],
+  "errors": [
+    "'NoneType' object has no attribute 'flatten'"
+  ]
+}

@@ -92,8 +92,10 @@ class ManifoldLayer(nn.Module):
         self.dynamics_type = resolved_dyn_type
 
         # ── Mixer (obligatorio, NO es plugin) ──────────────────────────────────
+        # BUG FIX: Removed duplicate mixer creation. The mixer parameter is already set in __init__.
+        # Original code incorrectly created a new FlowMixer here, overwriting the passed mixer.
         self.mixer_dim = self.heads * self.head_dim
-        self.mixer = FlowMixer(self.mixer_dim, topology=self.topology)
+        # self.mixer = FlowMixer(self.mixer_dim, topology=self.topology)  # REMOVED: This was a duplicate
 
         # ── Fractal Sub-Manifold (optional, now handled by fractal plugin) ─────
         # Keep config reference for backward compatibility

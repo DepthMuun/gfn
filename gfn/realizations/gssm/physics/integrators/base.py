@@ -36,7 +36,7 @@ class BaseIntegrator(nn.Module):
 
         topo_type = self.config.topology.type.lower()
         self.is_torus = (topo_type == TOPOLOGY_TORUS)
-        self.velocity_clamp = getattr(self.config.stability, 'velocity_clamp', MAX_VELOCITY)
+        self.velocity_saturation = getattr(self.config.stability, 'velocity_saturation', 0.0)
         self.base_dt = getattr(self.config.stability, 'base_dt', DEFAULT_DT)
 
     def step(self, x: torch.Tensor, v: torch.Tensor, force: Optional[torch.Tensor] = None,
@@ -56,8 +56,20 @@ class BaseIntegrator(nn.Module):
     # ─── Helpers ────────────────────────────────────────────────────────────────
 
     def _clamp_velocity(self, v: torch.Tensor) -> torch.Tensor:
-        """Hard clamp to prevent kinetic energy explosion."""
-        return torch.clamp(v, -self.velocity_clamp, self.velocity_clamp)
+        """
+        Apply velocity saturation or clamping.
+        If velocity_saturation > 0: use differentiable tanh clamping.
+        Otherwise: use hard clamp (legacy behavior, velocity_clamp not in StabilityConfig).
+        """
+        if self.velocity_saturation > 0:
+            # P2.3: Differentiable tanh saturation - smoothly clamps magnitude
+            # Formula: tanh(v / sat) * sat ensures smooth transition near ±sat
+            return torch.tanh(v / self.velocity_saturation) * self.velocity_saturation
+        else:
+            # Legacy hard clamp - velocity_clamp not available in StabilityConfig
+            # Default to MAX_VELOCITY if not set
+            clamp_val = getattr(self, 'velocity_clamp', MAX_VELOCITY)
+            return torch.clamp(v, -clamp_val, clamp_val)
 
     def _resolve_topology(self, x: torch.Tensor) -> torch.Tensor:
         """

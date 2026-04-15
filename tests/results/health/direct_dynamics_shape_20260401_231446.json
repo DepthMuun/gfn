@@ -1,0 +1,33 @@
+{
+  "test_name": "direct_dynamics_shape",
+  "category": "health",
+  "timestamp": "2026-04-01T23:14:46.800618",
+  "elapsed_seconds": 0.001033782958984375,
+  "passed": true,
+  "metrics": {
+    "input_shape": "torch.Size([2, 4, 8])",
+    "output_shape": "torch.Size([2, 4, 8])",
+    "shape_preserved": true
+  },
+  "history": [
+    {
+      "name": "input_shape",
+      "value": "torch.Size([2, 4, 8])",
+      "timestamp": 1775096086.8006098,
+      "step": null
+    },
+    {
+      "name": "output_shape",
+      "value": "torch.Size([2, 4, 8])",
+      "timestamp": 1775096086.8006136,
+      "step": null
+    },
+    {
+      "name": "shape_preserved",
+      "value": true,
+      "timestamp": 1775096086.8006148,
+      "step": null
+    }
+  ],
+  "errors": []
+}

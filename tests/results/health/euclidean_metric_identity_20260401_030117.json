@@ -1,0 +1,26 @@
+{
+  "test_name": "euclidean_metric_identity",
+  "category": "health",
+  "timestamp": "2026-04-01T03:01:17.980417",
+  "elapsed_seconds": 0.001142740249633789,
+  "passed": true,
+  "metrics": {
+    "max_difference": 0.0,
+    "metric_trace": 6.0
+  },
+  "history": [
+    {
+      "name": "max_difference",
+      "value": 0.0,
+      "timestamp": 1775023277.980362,
+      "step": null
+    },
+    {
+      "name": "metric_trace",
+      "value": 6.0,
+      "timestamp": 1775023277.9804142,
+      "step": null
+    }
+  ],
+  "errors": []
+}

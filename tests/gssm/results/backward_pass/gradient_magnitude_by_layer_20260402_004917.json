@@ -1,0 +1,138 @@
+{
+  "test_name": "gradient_magnitude_by_layer",
+  "category": "backward_pass",
+  "timestamp": "2026-04-02T00:49:17.802814",
+  "elapsed_seconds": 0.18696880340576172,
+  "passed": true,
+  "metrics": {
+    "x0_avg_grad": 0.0128152621909976,
+    "x0_max_grad": 0.0128152621909976,
+    "v0_avg_grad": 0.044866546988487244,
+    "v0_max_grad": 0.044866546988487244,
+    "0_avg_grad": 0.41285175626819764,
+    "0_max_grad": 1.4175528287887573,
+    "1_avg_grad": 0.48038553330052836,
+    "1_max_grad": 1.558401346206665,
+    "2_avg_grad": 0.5676947425648547,
+    "2_max_grad": 2.0738883018493652,
+    "3_avg_grad": 0.7167771412732665,
+    "3_max_grad": 3.2046594619750977,
+    "impulse_scale_avg_grad": 0.092206209897995,
+    "impulse_scale_max_grad": 0.092206209897995,
+    "out_proj_avg_grad": 0.0400261040776968,
+    "out_proj_max_grad": 0.04797451198101044,
+    "readout_avg_grad": 1.2050602585077286,
+    "readout_max_grad": 2.1397578716278076
+  },
+  "history": [
+    {
+      "name": "x0_avg_grad",
+      "value": 0.0128152621909976,
+      "timestamp": 1775101757.8019376,
+      "step": null
+    },
+    {
+      "name": "x0_max_grad",
+      "value": 0.0128152621909976,
+      "timestamp": 1775101757.8019414,
+      "step": null
+    },
+    {
+      "name": "v0_avg_grad",
+      "value": 0.044866546988487244,
+      "timestamp": 1775101757.8019702,
+      "step": null
+    },
+    {
+      "name": "v0_max_grad",
+      "value": 0.044866546988487244,
+      "timestamp": 1775101757.8019712,
+      "step": null
+    },
+    {
+      "name": "0_avg_grad",
+      "value": 0.41285175626819764,
+      "timestamp": 1775101757.8026857,
+      "step": null
+    },
+    {
+      "name": "0_max_grad",
+      "value": 1.4175528287887573,
+      "timestamp": 1775101757.8026874,
+      "step": null
+    },
+    {
+      "name": "1_avg_grad",
+      "value": 0.48038553330052836,
+      "timestamp": 1775101757.8027182,
+      "step": null
+    },
+    {
+      "name": "1_max_grad",
+      "value": 1.558401346206665,
+      "timestamp": 1775101757.8027189,
+      "step": null
+    },
+    {
+      "name": "2_avg_grad",
+      "value": 0.5676947425648547,
+      "timestamp": 1775101757.802738,
+      "step": null
+    },
+    {
+      "name": "2_max_grad",
+      "value": 2.0738883018493652,
+      "timestamp": 1775101757.802739,
+      "step": null
+    },
+    {
+      "name": "3_avg_grad",
+      "value": 0.7167771412732665,
+      "timestamp": 1775101757.8027554,
+      "step": null
+    },
+    {
+      "name": "3_max_grad",
+      "value": 3.2046594619750977,
+      "timestamp": 1775101757.8027573,
+      "step": null
+    },
+    {
+      "name": "impulse_scale_avg_grad",
+      "value": 0.092206209897995,
+      "timestamp": 1775101757.8027725,
+      "step": null
+    },
+    {
+      "name": "impulse_scale_max_grad",
+      "value": 0.092206209897995,
+      "timestamp": 1775101757.8027735,
+      "step": null
+    },
+    {
+      "name": "out_proj_avg_grad",
+      "value": 0.0400261040776968,
+      "timestamp": 1775101757.8027894,
+      "step": null
+    },
+    {
+      "name": "out_proj_max_grad",
+      "value": 0.04797451198101044,
+      "timestamp": 1775101757.8027904,
+      "step": null
+    },
+    {
+      "name": "readout_avg_grad",
+      "value": 1.2050602585077286,
+      "timestamp": 1775101757.8028057,
+      "step": null
+    },
+    {
+      "name": "readout_max_grad",
+      "value": 2.1397578716278076,
+      "timestamp": 1775101757.802807,
+      "step": null
+    }
+  ],
+  "errors": []
+}

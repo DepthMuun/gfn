@@ -1,0 +1,12 @@
+{
+  "test_name": "leapfrog_energy_conservation",
+  "category": "health",
+  "timestamp": "2026-04-01T02:36:46.589495",
+  "elapsed_seconds": 0.0030586719512939453,
+  "passed": false,
+  "metrics": {},
+  "history": [],
+  "errors": [
+    "unsupported operand type(s) for +: 'Tensor' and 'function'"
+  ]
+}

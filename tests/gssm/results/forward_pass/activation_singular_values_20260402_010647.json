@@ -1,0 +1,124 @@
+{
+  "test_name": "activation_singular_values",
+  "category": "forward_pass",
+  "timestamp": "2026-04-02T01:06:47.079370",
+  "elapsed_seconds": 0.19785451889038086,
+  "passed": true,
+  "metrics": {
+    "layer_0_top_singular": 30.01337242126465,
+    "layer_0_rank_90": 1,
+    "layer_0_rank_99": 1,
+    "layer_0_condition_number": 17196698.0,
+    "layer_4_top_singular": 32.978660583496094,
+    "layer_4_rank_90": 1,
+    "layer_4_rank_99": 1,
+    "layer_4_condition_number": 76246.0078125,
+    "layer_8_top_singular": 32.47203063964844,
+    "layer_8_rank_90": 1,
+    "layer_8_rank_99": 2,
+    "layer_8_condition_number": 5507.54052734375,
+    "layer_15_top_singular": 32.525779724121094,
+    "layer_15_rank_90": 1,
+    "layer_15_rank_99": 3,
+    "layer_15_condition_number": 2364.66455078125
+  },
+  "history": [
+    {
+      "name": "layer_0_top_singular",
+      "value": 30.01337242126465,
+      "timestamp": 1775102807.073948,
+      "step": null
+    },
+    {
+      "name": "layer_0_rank_90",
+      "value": 1,
+      "timestamp": 1775102807.0739534,
+      "step": null
+    },
+    {
+      "name": "layer_0_rank_99",
+      "value": 1,
+      "timestamp": 1775102807.073955,
+      "step": null
+    },
+    {
+      "name": "layer_0_condition_number",
+      "value": 17196698.0,
+      "timestamp": 1775102807.0739985,
+      "step": null
+    },
+    {
+      "name": "layer_4_top_singular",
+      "value": 32.978660583496094,
+      "timestamp": 1775102807.0783434,
+      "step": null
+    },
+    {
+      "name": "layer_4_rank_90",
+      "value": 1,
+      "timestamp": 1775102807.0783474,
+      "step": null
+    },
+    {
+      "name": "layer_4_rank_99",
+      "value": 1,
+      "timestamp": 1775102807.0783503,
+      "step": null
+    },
+    {
+      "name": "layer_4_condition_number",
+      "value": 76246.0078125,
+      "timestamp": 1775102807.0783877,
+      "step": null
+    },
+    {
+      "name": "layer_8_top_singular",
+      "value": 32.47203063964844,
+      "timestamp": 1775102807.0788612,
+      "step": null
+    },
+    {
+      "name": "layer_8_rank_90",
+      "value": 1,
+      "timestamp": 1775102807.0788639,
+      "step": null
+    },
+    {
+      "name": "layer_8_rank_99",
+      "value": 2,
+      "timestamp": 1775102807.0788653,
+      "step": null
+    },
+    {
+      "name": "layer_8_condition_number",
+      "value": 5507.54052734375,
+      "timestamp": 1775102807.0788963,
+      "step": null
+    },
+    {
+      "name": "layer_15_top_singular",
+      "value": 32.525779724121094,
+      "timestamp": 1775102807.079329,
+      "step": null
+    },
+    {
+      "name": "layer_15_rank_90",
+      "value": 1,
+      "timestamp": 1775102807.0793314,
+      "step": null
+    },
+    {
+      "name": "layer_15_rank_99",
+      "value": 3,
+      "timestamp": 1775102807.0793326,
+      "step": null
+    },
+    {
+      "name": "layer_15_condition_number",
+      "value": 2364.66455078125,
+      "timestamp": 1775102807.0793629,
+      "step": null
+    }
+  ],
+  "errors": []
+}

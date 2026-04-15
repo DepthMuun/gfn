@@ -1,0 +1,46 @@
+{
+  "test_name": "energy_drift_vs_timestep",
+  "category": "research",
+  "timestamp": "2026-04-01T16:14:41.220678",
+  "elapsed_seconds": 0.11154890060424805,
+  "passed": true,
+  "metrics": {
+    "drift_dt_0.1": 0.0035512447357177734,
+    "drift_dt_0.01": 3.4809112548828125e-05,
+    "drift_dt_0.001": 1.9073486328125e-06,
+    "drift_vs_dt_plot": {
+      "x": [
+        0.1,
+        0.01,
+        0.001
+      ],
+      "y": [
+        0.0035512447357177734,
+        3.4809112548828125e-05,
+        1.9073486328125e-06
+      ],
+      "type": "line"
+    }
+  },
+  "history": [
+    {
+      "name": "drift_dt_0.1",
+      "value": 0.0035512447357177734,
+      "timestamp": 1775070881.1120782,
+      "step": null
+    },
+    {
+      "name": "drift_dt_0.01",
+      "value": 3.4809112548828125e-05,
+      "timestamp": 1775070881.122957,
+      "step": null
+    },
+    {
+      "name": "drift_dt_0.001",
+      "value": 1.9073486328125e-06,
+      "timestamp": 1775070881.220657,
+      "step": null
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,54 @@
+{
+  "test_name": "gradient_norm_trajectory",
+  "category": "loss_landscape",
+  "timestamp": "2026-04-15T17:39:10.169805",
+  "elapsed_seconds": 6.561203479766846,
+  "passed": true,
+  "metrics": {
+    "initial_grad_norm": 6.632286587391228,
+    "final_grad_norm": 3.3186991353868507,
+    "initial_loss": 5.492603778839111,
+    "final_loss": 5.077091217041016,
+    "grad_norm_reduction": 1.998459726790969,
+    "loss_reduction": 1.0818406708126576
+  },
+  "history": [
+    {
+      "name": "initial_grad_norm",
+      "value": 6.632286587391228,
+      "timestamp": 1776285550.1697943,
+      "step": null
+    },
+    {
+      "name": "final_grad_norm",
+      "value": 3.3186991353868507,
+      "timestamp": 1776285550.1697972,
+      "step": null
+    },
+    {
+      "name": "initial_loss",
+      "value": 5.492603778839111,
+      "timestamp": 1776285550.1697981,
+      "step": null
+    },
+    {
+      "name": "final_loss",
+      "value": 5.077091217041016,
+      "timestamp": 1776285550.1697989,
+      "step": null
+    },
+    {
+      "name": "grad_norm_reduction",
+      "value": 1.998459726790969,
+      "timestamp": 1776285550.1698003,
+      "step": null
+    },
+    {
+      "name": "loss_reduction",
+      "value": 1.0818406708126576,
+      "timestamp": 1776285550.1698015,
+      "step": null
+    }
+  ],
+  "errors": []
+}

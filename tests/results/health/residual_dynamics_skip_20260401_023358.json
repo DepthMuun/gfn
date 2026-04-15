@@ -1,0 +1,26 @@
+{
+  "test_name": "residual_dynamics_skip",
+  "category": "health",
+  "timestamp": "2026-04-01T02:33:58.918039",
+  "elapsed_seconds": 0.0014503002166748047,
+  "passed": true,
+  "metrics": {
+    "mean_difference": 0.0,
+    "residual_active": true
+  },
+  "history": [
+    {
+      "name": "mean_difference",
+      "value": 0.0,
+      "timestamp": 1775021638.9180338,
+      "step": null
+    },
+    {
+      "name": "residual_active",
+      "value": true,
+      "timestamp": 1775021638.9180362,
+      "step": null
+    }
+  ],
+  "errors": []
+}

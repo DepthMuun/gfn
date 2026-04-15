@@ -1,0 +1,12 @@
+{
+  "test_name": "christoffel_symmetry",
+  "category": "research",
+  "timestamp": "2026-04-01T14:00:19.872904",
+  "elapsed_seconds": 0.0008289813995361328,
+  "passed": false,
+  "metrics": {},
+  "history": [],
+  "errors": [
+    "ToroidalRiemannianGeometry.__init__() got an unexpected keyword argument 'R'"
+  ]
+}

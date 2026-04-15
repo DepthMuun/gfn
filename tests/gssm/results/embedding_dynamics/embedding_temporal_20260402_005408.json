@@ -1,0 +1,47 @@
+{
+  "test_name": "embedding_temporal",
+  "category": "embedding_dynamics",
+  "timestamp": "2026-04-02T00:54:08.842497",
+  "elapsed_seconds": 0.13556694984436035,
+  "passed": true,
+  "metrics": {
+    "first_position_std": 0.6591414213180542,
+    "last_position_std": 0.6594579815864563,
+    "std_change_ratio": 1.0004802463528488,
+    "first_position_mean": -0.08993454277515411,
+    "last_position_mean": -0.14136943221092224
+  },
+  "history": [
+    {
+      "name": "first_position_std",
+      "value": 0.6591414213180542,
+      "timestamp": 1775102048.8424902,
+      "step": null
+    },
+    {
+      "name": "last_position_std",
+      "value": 0.6594579815864563,
+      "timestamp": 1775102048.8424919,
+      "step": null
+    },
+    {
+      "name": "std_change_ratio",
+      "value": 1.0004802463528488,
+      "timestamp": 1775102048.8424928,
+      "step": null
+    },
+    {
+      "name": "first_position_mean",
+      "value": -0.08993454277515411,
+      "timestamp": 1775102048.8424938,
+      "step": null
+    },
+    {
+      "name": "last_position_mean",
+      "value": -0.14136943221092224,
+      "timestamp": 1775102048.8424945,
+      "step": null
+    }
+  ],
+  "errors": []
+}

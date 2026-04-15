@@ -1,0 +1,5 @@
+# ninja log v7
+14	31757	7950436694501798	D:/ASAS/manifold_mini/manifold_working/gfn/csrc/build/temp.win-amd64-cpython-313/Release/ASAS/manifold_mini/manifold_working/gfn/csrc/extension.obj	9de534fd305cab11
+31878	88463	7950437013138885	D:/ASAS/manifold_mini/manifold_working/gfn/csrc/build/temp.win-amd64-cpython-313/Release/ASAS/manifold_mini/manifold_working/gfn/csrc/geometry/low_rank.obj	5672a6e30bf2bef1
+88498	103676	7950437579339306	D:/ASAS/manifold_mini/manifold_working/gfn/csrc/build/temp.win-amd64-cpython-313/Release/ASAS/manifold_mini/manifold_working/gfn/csrc/integrators/integrators.obj	a12e302f6706eadb
+103779	158267	7950437732153997	D:/ASAS/manifold_mini/manifold_working/gfn/csrc/build/temp.win-amd64-cpython-313/Release/ASAS/manifold_mini/manifold_working/gfn/csrc/losses/toroidal.obj	8eb3ee5b9885353f

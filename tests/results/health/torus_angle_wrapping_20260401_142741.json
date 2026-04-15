@@ -1,0 +1,54 @@
+{
+  "test_name": "torus_angle_wrapping",
+  "category": "health",
+  "timestamp": "2026-04-01T14:27:41.728258",
+  "elapsed_seconds": 0.0036475658416748047,
+  "passed": true,
+  "metrics": {
+    "wrap_large_positive_max": 0.0,
+    "wrap_large_positive_min": -3.1415927410125732,
+    "wrap_large_negative_max": 0.0,
+    "wrap_large_negative_min": -3.141592264175415,
+    "wrap_y_component_max": 0.4999997615814209,
+    "wrap_y_component_min": 0.0
+  },
+  "history": [
+    {
+      "name": "wrap_large_positive_max",
+      "value": 0.0,
+      "timestamp": 1775064461.7280438,
+      "step": null
+    },
+    {
+      "name": "wrap_large_positive_min",
+      "value": -3.1415927410125732,
+      "timestamp": 1775064461.7280524,
+      "step": null
+    },
+    {
+      "name": "wrap_large_negative_max",
+      "value": 0.0,
+      "timestamp": 1775064461.728196,
+      "step": null
+    },
+    {
+      "name": "wrap_large_negative_min",
+      "value": -3.141592264175415,
+      "timestamp": 1775064461.7281983,
+      "step": null
+    },
+    {
+      "name": "wrap_y_component_max",
+      "value": 0.4999997615814209,
+      "timestamp": 1775064461.7282488,
+      "step": null
+    },
+    {
+      "name": "wrap_y_component_min",
+      "value": 0.0,
+      "timestamp": 1775064461.7282517,
+      "step": null
+    }
+  ],
+  "errors": []
+}

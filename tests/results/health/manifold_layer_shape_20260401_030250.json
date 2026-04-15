@@ -1,0 +1,40 @@
+{
+  "test_name": "manifold_layer_shape",
+  "category": "health",
+  "timestamp": "2026-04-01T03:02:50.642429",
+  "elapsed_seconds": 0.00406646728515625,
+  "passed": true,
+  "metrics": {
+    "input_shape": "torch.Size([2, 4, 4])",
+    "output_x_shape": "torch.Size([2, 4, 4])",
+    "output_v_shape": "torch.Size([2, 4, 4])",
+    "shape_preserved": true
+  },
+  "history": [
+    {
+      "name": "input_shape",
+      "value": "torch.Size([2, 4, 4])",
+      "timestamp": 1775023370.6424215,
+      "step": null
+    },
+    {
+      "name": "output_x_shape",
+      "value": "torch.Size([2, 4, 4])",
+      "timestamp": 1775023370.6424239,
+      "step": null
+    },
+    {
+      "name": "output_v_shape",
+      "value": "torch.Size([2, 4, 4])",
+      "timestamp": 1775023370.6424253,
+      "step": null
+    },
+    {
+      "name": "shape_preserved",
+      "value": true,
+      "timestamp": 1775023370.642426,
+      "step": null
+    }
+  ],
+  "errors": []
+}

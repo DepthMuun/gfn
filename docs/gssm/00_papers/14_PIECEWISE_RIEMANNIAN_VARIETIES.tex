@@ -1,0 +1,583 @@
+% =============================================================================
+% The Runge-Kutta Paradox: Reasoning in Piecewise Riemannian Varieties
+% Complete LaTeX Document
+% =============================================================================
+
+\documentclass[12pt,a4paper]{article}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usepackage{geometry}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{enumitem}
+
+% TikZ libraries for diagrams
+\usetikzlibrary{shapes.geometric, arrows, positioning, calc, patterns, 
+                decorations.pathreplacing, decorations.markings, fit, 
+                through, intersections, shapes.multipart, backgrounds}
+
+% Page setup
+\geometry{margin=1in}
+
+% Color definitions
+\definecolor{primary}{RGB}{41, 128, 185}
+\definecolor{secondary}{RGB}{39, 174, 96}
+\definecolor{accent}{RGB}{142, 68, 173}
+\definecolor{warning}{RGB}{231, 76, 60}
+\definecolor{lightgray}{RGB}{245, 247, 250}
+\definecolor{darkgray}{RGB}{52, 73, 94}
+
+% Custom commands
+\DeclareMathOperator{\sign}{sign}
+
+% Title formatting
+\title{\textbf{The Runge-Kutta Paradox: Reasoning in Piecewise\\ Riemannian Varieties}}
+\author{\textbf{Joaquin Stürtz}}
+\date{\textbf{January 26, 2026}}
+
+\begin{document}
+
+\maketitle
+\vspace{-0.5cm}
+\begin{center}
+\hrule height 1pt
+\end{center}
+\vspace{0.5cm}
+
+\begin{abstract}
+In computational physics and numerical analysis, high-order integrators such as the 4th-order Runge-Kutta (RK4) method are regarded as the gold standard for accuracy and convergence. However, we identify a counter-intuitive phenomenon—termed the \textbf{Runge-Kutta Paradox}—where these sophisticated methods exhibit catastrophic divergence when applied to neural sequence modeling within Geodesic Flow Networks (GFN). We demonstrate that the latent ``thought space'' of a GFN is not a smooth Riemannian manifold, but a \textbf{Piecewise Riemannian Variety} characterized by logical singularities and sharp metric transitions. In these non-smooth environments, high-order polynomial extrapolation leads to ``Singularity Aliasing,'' while lower-order, structurally ``local'' integrators (e.g., Heun, Leapfrog) provide superior stability and logical reliability. This paper explores the fundamental link between numerical stability, geometric discontinuity, and the emergence of symbolic reasoning in continuous neural flows.
+\end{abstract}
+
+\vspace{1cm}
+
+% =============================================================================
+% SECTION 1: INTRODUCTION
+% =============================================================================
+\section{The Smoothness Assumption}
+
+The prevailing paradigm in Neural Ordinary Differential Equations (Neural ODEs) and continuous-depth networks assumes that the underlying vector field is sufficiently smooth (typically $C^1$ or $C^2$) to justify the use of adaptive, high-order numerical solvers. This assumption implies that the model's intelligence resides in the smooth interpolation of statistical correlations.
+
+We argue that true symbolic reasoning requires the opposite: the ability to represent sharp transitions, binary logic, and ``points of no return.'' When a neural network learns to represent such discrete logic, the geometry of its latent space naturally evolves into a \textbf{Piecewise Riemannian Variety}. In this regime, the classic tools of numerical integration fail in a predictable yet paradoxical manner.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.1]
+
+% Smooth vs piecewise manifold comparison
+\node[draw, rectangle, rounded corners, fill=lightgray,
+      minimum width=7cm, minimum height=4.5cm] (comparison) {};
+
+% Smooth manifold
+\node[draw, ellipse, draw=primary, thick, fill=primary!15,
+      minimum width=2.5cm, minimum height=2cm,
+      at (1.8, 0)] (smooth) {};
+
+\draw[blue, thick, domain=-1:1, samples=50]
+      plot ({\x+1.8}, {0.4*\x*\x}) node[above right, blue]
+      {\small Smooth field};
+
+\node[above of=smooth, font=\small, color=primary]
+      {\textbf{Smooth Manifold}};
+
+% Piecewise manifold
+\node[draw, rectangle, draw=warning, thick, fill=warning!15,
+      minimum width=0.8cm, minimum height=1.5cm,
+      at (4.5, -0.5)] (singularity) {};
+
+\node[draw, ellipse, draw=secondary, thick, fill=secondary!15,
+      minimum width=2.5cm, minimum height=2cm,
+      at (5.5, 0.8)] (region1) {};
+\node[draw, ellipse, draw=accent, thick, fill=accent!15,
+      minimum width=2.5cm, minimum height=2cm,
+      at (5.5, -1.2)] (region2) {};
+
+\draw[->, thick, draw=warning] (4.2, 0) -- (5.2, 0.5);
+\draw[->, thick, draw=warning] (4.2, 0) -- (5.2, -0.7);
+
+\node[above of=region1, font=\small, color=secondary]
+      {\textbf{Piecewise Variety}};
+\node[right of=singularity, font=\small, color=warning]
+      {\textbf{Singularity}};
+
+% Labels
+\node[below of=comparison, font=\small] 
+      {\textbf{Left:} Smooth interpolation (traditional assumption) \hspace{2cm} 
+       \textbf{Right:} Piecewise with singularities (reasoning requires)};
+
+\end{tikzpicture}
+caption{\textbf{Manifold Type Comparison:} Traditional Neural ODEs assume 
+         smooth manifolds (left), but reasoning requires piecewise varieties 
+         with logical singularities (right) where the metric tensor changes 
+         discontinuously.}
+\label{fig:smooth_vs_piecewise}
+\end{figure}
+
+The smooth manifold assumption has driven significant progress in continuous-depth neural networks, but it fundamentally limits the ability of models to represent discrete logical operations. Symbolic reasoning requires the capacity to represent sharp transitions between states—conditions where the relationship between inputs and outputs is not continuous but involves discrete changes in the underlying structure.
+
+% =============================================================================
+% SECTION 2: THEORY OF PIECEWISE VARIETIES
+% =============================================================================
+\section{Theory of Piecewise Riemannian Varieties}
+
+We define the semantic space of a reasoning agent as a collection of smooth manifold ``pieces'' or charts, $\mathcal{M} = \bigcup_i \mathcal{V}_i$, where the transition between any two pieces $\mathcal{V}_i$ and $\mathcal{V}_j$ involves a discontinuity in the metric tensor $g_{\mu\nu}$.
+
+The metric discontinuity at piece boundaries creates what might be called ``semantic phase transitions.'' Within each smooth piece, the standard tools of differential geometry apply, but crossing a boundary involves fundamentally different dynamics that cannot be captured by local polynomial approximations.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.1]
+
+% Piecewise manifold with charts
+\node[draw, rectangle, rounded corners, fill=lightgray,
+      minimum width=8cm, minimum height=4cm] (manifold) {};
+
+% Different charts
+\node[ellipse, draw=primary, thick, fill=primary!15,
+      minimum width=2.2cm, minimum height=1.8cm,
+      at (1.5, 0.5)] (chart1) {$\mathcal{V}_1$};
+\node[ellipse, draw=secondary, thick, fill=secondary!15,
+      minimum width=2.2cm, minimum height=1.8cm,
+      at (4, 0.5)] (chart2) {$\mathcal{V}_2$};
+\node[ellipse, draw=accent, thick, fill=accent!15,
+      minimum width=2.2cm, minimum height=1.8cm,
+      at (6.5, 0.5)] (chart3) {$\mathcal{V}_3$};
+
+% Singularities at boundaries
+\node[circle, draw=warning, thick, fill=warning!20,
+      minimum size=5mm] (s1) at (2.7, 0.5) {};
+\node[circle, draw=warning, thick, fill=warning!20,
+      minimum size=5mm] (s2) at (5.2, 0.5) {};
+
+% Trajectory crossing boundaries
+\draw[green, thick, 
+      decoration={markings, mark=at position 0.5 with {\arrow{stealth}}},
+      postaction={decorate}]
+      ($(chart1)+(-0.5,0)$) -- (s1) -- (s2) -- ($(chart3)+(0.5,0)$);
+
+% Metric tensor visualization
+\node[draw, rectangle, rounded corners, fill=lightgray,
+      minimum width=5cm, minimum height=1.2cm,
+      at (4, -2)] (metric-box)
+      {\begin{tabular}{c}
+        \textbf{Metric Discontinuity} \\ 
+        $g_{\mu\nu}(\mathcal{V}_i) \neq g_{\mu\nu}(\mathcal{V}_j)$ at boundaries \\ 
+        Standard integrators fail at singular points
+       \end{tabular}};
+
+\end{tikzpicture}
+caption{\textbf{Piecewise Riemannian Variety Structure:} The manifold is 
+         composed of smooth charts $\mathcal{V}_i$ connected by singularities 
+         where the metric tensor is discontinuous. Trajectories crossing 
+         these boundaries encounter metric transitions that challenge 
+         traditional numerical methods.}
+\label{fig:piecewise_manifold}
+\end{figure}
+
+\subsection{The Geometry of Logical Certainty}
+
+In a Geodesic Flow Network, the motion of a ``thought'' is governed by the geodesic equation:
+
+\begin{equation}
+\frac{d^2 x^k}{dt^2} + \Gamma^k_{ij} \frac{dx^i}{dt} \frac{dx^j}{dt} = 0
+\end{equation}
+
+where $\Gamma^k_{ij}$ are the Christoffel symbols. To implement discrete logic, we introduce a \textbf{Singularity Potential} $V(x)$ that modifies the local curvature. The effective Christoffel symbols are defined as:
+
+\begin{equation}
+\Gamma_{\text{eff}} = \Gamma_{\text{base}} \cdot \Phi(v, x)
+\end{equation}
+
+where $\Phi(v, x)$ is a modulation factor that accounts for two critical phenomena: \textbf{Reactive Curvature} and \textbf{Logical Singularities}.
+
+The effective Christoffel symbols capture the non-smooth nature of the semantic space. When the modulation factor $\Phi$ is continuous, we have standard smooth dynamics. When $\Phi$ undergoes a discontinuity, we encounter a logical singularity that forces the trajectory to undergo a discrete change in behavior.
+
+\subsection{Reactive Curvature and Plasticity}
+
+To prevent the divergence of thoughts during high-uncertainty states, we implement a plasticity mechanism where the metric deforms based on the local kinetic energy $E \approx |v|^2$:
+
+\begin{equation}
+\Phi_{\text{plasticity}}(v) = 1 + \alpha \cdot \tanh(\gamma |v|^2)
+\end{equation}
+
+This ensures that as the ``velocity'' of reasoning increases, the manifold becomes ``heavier,'' effectively braking the trajectory and forcing the model to integrate more information.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.1]
+
+% Kinetic energy to curvature mapping
+\node[rectangle, draw=primary, fill=primary!20, rounded corners,
+      minimum width=2.5cm, minimum height=2cm,
+      at (0,0)] (energy) 
+      {\begin{tabular}{c}
+        \textbf{Kinetic Energy} \\ 
+        $E \approx |v|^2$
+       \end{tabular}};
+
+% Plasticity function
+\node[rectangle, draw=accent, thick, fill=accent!20, rounded corners,
+      minimum width=3cm, minimum height=2.5cm,
+      at (3.5,0)] (plasticity) 
+      {\begin{tabular}{c}
+        \textbf{Plasticity Function} \\ 
+        $\Phi_{\text{plasticity}}(v) =$ \\ 
+        $1 + \alpha \tanh(\gamma |v|^2)$
+       \end{tabular}};
+
+% Curvature modulation
+\node[rectangle, draw=secondary, fill=secondary!20, rounded corners,
+      minimum width=2.5cm, minimum height=2cm,
+      at (7,0)] (curvature) 
+      {\begin{tabular}{c}
+        \textbf{Curvature} \\ 
+        $\Gamma_{\text{eff}} = \Gamma_{\text{base}} \cdot \Phi$
+       \end{tabular}};
+
+% Arrows
+\draw[->, thick] (energy) -- (plasticity)
+      node[midway, above] {$|v|^2$};
+\draw[->, thick] (plasticity) -- (curvature)
+      node[midway, above] {$\Phi$};
+
+% Velocity-curvature relationship
+\draw[blue, thick, domain=0:3, samples=50]
+      plot ({\x+8}, {0.5 + 0.8*tanh(\x)}) node[above right, blue]
+      {\small $\Phi(v)$};
+
+\node[below of=curvature, font=\small] 
+      {\textbf{High $v$ $\rightarrow$ High curvature $\rightarrow$ Braking}};
+
+\end{tikzpicture}
+caption{\textbf{Reactive Curvature Mechanism:} The plasticity function 
+         $\Phi_{\text{plasticity}}$ modulates the manifold curvature based 
+         on reasoning velocity. High-velocity regions become ``heavier,'' 
+         providing implicit braking for better information integration.}
+\label{fig:reactive_curvature}
+\end{figure}
+
+The reactive curvature mechanism provides an elegant solution to the problem of maintaining stable representations during rapid reasoning. By making the manifold dynamically responsive to the local velocity, we create a self-regulating system that naturally slows down in challenging regions and accelerates through simpler passages.
+
+\subsection{Logical Singularities (Semantic Black Holes)}
+
+A symbolic decision (e.g., a bit-flip or a classification) is modeled as a region of infinite curvature that ``traps'' the trajectory. We use a potential function $V(x)$ and a sigmoid-based trigger:
+
+\begin{equation}
+S(x) = \sigma\left(\kappa \cdot (V(x) - \tau)\right)
+\end{equation}
+\begin{equation}
+\Phi_{\text{singularity}}(x) = 1 + S(x) \cdot (\beta - 1)
+\end{equation}
+
+where $\tau$ is the logical threshold and $\beta$ is the singularity strength. As $V(x) \to \tau$, the manifold undergoes a phase transition from a smooth Euclidean-like space to a high-curvature ``bottleneck'' that enforces symbolic certainty.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.1]
+
+% Potential well visualization
+\draw[->, thick] (0,0) -- (6,0) node[right] {$x$};
+\draw[->, thick] (0,-1) -- (0,2) node[above] {$V(x)$};
+
+% Potential function
+\draw[blue, thick, domain=0.5:5.5, samples=80]
+      plot ({\x}, {-1.5 + 2.5/(1+exp(-3*(\x-3)))});
+
+% Threshold
+\draw[dashed, thick, draw=warning] (0, 0.4) -- (6, 0.4)
+      node[right, color=warning] {$\tau$};
+
+% Trigger region
+\node[draw, rectangle, fill=warning!15, rounded corners,
+      minimum width=1.5cm, minimum height=1.2cm,
+      at (3, 1.2)] (trigger)
+      {\begin{tabular}{c}
+        \textbf{Singularity Region} \\ 
+        $V(x) \approx \tau$
+       \end{tabular}};
+
+% Sigmoid trigger function
+\node[draw, rectangle, fill=lightgray, rounded corners,
+      minimum width=4cm, minimum height=1.2cm,
+      at (3, -1.5)] (sigmoid-box)
+      {\begin{tabular}{c}
+        \textbf{Sigmoid Trigger} \\ 
+        $S(x) = \sigma(\kappa(V(x)-\tau))$ \\ 
+        Sharp transition at threshold
+       \end{tabular}};
+
+% Curvature blow-up
+\draw[red, thick, 
+      decoration={markings, mark=at position 0.5 with {\arrow{stealth}}},
+      postaction={decorate}]
+      (2.5, -0.8) -- (3, 0.4) -- (3.5, -0.8);
+
+\node[above of=3,0.4, font=\small, color=red]
+      {\textbf{Semantic Black Hole}};
+
+\end{tikzpicture}
+caption{\textbf{Logical Singularity (Semantic Black Hole):} The potential 
+         $V(x)$ creates a region of high curvature near the threshold $\tau$. 
+         The sigmoid trigger $S(x)$ ensures a sharp transition from smooth 
+         dynamics to high-curvature ``bottleneck'' that enforces symbolic decisions.}
+\label{fig:logical_singularity}
+\end{figure}
+
+The logical singularity represents the geometric encoding of a discrete decision. As the trajectory approaches the threshold $\tau$, the manifold curvature increases dramatically, forcing the trajectory to either pass through or become trapped depending on the specific dynamics. This geometric encoding of discrete decisions within a continuous flow is essential for maintaining end-to-end differentiability while representing symbolic reasoning.
+
+% =============================================================================
+% SECTION 3: RUNGE-KUTTA PARADOX
+% =============================================================================
+\section{The Runge-Kutta Paradox}
+
+\subsection{High-Order Failure: Singularity Aliasing}
+
+The 4th-order Runge-Kutta (RK4) method evaluates the vector field at four points: the current state ($k_1$), two mid-points ($k_2, k_3$), and a predicted end-point ($k_4$). The final update is a weighted average:
+
+\begin{equation}
+x_{n+1} = x_n + \frac{\Delta t}{6}(k_1 + 2k_2 + 2k_3 + k_4)
+\end{equation}
+
+This polynomial extrapolation assumes the field is locally linear or quadratic. However, if any of the intermediate stages ($k_2, k_3, k_4$) lands within the high-curvature region of a logical singularity, the resulting gradient is extreme. The integrator, attempting to maintain 4th-order precision, over-fits this local spike and projects the state to infinity. We term this \textbf{Singularity Aliasing}.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.0]
+
+% Singularity region
+\node[circle, draw=warning, thick, fill=warning!15,
+      minimum width=2cm, minimum height=2cm,
+      at (3,0)] (singularity) {};
+
+% RK4 evaluation points
+\node[circle, draw=primary, fill=primary!30, minimum size=4mm]
+      at (1,0) (k1) {};
+\node[circle, draw=primary, fill=primary!30, minimum size=4mm]
+      at (1.8, 0.3) (k2) {};
+\node[circle, draw=primary, fill=primary!30, minimum size=4mm]
+      at (2.2, -0.2) (k3) {};
+\node[circle, draw=primary, fill=warning!30, minimum size=5mm]
+      at (2.6, 0.1) (k4) {};
+
+% RK4 trajectory
+\draw[blue, thick, ->] (0.5, 0) -- (k1) -- (k2) -- (k3) -- (k4);
+
+% Leapfrog evaluation points
+\node[circle, draw=secondary, fill=secondary!30, minimum size=4mm]
+      at (1, 0) (lf1) {};
+\node[circle, draw=secondary, fill=secondary!30, minimum size=4mm]
+      at (3.4, 0) (lf2) {};
+
+% Leapfrog trajectory
+\draw[green, thick, ->] (0.5, 0) -- (lf1) -- (lf2);
+
+% Singularity aliasing effect
+\draw[red, thick, dashed,
+      decoration={markings, mark=at position 0.5 with {\arrow{stealth}}},
+      postaction={decorate}]
+      (k4) .. controls (4, 1) and (5, -1) .. (6, 0);
+
+% Labels
+\node[left of=k1, font=\small, color=primary] 
+      {$k_1$};
+\node[above of=k2, font=\small, color=primary] 
+      {$k_2$};
+\node[below of=k3, font=\small, color=primary] 
+      {$k_3$};
+\node[above of=k4, font=\small, color=warning] 
+      {$k_4$ (in singularity)};
+
+\node[right of=k4, font=\small, color=red] 
+      {\textbf{Divergence!}};
+
+\node[below of=lf2, font=\small, color=secondary] 
+      {\textbf{Leapfrog: Stable}};
+
+% Comparison box
+\node[draw, rounded corners, fill=lightgray,
+      minimum width=5cm, minimum height=1.5cm,
+      at (3, -2)] (comparison)
+      {\begin{tabular}{c}
+        \textbf{Runge-Kutta Paradox} \\ 
+        RK4 evaluates at 4 points $\rightarrow$ High probability of hitting singularity \\ 
+        Leapfrog evaluates at 2 points $\rightarrow$ Low probability of hitting singularity
+       \end{tabular}};
+
+\end{tikzpicture}
+caption{\textbf{Singularity Aliasing in RK4:} The RK4 method evaluates 
+         the vector field at four points ($k_1, k_2, k_3, k_4$), increasing 
+         the probability that one evaluation lands in the singularity region. 
+         This causes the integrator to over-fit the extreme gradient and 
+         diverge. Leapfrog's simpler structure avoids this pitfall.}
+\label{fig:singularity_aliasing}
+\end{figure}
+
+The Runge-Kutta Paradox reveals a fundamental tension between accuracy and robustness. Higher-order methods achieve better accuracy on smooth problems precisely by sampling more points and fitting higher-degree polynomials. However, this same property makes them more susceptible to pathological behavior when the vector field is not smooth.
+
+The singularity aliasing phenomenon has practical implications for neural network training. When using high-order ODE solvers, the training process may become unstable precisely at the moments when the model is learning to make discrete decisions—exactly when we need stable dynamics.
+
+\subsection{The ``Local Realism'' of Low-Order Schemes}
+
+Lower-order methods exhibit what we call \textbf{Local Realism}. Consider the Heun method (RK2):
+
+\begin{enumerate}[label=\textbf{\arabic*.}, leftmargin=1.5cm]
+\item \textbf{Predictor:} $\tilde{x}_{n+1} = x_n + \Delta t \cdot f(x_n)$
+\item \textbf{Corrector:} $x_{n+1} = x_n + \frac{\Delta t}{2}[f(x_n) + f(\tilde{x}_{n+1})]$
+\end{enumerate}
+
+By evaluating the gradient only at the boundaries of the step, Heun is ``agnostic'' to the chaotic higher-order derivatives inside the step interval. It treats the singularity as a local impulse rather than a smooth landscape to be modeled.
+
+The local realism of low-order methods is their key advantage in piecewise Riemannian varieties. By not attempting to model the internal structure of each integration step, they naturally handle discontinuous vector fields without over-fitting to local extrema or singularities.
+
+% =============================================================================
+% SECTION 4: SYMPLECTIC STABILITY
+% =============================================================================
+\section{Symplectic Stability in Non-Smooth Varieties}
+
+For long-horizon reasoning, we utilize the \textbf{Leapfrog Integrator}, a second-order symplectic scheme that alternates between position and velocity updates:
+
+\begin{equation}
+v_{n+1/2} = v_n + \frac{\Delta t}{2} a(x_n)
+\end{equation}
+\begin{equation}
+x_{n+1} = x_n + \Delta t v_{n+1/2}
+\end{equation}
+\begin{equation}
+v_{n+1} = v_{n+1/2} + \frac{\Delta t}{2} a(x_{n+1})
+\end{equation}
+
+The Leapfrog method is particularly robust in Piecewise Riemannian Varieties because it preserves the phase-space volume even when the metric is non-smooth. It allows the model to ``tunnel'' through sharp transitions without the energy divergence typical of non-symplectic methods.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.0]
+
+% Phase space comparison
+\node[draw, rectangle, rounded corners, fill=lightgray,
+      minimum width=8cm, minimum height=4cm] (phasespace) {};
+
+% Axes
+\draw[->, thick] (0.5, -1.5) -- (7.5, -1.5) node[right] {$t$};
+\draw[->, thick] (0.5, -1.5) -- (0.5, 2) node[above] {$x(t)$};
+
+% RK4 divergence
+\draw[red, thick, domain=0:3, samples=30]
+      plot ({\x}, {1.5 - 0.5*\x + 0.3*\x*\x}) node[below right, red]
+      {\small RK4: Catastrophic divergence};
+
+% Leapfrog stability
+\draw[green, thick, domain=0:7, samples=100]
+      plot ({\x}, {sin(\x r) + 0.1*sin(3*\x r)}) node[above right, green]
+      {\small Leapfrog: Bounded oscillation};
+
+% Singularity crossing
+\draw[dashed, thick, draw=warning] (3, -1.5) -- (3, 2)
+      node[above, color=warning] {\textbf{Singularity}};
+
+% Stability comparison
+\node[draw, rounded corners, fill=secondary!15,
+      minimum width=4cm, minimum height=1.2cm,
+      at (6, 1.5)] (stability)
+      {\begin{tabular}{c}
+        \textbf{Symplectic Stability} \\ 
+        Volume preservation $\rightarrow$ Energy bounded \\ 
+        Non-smooth $\rightarrow$ Still stable
+       \end{tabular}};
+
+\node[draw, rounded corners, fill=warning!15,
+      minimum width=4cm, minimum height=1.2cm,
+      at (6, -0.5)] (divergence)
+      {\begin{tabular}{c}
+        \textbf{RK4 Failure} \\ 
+        Energy non-conservation $\rightarrow$ Divergence \\ 
+        Smoothness assumption violated
+       \end{tabular}};
+
+\end{tikzpicture}
+caption{\textbf{Phase Space Behavior Comparison:} When encountering a 
+         singularity, RK4 (red) exhibits catastrophic energy divergence, 
+         while Leapfrog (green) maintains bounded oscillations through 
+         its phase-space volume preservation.}
+\label{fig:phase_stability}
+\end{figure}
+
+The symplectic structure of the Leapfrog integrator provides a natural regularization that prevents the extreme energy changes associated with singularity crossing. By alternating position and velocity updates, the method effectively samples the vector field in a way that is insensitive to the detailed structure of non-smooth regions.
+
+% =============================================================================
+% SECTION 5: DISCUSSION
+% =============================================================================
+\section{Discussion: The Efficiency of Roughness}
+
+The Runge-Kutta Paradox suggests that for machine reasoning, \textbf{less is more}. High-order integration is not merely computationally expensive; it is fundamentally incompatible with the discrete nature of logic.
+
+A perfectly smooth manifold represents a world of ``maybes'' and ``probabilities.'' A piecewise variety, with its ``rough'' edges and singularities, represents a world of ``ifs'' and ``thens.'' By embracing low-order integration, we enable neural networks to maintain stable symbolic states within a continuous, differentiable flow.
+
+\begin{table}[htbp]
+\centering
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Property} & \textbf{Smooth Manifold} & \textbf{Piecewise Variety} \\
+\midrule
+Metric Tensor & Continuous $g_{\mu\nu} \in C^0$ & Discontinuous at boundaries \\
+Dynamics & $C^2$ vector field & Piecewise $C^2$ with singularities \\
+Optimal Integrator & RK4 (high-order) & Leapfrog/Heun (low-order) \\
+Reasoning Type & Probabilistic interpolation & Discrete decision making \\
+\bottomrule
+\end{tabular}
+\caption{\textbf{Comparison of Manifold Types:} The choice of optimal 
+         integrator depends fundamentally on the geometric structure 
+         of the manifold. Smooth manifolds benefit from high-order methods, 
+         while piecewise varieties require low-order symplectic schemes.}
+\label{tab:manifold_comparison}
+\end{table}
+
+The efficiency of roughness is not merely a theoretical observation but has practical implications for neural network architecture design. By accepting that the latent space will develop non-smooth structures during learning, we can design integration schemes that are robust to these structures rather than attempting to suppress them.
+
+% =============================================================================
+% SECTION 6: CONCLUSION
+% =============================================================================
+\section{Conclusion}
+
+We have identified the Runge-Kutta Paradox as a fundamental limitation of high-order numerical methods in the context of neural reasoning. By formalizing the concept of \textbf{Piecewise Riemannian Varieties}, we provide a geometric framework for understanding how continuous models can perform discrete logic. The transition from smooth interpolation to piecewise reasoning is not a matter of model scale, but of geometric topology and the numerical ``honesty'' of the integrator.
+
+The key insights of this work include:
+
+\begin{itemize}[leftmargin=1cm]
+\item \textbf{Structural Limitation}: High-order methods like RK4 are fundamentally unsuitable for piecewise-smooth manifolds due to Singularity Aliasing.
+
+\item \textbf{Stability Through Simplicity}: Low-order symplectic methods (Leapfrog, Heun) provide superior stability in piecewise Riemannian varieties through their ``local realism'' and volume preservation.
+
+\item \textbf{Geometric Framework}: Piecewise Riemannian varieties with reactive curvature and logical singularities provide a complete geometric framework for understanding symbolic reasoning in continuous flows.
+
+\item \textbf{Efficiency of Roughness}: Embracing the non-smooth structure of reasoning manifolds leads to more efficient and stable neural network architectures.
+\end{itemize}
+
+Future work will explore adaptive schemes that can automatically detect manifold structure and select appropriate integrators, as well as the extension of piecewise variety theory to higher-order differential structures.
+
+\vfill
+
+% =============================================================================
+% REFERENCES
+% =============================================================================
+\section*{References}
+
+\begin{enumerate}[leftmargin=1.5cm, label={[\arabic*]}]
+\item Gromov, M. (1999). \textit{Metric Structures for Riemannian and Non-Riemannian Spaces}. Birkhäuser.
+
+\item Clarke, F. H. (1990). \textit{Optimization and Nonsmooth Analysis}. SIAM.
+
+\item Hairer, E., Lubich, C., \& Wanner, G. (2006). \textit{Geometric Numerical Integration}. Springer.
+
+\item Butcher, J. C. (2016). \textit{Numerical Methods for Ordinary Differential Equations}. Wiley.
+
+\item Arnold, V. I. (1992). \textit{Catastrophe Theory}. Springer-Verlag.
+
+\item Chen, R. T. Q., et al. (2018). \textit{Neural Ordinary Differential Equations}. NeurIPS.
+
+\item Strogatz, S. H. (2018). \textit{Nonlinear Dynamics and Chaos}. CRC Press.
+\end{enumerate}
+
+\end{document}

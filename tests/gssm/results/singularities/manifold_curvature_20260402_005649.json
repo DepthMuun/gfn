@@ -1,0 +1,40 @@
+{
+  "test_name": "manifold_curvature",
+  "category": "singularities",
+  "timestamp": "2026-04-02T00:56:49.222307",
+  "elapsed_seconds": 0.22163176536560059,
+  "passed": true,
+  "metrics": {
+    "mean_curvature": 666.8366931951559,
+    "std_curvature": 269.3504582896628,
+    "max_curvature": 1000.0,
+    "high_curvature_ratio": 1.0
+  },
+  "history": [
+    {
+      "name": "mean_curvature",
+      "value": 666.8366931951559,
+      "timestamp": 1775102209.2221713,
+      "step": null
+    },
+    {
+      "name": "std_curvature",
+      "value": 269.3504582896628,
+      "timestamp": 1775102209.2222369,
+      "step": null
+    },
+    {
+      "name": "max_curvature",
+      "value": 1000.0,
+      "timestamp": 1775102209.2222645,
+      "step": null
+    },
+    {
+      "name": "high_curvature_ratio",
+      "value": 1.0,
+      "timestamp": 1775102209.222298,
+      "step": null
+    }
+  ],
+  "errors": []
+}

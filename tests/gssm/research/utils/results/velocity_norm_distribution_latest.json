@@ -1,0 +1,54 @@
+{
+  "test_name": "velocity_norm_distribution",
+  "category": "singularities",
+  "timestamp": "2026-04-15T17:39:10.317002",
+  "elapsed_seconds": 0.13988113403320312,
+  "passed": true,
+  "metrics": {
+    "mean_velocity_norm": 4.24649544278509,
+    "std_velocity_norm": 1.0560659135279806,
+    "min_velocity_norm": 0.0,
+    "max_velocity_norm": 9.455177307128906,
+    "critical_points_count": "4",
+    "critical_points_ratio": 0.00390625
+  },
+  "history": [
+    {
+      "name": "mean_velocity_norm",
+      "value": 4.24649544278509,
+      "timestamp": 1776285550.3169198,
+      "step": null
+    },
+    {
+      "name": "std_velocity_norm",
+      "value": 1.0560659135279806,
+      "timestamp": 1776285550.3169737,
+      "step": null
+    },
+    {
+      "name": "min_velocity_norm",
+      "value": 0.0,
+      "timestamp": 1776285550.3169868,
+      "step": null
+    },
+    {
+      "name": "max_velocity_norm",
+      "value": 9.455177307128906,
+      "timestamp": 1776285550.3169951,
+      "step": null
+    },
+    {
+      "name": "critical_points_count",
+      "value": "4",
+      "timestamp": 1776285550.3169973,
+      "step": null
+    },
+    {
+      "name": "critical_points_ratio",
+      "value": 0.00390625,
+      "timestamp": 1776285550.3169985,
+      "step": null
+    }
+  ],
+  "errors": []
+}

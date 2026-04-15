@@ -1,0 +1,12 @@
+{
+  "test_name": "energy_drift_vs_timestep",
+  "category": "research",
+  "timestamp": "2026-04-01T03:01:18.625407",
+  "elapsed_seconds": 0.003035306930541992,
+  "passed": false,
+  "metrics": {},
+  "history": [],
+  "errors": [
+    "'float' object has no attribute 'item'"
+  ]
+}

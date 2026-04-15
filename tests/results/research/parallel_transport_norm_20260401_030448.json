@@ -1,0 +1,12 @@
+{
+  "test_name": "parallel_transport_norm",
+  "category": "research",
+  "timestamp": "2026-04-01T03:04:48.611788",
+  "elapsed_seconds": 0.0008089542388916016,
+  "passed": false,
+  "metrics": {},
+  "history": [],
+  "errors": [
+    "ToroidalRiemannianGeometry.__init__() got an unexpected keyword argument 'R'"
+  ]
+}

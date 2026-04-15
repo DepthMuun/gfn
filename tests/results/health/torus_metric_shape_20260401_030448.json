@@ -1,0 +1,39 @@
+{
+  "test_name": "torus_metric_shape",
+  "category": "health",
+  "timestamp": "2026-04-01T03:04:48.024644",
+  "elapsed_seconds": 0.0013725757598876953,
+  "passed": true,
+  "metrics": {
+    "metric_shape": "torch.Size([2, 4])",
+    "batch_size": 2,
+    "dim": 4
+  },
+  "history": [
+    {
+      "name": "metric_shape",
+      "value": "torch.Size([2, 4])",
+      "timestamp": 1775023488.0245018,
+      "step": null
+    },
+    {
+      "name": "batch_size",
+      "value": 2,
+      "timestamp": 1775023488.0245066,
+      "step": null
+    },
+    {
+      "name": "dim",
+      "value": 4,
+      "timestamp": 1775023488.0245087,
+      "step": null
+    },
+    {
+      "name": "metric_shape",
+      "value": "torch.Size([2, 4])",
+      "timestamp": 1775023488.0246387,
+      "step": null
+    }
+  ],
+  "errors": []
+}

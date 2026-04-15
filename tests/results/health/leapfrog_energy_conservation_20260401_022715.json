@@ -1,0 +1,12 @@
+{
+  "test_name": "leapfrog_energy_conservation",
+  "category": "health",
+  "timestamp": "2026-04-01T02:27:15.825746",
+  "elapsed_seconds": 0.0014786720275878906,
+  "passed": false,
+  "metrics": {},
+  "history": [],
+  "errors": [
+    "Protocols cannot be instantiated"
+  ]
+}

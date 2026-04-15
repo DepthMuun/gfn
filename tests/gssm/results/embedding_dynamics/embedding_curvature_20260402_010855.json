@@ -1,0 +1,33 @@
+{
+  "test_name": "embedding_curvature",
+  "category": "embedding_dynamics",
+  "timestamp": "2026-04-02T01:08:55.938810",
+  "elapsed_seconds": 0.08285284042358398,
+  "passed": true,
+  "metrics": {
+    "mean_neighbor_distance": 0.5737697971984744,
+    "std_neighbor_distance": 0.16051525568909814,
+    "curvature_estimate": 0.2797554937106926
+  },
+  "history": [
+    {
+      "name": "mean_neighbor_distance",
+      "value": 0.5737697971984744,
+      "timestamp": 1775102935.9387982,
+      "step": null
+    },
+    {
+      "name": "std_neighbor_distance",
+      "value": 0.16051525568909814,
+      "timestamp": 1775102935.9388008,
+      "step": null
+    },
+    {
+      "name": "curvature_estimate",
+      "value": 0.2797554937106926,
+      "timestamp": 1775102935.9388022,
+      "step": null
+    }
+  ],
+  "errors": []
+}

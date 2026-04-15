@@ -1,0 +1,12 @@
+{
+  "test_name": "geodesic_vs_euclidean",
+  "category": "research",
+  "timestamp": "2026-04-01T15:36:55.298598",
+  "elapsed_seconds": 0.0014941692352294922,
+  "passed": false,
+  "metrics": {},
+  "history": [],
+  "errors": [
+    "geodesic_distance_torus() got an unexpected keyword argument 'R_major'"
+  ]
+}

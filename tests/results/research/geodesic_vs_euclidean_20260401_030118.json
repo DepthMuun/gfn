@@ -1,0 +1,12 @@
+{
+  "test_name": "geodesic_vs_euclidean",
+  "category": "research",
+  "timestamp": "2026-04-01T03:01:18.341118",
+  "elapsed_seconds": 0.0013668537139892578,
+  "passed": false,
+  "metrics": {},
+  "history": [],
+  "errors": [
+    "ToroidalRiemannianGeometry.__init__() got an unexpected keyword argument 'R'"
+  ]
+}

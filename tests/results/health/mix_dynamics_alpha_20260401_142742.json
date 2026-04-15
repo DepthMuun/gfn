@@ -1,0 +1,26 @@
+{
+  "test_name": "mix_dynamics_alpha",
+  "category": "health",
+  "timestamp": "2026-04-01T14:27:42.596178",
+  "elapsed_seconds": 0.001316070556640625,
+  "passed": true,
+  "metrics": {
+    "alpha_value": 0.5744425058364868,
+    "alpha_in_range": true
+  },
+  "history": [
+    {
+      "name": "alpha_value",
+      "value": 0.5744425058364868,
+      "timestamp": 1775064462.5961707,
+      "step": null
+    },
+    {
+      "name": "alpha_in_range",
+      "value": true,
+      "timestamp": 1775064462.5961745,
+      "step": null
+    }
+  ],
+  "errors": []
+}

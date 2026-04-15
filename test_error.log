@@ -1,0 +1,22 @@
+
+=================================== ERRORS ====================================
+________ ERROR collecting tests/isn/functional/test_addition_logic.py _________
+ImportError while importing test module 'D:\ASAS\manifold_mini\dev\gfn\tests\isn\functional\test_addition_logic.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+C:\Python313\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\gfn_framework\tests\isn\functional\test_addition_logic.py:16: in <module>
+    from gfn.realizations.isn.training.coherence_loss import MultiDimensionalLoss
+E   ModuleNotFoundError: No module named 'gfn.realizations.isn.training.coherence_loss'
+============================== warnings summary ===============================
+C:\Users\joaqu\AppData\Roaming\Python\Python313\site-packages\torch\cuda\__init__.py:61
+  C:\Users\joaqu\AppData\Roaming\Python\Python313\site-packages\torch\cuda\__init__.py:61: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+    import pynvml  # type: ignore[import]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+ERROR tests/isn/functional/test_addition_logic.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 warning, 1 error in 4.97s

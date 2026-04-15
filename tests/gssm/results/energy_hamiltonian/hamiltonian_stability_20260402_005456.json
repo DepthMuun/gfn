@@ -1,0 +1,12 @@
+{
+  "test_name": "hamiltonian_stability",
+  "category": "energy_hamiltonian",
+  "timestamp": "2026-04-02T00:54:56.642270",
+  "elapsed_seconds": 0.05727791786193848,
+  "passed": false,
+  "metrics": {},
+  "history": [],
+  "errors": [
+    "\"normal_kernel_cpu\" not implemented for 'Long'"
+  ]
+}

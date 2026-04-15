@@ -1,0 +1,12 @@
+{
+  "test_name": "embedding_clustering",
+  "category": "embedding_dynamics",
+  "timestamp": "2026-04-02T00:54:08.992462",
+  "elapsed_seconds": 0.14558935165405273,
+  "passed": false,
+  "metrics": {},
+  "history": [],
+  "errors": [
+    "The shape of the mask [16] at index 0 does not match the shape of the indexed tensor [8, 64] at index 1"
+  ]
+}

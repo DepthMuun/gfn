@@ -1,0 +1,40 @@
+{
+  "test_name": "geodesic_vs_euclidean",
+  "category": "research",
+  "timestamp": "2026-04-01T23:14:47.352249",
+  "elapsed_seconds": 0.0016331672668457031,
+  "passed": true,
+  "metrics": {
+    "geodesic_distance": 0.28318530321121216,
+    "euclidean_distance": 6.0,
+    "savings_ratio": 21.18754005432129,
+    "uses_wrapping": true
+  },
+  "history": [
+    {
+      "name": "geodesic_distance",
+      "value": 0.28318530321121216,
+      "timestamp": 1775096087.3521516,
+      "step": null
+    },
+    {
+      "name": "euclidean_distance",
+      "value": 6.0,
+      "timestamp": 1775096087.3521552,
+      "step": null
+    },
+    {
+      "name": "savings_ratio",
+      "value": 21.18754005432129,
+      "timestamp": 1775096087.3522005,
+      "step": null
+    },
+    {
+      "name": "uses_wrapping",
+      "value": true,
+      "timestamp": 1775096087.352223,
+      "step": null
+    }
+  ],
+  "errors": []
+}

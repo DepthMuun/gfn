@@ -1,0 +1,33 @@
+{
+  "test_name": "manifold_layer_device",
+  "category": "health",
+  "timestamp": "2026-04-01T22:52:00.265258",
+  "elapsed_seconds": 0.004672527313232422,
+  "passed": true,
+  "metrics": {
+    "input_device": "cpu",
+    "output_device": "cpu",
+    "device_preserved": true
+  },
+  "history": [
+    {
+      "name": "input_device",
+      "value": "cpu",
+      "timestamp": 1775094720.265249,
+      "step": null
+    },
+    {
+      "name": "output_device",
+      "value": "cpu",
+      "timestamp": 1775094720.2652533,
+      "step": null
+    },
+    {
+      "name": "device_preserved",
+      "value": true,
+      "timestamp": 1775094720.265255,
+      "step": null
+    }
+  ],
+  "errors": []
+}

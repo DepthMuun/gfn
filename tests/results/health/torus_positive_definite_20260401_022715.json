@@ -1,0 +1,12 @@
+{
+  "test_name": "torus_positive_definite",
+  "category": "health",
+  "timestamp": "2026-04-01T02:27:15.735088",
+  "elapsed_seconds": 0.04171109199523926,
+  "passed": false,
+  "metrics": {},
+  "history": [],
+  "errors": [
+    "linalg.eigh: The input tensor A must have at least 2 dimensions."
+  ]
+}

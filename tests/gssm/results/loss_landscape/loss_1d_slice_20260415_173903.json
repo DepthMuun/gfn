@@ -1,0 +1,40 @@
+{
+  "test_name": "loss_1d_slice",
+  "category": "loss_landscape",
+  "timestamp": "2026-04-15T17:39:03.597400",
+  "elapsed_seconds": 0.5717146396636963,
+  "passed": true,
+  "metrics": {
+    "loss_min": 5.429266452789307,
+    "loss_max": 5.553895473480225,
+    "loss_range": 0.12462902069091797,
+    "local_minima_count": 0
+  },
+  "history": [
+    {
+      "name": "loss_min",
+      "value": 5.429266452789307,
+      "timestamp": 1776285543.597372,
+      "step": null
+    },
+    {
+      "name": "loss_max",
+      "value": 5.553895473480225,
+      "timestamp": 1776285543.5973837,
+      "step": null
+    },
+    {
+      "name": "loss_range",
+      "value": 0.12462902069091797,
+      "timestamp": 1776285543.5973942,
+      "step": null
+    },
+    {
+      "name": "local_minima_count",
+      "value": 0,
+      "timestamp": 1776285543.5973952,
+      "step": null
+    }
+  ],
+  "errors": []
+}

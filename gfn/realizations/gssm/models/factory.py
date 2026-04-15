@@ -170,7 +170,8 @@ class ModelFactory:
         v0 = nn.Parameter(torch.randn(1, config.heads, head_dim) * spread)
         
         # ── 6. Model assembly ────────────────────────────────────────────────
-        model = ManifoldModel(layers, embedding, x0, v0, config.holographic, config=config)
+        store_full = getattr(config, 'store_full_sequence', True)
+        model = ManifoldModel(layers, embedding, x0, v0, config.holographic, config=config, store_full_sequence=store_full)
         
         # ── 7. Readout plugin ─────────────────────────────────────────────────
         readout_builder = ReadoutBuilder(config, dim_total, topology)

@@ -1,0 +1,12 @@
+{
+  "test_name": "fixed_points",
+  "category": "singularities",
+  "timestamp": "2026-04-02T00:56:50.093957",
+  "elapsed_seconds": 0.1369779109954834,
+  "passed": false,
+  "metrics": {},
+  "history": [],
+  "errors": [
+    "The size of tensor a (16) must match the size of tensor b (4) at non-singleton dimension 2"
+  ]
+}

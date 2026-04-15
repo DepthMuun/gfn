@@ -112,6 +112,8 @@ class EmbeddingConfig:
 @dataclass
 class ReadoutConfig:
     type: str = 'standard'
+    out_dim: Optional[int] = None  # For implicit/identity readout output dimension
+    hidden_dim: Optional[int] = None  # For implicit readout hidden layer
 
 
 @dataclass
@@ -194,6 +196,9 @@ class ManifoldConfig:
     trajectory_mode: str = 'partition'
     coupler_mode: str = 'mean_field'
     initial_spread: float = 0.1  # 0.1 recommended for better gradient flow
+    store_full_sequence: bool = True  # Store full sequence for backward/losses
+    # BUG FIX: Added missing continuous_input_dim for continuous embedding mode
+    continuous_input_dim: Optional[int] = None  # Input dimension for continuous mode (e.g., 900 for 30x30 grid)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

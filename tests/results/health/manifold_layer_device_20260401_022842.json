@@ -1,0 +1,12 @@
+{
+  "test_name": "manifold_layer_device",
+  "category": "health",
+  "timestamp": "2026-04-01T02:28:42.049208",
+  "elapsed_seconds": 0.0013513565063476562,
+  "passed": false,
+  "metrics": {},
+  "history": [],
+  "errors": [
+    "Protocols cannot be instantiated"
+  ]
+}

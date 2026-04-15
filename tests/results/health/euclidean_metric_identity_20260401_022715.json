@@ -1,0 +1,12 @@
+{
+  "test_name": "euclidean_metric_identity",
+  "category": "health",
+  "timestamp": "2026-04-01T02:27:15.809653",
+  "elapsed_seconds": 0.0012042522430419922,
+  "passed": false,
+  "metrics": {},
+  "history": [],
+  "errors": [
+    "BaseGeometry.__init__() got an unexpected keyword argument 'dim'"
+  ]
+}

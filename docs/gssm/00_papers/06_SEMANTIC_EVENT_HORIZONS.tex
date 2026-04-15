@@ -1,0 +1,287 @@
+\documentclass[12pt,letterpaper,twoside]{article}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{authblk}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{xcolor}
+\usepackage{geometry}
+\geometry{margin=1in}
+
+% Math commands
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\N}{\mathbb{N}}
+\DeclareMathOperator{\diag}{diag}
+
+% Custom colors
+\definecolor{manifoldblue}{RGB}{33, 97, 140}
+\definecolor{manifoldred}{RGB}{180, 60, 60}
+\definecolor{manifoldgreen}{RGB}{60, 140, 80}
+
+% Title and author information
+\title{Semantic Event Horizons: Discrete Logic via Riemannian Singularities}
+\author{Joaquin Stürtz}
+\date{January 26, 2026}
+\affil{Independent Researcher}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Achieving categorical certainty in continuous latent spaces remains a significant challenge for differentiable architectures. We introduce \textbf{Semantic Event Horizons}, a mechanism for enforcing discrete symbolic states through controlled curvature amplification in a neural manifold. By creating localized regions of high curvature—attractors analogous to event horizons—the state trajectory can be stabilized around a specific logical configuration without breaking differentiability. In the reference implementation, this is realized as a potential-driven multiplicative boost of the Christoffel force, creating a "black hole" effect that captures and holds the latent state once a confidence threshold is crossed.
+\end{abstract}
+
+\section{1. Introduction}
+
+Neural networks typically operate in continuous vector spaces, while logical reasoning requires discrete states (True/False, Token A/Token B). This fundamental tension between continuous representation and discrete reasoning has motivated extensive research into neuro-symbolic integration. Standard approaches bridge this gap using softmax layers or hard attention, which often result in "soft" decisions that degrade over long sequences or lack the permanence of symbolic memory.
+
+Softmax-based classification provides a continuous approximation to discrete decisions, but the probabilistic output remains inherently uncertain. Even when the softmax output approaches 1.0 for one class, the network can still produce unexpected outputs for slightly perturbed inputs. This brittleness limits the applicability of neural networks for tasks requiring reliable categorical judgments.
+
+Hard attention mechanisms aim to select discrete tokens, but the selection process typically involves argmax operations that break gradient flow. Gumbel-Softmax provides a continuous approximation with a temperature parameter, but the trade-off between gradient quality and discrete behavior remains problematic. High temperature yields smooth gradients but soft decisions; low temperature yields discrete decisions but poor gradients.
+
+Geodesic Flow Networks (GFN) propose an alternative paradigm: representing computation as inertial motion on a manifold. Rather than computing discrete decisions through architectural components, the dynamics of the system itself encode the computation. The trajectory of the latent state follows physical laws that encode the relationships between inputs and outputs.
+
+However, a purely inertial system tends to drift. Without external intervention, the accumulated momentum carries the state away from meaningful configurations. To implement robust logic, we need regions of the manifold that act as "traps" for information—semantic event horizons that, once entered, are energetically expensive to leave.
+
+This paper details the mathematical formulation and implementation of these singularities within the GFN framework. The key insight is that discrete logical states can be represented as regions of extremely high curvature, where the geometry itself forces the state to remain. This approach synthesizes the stability of symbolic logic with the trainability of differentiable systems.
+
+The contributions of this work are:
+\begin{enumerate}
+    \item A mathematical framework for embedding discrete logic into continuous manifolds through curvature singularities.
+    \item The singularity potential field, a learned function that identifies regions corresponding to stable logical attractors.
+    \item The event horizon condition, a differentiable thresholding mechanism for activating high-curvature regions.
+    \item Implementation strategies that maintain numerical stability despite the presence of near-singularities.
+    \item A semantic interpretation where truth corresponds to physical attractors on the manifold.
+\end{enumerate}
+
+The following sections develop this framework systematically, from mathematical foundations through implementation details to semantic interpretation.
+
+\section{2. Mathematical Foundation}
+
+The mathematical framework for Semantic Event Horizons builds upon Riemannian geometry, extending the standard connection with state-dependent singularities.
+
+Let $(\mathcal{M}, g)$ be a smooth Riemannian manifold representing the latent state space. The manifold is equipped with a metric tensor $g$ that defines distances and angles in the latent space. For sequence modeling, $\mathcal{M}$ is typically $\R^d$ (Euclidean space) or $\T^d$ (torus for periodic coordinates).
+
+The dynamics of a particle (thought) on this manifold are governed by the geodesic equation:
+\begin{equation}
+\ddot{x}^k + \Gamma^k_{ij} \dot{x}^i \dot{x}^j = 0,
+\end{equation}
+where $x^k(t)$ are the coordinates of the particle, $\dot{x}^k = dx^k/dt$ is the velocity, $\ddot{x}^k = d^2x^k/dt^2$ is the acceleration, and $\Gamma^k_{ij}$ are the Christoffel symbols of the Levi-Civita connection.
+
+The Christoffel symbols encode the geometry of the manifold. In local coordinates, they are computed from the metric tensor:
+\begin{equation}
+\Gamma^k_{ij} = \frac{1}{2} g^{kl} \left(\partial_i g_{jl} + \partial_j g_{il} - \partial_l g_{ij}\right),
+\end{equation}
+where $g^{kl}$ is the inverse metric tensor and $\partial_i = \partial/\partial x^i$.
+
+Geodesics represent the straightest possible paths on the manifold, generalizing straight lines from Euclidean space to curved geometries. A particle following a geodesic experiences no acceleration in its own reference frame; apparent accelerations arise from the curvature of the ambient space.
+
+In the GFN framework, the geodesic equation governs the evolution of the latent state. Input tokens apply forces that deflect the geodesic, and the resulting trajectory encodes the computation.
+
+To implement discrete logic, we extend the standard Levi-Civita connection with a state-dependent scalar field, termed the \textbf{Singularity Potential}.
+
+We define an \textbf{Effective Connection} $\Gamma_{\text{eff}}$ that modulates the standard Christoffel symbols:
+\begin{equation}
+\Gamma_{\text{eff}}^k_{ij}(x) = \Gamma_{\text{LC}}^k_{ij}(x) \cdot \Psi(x),
+\end{equation}
+where $\Gamma_{\text{LC}}$ is the Levi-Civita connection and $\Psi(x) \geq 1$ is a position-dependent scalar field.
+
+This multiplicative modulation allows the manifold to dynamically stiffen. When $\Psi(x) \approx 1$, the geometry is standard Riemannian, and geodesics behave as expected. When $\Psi(x) \gg 1$, the Christoffel symbols become dominant, creating regions of intense effective curvature.
+
+The physical interpretation is that high $\Psi(x)$ increases the "fictitious forces" acting on the particle. These forces can trap the particle in local regions, preventing it from escaping even with substantial momentum. This trapping behavior implements the stability required for discrete logical states.
+
+The modulation factor $\Psi(x)$ is derived from a learned \textbf{Semantic Potential} $V(x)$. This potential represents the model's confidence that the current state $x$ corresponds to a stable logical attractor.
+
+For a manifold with coordinates $x \in \R^d$ (or $\T^d$ in the toroidal case), we define:
+\begin{equation}
+V(x) = \sigma(W_V \cdot \phi(x) + b_V),
+\end{equation}
+where:
+\begin{itemize}
+    \item $\sigma$ is the sigmoid function, ensuring $V(x) \in (0, 1)$.
+    \item $W_V, b_V$ are learnable parameters of the singularity gate.
+    \item $\phi(x)$ is a coordinate embedding: $\phi(x) = x$ for $\R^d$, or $\phi(x) = [\sin(x), \cos(x)]$ for $\T^d$.
+\end{itemize}
+
+The coordinate embedding $\phi(x)$ ensures that the potential function respects the topology of the manifold. For toroidal coordinates, the periodic sine-cosine embedding prevents discontinuities at the boundary $x = 2\pi$.
+
+The semantic potential $V(x)$ learns to identify regions of the latent space that correspond to valid logical states. During training, the model adjusts $W_V$ and $b_V$ to place high potential values at locations that should act as attractors.
+
+To simulate discrete transitions—the "collapse" of a probability into a fact—we introduce a thresholding mechanism. We define a critical confidence $\tau$ (typically 0.8 or 0.9). The curvature boost is activated when $V(x) > \tau$:
+\begin{equation}
+\Psi(x) = 1 + (\lambda - 1) \cdot \sigma\left(\beta \cdot (V(x) - \tau)\right),
+\end{equation}
+where:
+\begin{itemize}
+    \item $\lambda$ is the \textbf{Black Hole Strength} (e.g., 10.0), determining the intensity of the singularity.
+    \item $\beta$ is a sharpness factor (e.g., 10.0) that approximates a step function while maintaining differentiability.
+    \item $\tau$ is the \textbf{Singularity Threshold}.
+\end{itemize}
+
+The sigmoid function $\sigma(\beta \cdot (V(x) - \tau))$ provides a smooth approximation to the step function:
+\begin{itemize}
+    \item When $V(x) \ll \tau$, the argument is large negative, $\sigma \to 0$, and $\Psi(x) \approx 1$.
+    \item When $V(x) \gg \tau$, the argument is large positive, $\sigma \to 1$, and $\Psi(x) \to \lambda$.
+\end{itemize}
+
+This creates a smooth transition between normal geometry ($\Psi \approx 1$) and singularity geometry ($\Psi \approx \lambda$). The sharpness parameter $\beta$ controls how abrupt this transition is; larger $\beta$ yields a sharper transition more closely approximating a discrete step.
+
+When the state enters a region where $V(x) > \tau$, the effective connection is multiplied by $\lambda$, creating a region of intense curvature—an event horizon. The Christoffel forces become $\lambda$ times larger, rapidly decelerating the particle and trapping it in the local region.
+
+The singularity threshold $\tau$ can be interpreted as a confidence level. States with semantic potential above $\tau$ are considered "confident enough" to warrant permanent storage. The exact value of $\tau$ is task-dependent and can be learned or set based on validation performance.
+
+The combination of learned semantic potential and configurable singularity parameters provides a flexible framework for implementing discrete logic in continuous latent spaces.
+
+\section{3. Implementation}
+
+The Semantic Event Horizon is implemented as part of the \texttt{ReactiveChristoffel} geometry kernel. This module intercepts the standard Christoffel computation and applies the potential-driven boost.
+
+The implementation ensures differentiability using a "soft" sigmoid transition instead of a hard \texttt{if} statement. This allows gradients to flow through the horizon creation process, enabling end-to-end training of the singularity parameters.
+
+The reference implementation extends the \texttt{LowRankChristoffel} class, which provides efficient computation of Christoffel symbols using a low-rank approximation. The low-rank parameterization reduces the computational complexity from $O(d^3)$ to $O(dR)$ for rank $R$, making geometric computation tractable for high-dimensional latent spaces.
+
+The complete implementation proceeds as follows:
+
+\begin{minted}[mathescape, fontsize=\small, frame=lines]{python}
+class ReactiveChristoffel(LowRankChristoffel):
+    """
+    Active Inference: Geometry that reacts to the agent's state.
+    """
+    def forward(self, v, x=None, force=None, **kwargs):
+        # 1. Compute Base Curvature (Low-Rank)
+        gamma = super().forward(v, x, force=force)
+        
+        # 2. Check Active Configuration
+        if not self.active_cfg.get('singularities', {}).get('enabled', False):
+            return gamma
+
+        # 3. Compute Semantic Potential V(x)
+        # Handle Toroidal Topology
+        if self.is_torus:
+             x_in = torch.cat([torch.sin(x), torch.cos(x)], dim=-1)
+        else:
+             x_in = x
+             
+        # Potential: [batch, 1]
+        potential = torch.sigmoid(self.V(x_in)) 
+        
+        # 4. Trigger Singularity (Soft Threshold)
+        # is_singularity approaches 1.0 when potential > threshold
+        threshold = self.singularity_threshold
+        strength = self.black_hole_strength
+        
+        is_singularity = torch.sigmoid(10.0 * (potential - threshold))
+        
+        # 5. Apply Multiplicative Boost
+        # Gamma_new = Gamma * (1 + (Strength - 1) * Trigger)
+        singularity_mult = 1.0 + is_singularity * (strength - 1.0)
+        gamma = gamma * singularity_mult
+            
+        return gamma
+\end{minted}
+
+The implementation follows these steps:
+\begin{enumerate}
+    \item \textbf{Base curvature computation}: The standard low-rank Christoffel symbols are computed first.
+    \item \textbf{Configuration check}: If singularities are disabled, return the base curvature.
+    \textbf{Semantic potential}: Compute $V(x)$ using the learned potential function. For toroidal topologies, use periodic features.
+    \item \textbf{Singularity trigger}: Apply the soft threshold using sigmoid to approximate the step function.
+    \item \textbf{Multiplicative boost}: Apply the singularity multiplier to the Christoffel symbols.
+\end{enumerate}
+
+The use of \texttt{torch.sigmoid} for both the potential computation and the thresholding ensures that all operations are differentiable. Gradients can flow through the entire computation, allowing the parameters of $V(x)$ and the singularity configuration to be learned through backpropagation.
+
+For high-performance training, the singularity logic is fused into the custom CUDA kernel \texttt{christoffel\_fused}. This avoids materializing the massive $\Gamma$ tensor in global memory, which would be infeasible for high-dimensional latent spaces.
+
+The CUDA optimization leverages the fact that the singularity potential $V(x)$ and the boost factor $\Psi(x)$ can be computed on-the-fly within the GPU registers for each thread block. This ensures that the memory complexity remains $O(N)$ (linear in sequence length) despite the complex dynamic geometry.
+
+The fused implementation maintains numerical stability by computing the singularity multiplier directly from the potential, rather than storing intermediate values that could accumulate floating-point errors. This is particularly important given the extreme values involved in singularity computations.
+
+The combination of differentiable Python implementation and optimized CUDA kernels provides both research flexibility and production performance.
+
+The presence of high-curvature regions creates challenges for numerical integrators. Standard methods like RK4 assume the vector field is smooth ($C^4$). A "Black Hole" creates a near-discontinuity in the force field, violating this smoothness assumption.
+
+If a particle enters a horizon during an RK4 step, intermediate evaluations might overshoot. The RK4 method evaluates the vector field at multiple points within each step; if one of these points is deep within a singularity, the computed forces will be extremely large, potentially flinging the particle to arbitrary positions. This phenomenon is termed \textbf{Singularity Aliasing}, and it manifests as exploding gradients or unstable state trajectories.
+
+The RK4 method is designed for smooth vector fields where the fourth derivative exists and is bounded. Near a singularity, derivatives become unbounded as $\Psi(x) \to \lambda$, breaking the assumptions underlying RK4's error analysis.
+
+To mitigate these stability issues, GFN employs alternative integration schemes that are more robust to stiffness:
+
+\textbf{Leapfrog Integration} updates position and velocity in alternating half-steps:
+\begin{align}
+v_{n+1/2} &= v_n + \frac{\Delta t}{2} a(x_n), \\
+x_{n+1} &= x_n + \Delta t \cdot v_{n+1/2}, \\
+v_{n+1} &= v_{n+1/2} + \frac{\Delta t}{2} a(x_{n+1}).
+\end{align}
+This "local" update ensures that if a particle hits a horizon, the velocity update reflects the immediate curvature boost. The particle is trapped rather than flung away, as the velocity is updated based on the force at the current position rather than extrapolating from distant points.
+
+The leapfrog method is symplectic, preserving phase-space volume in the absence of dissipation. This provides long-term stability even when integrating over many steps.
+
+\textbf{Lower-Order Methods} such as Heun's method (explicit trapezoidal rule) provide more robustness to stiffness than RK4 while maintaining reasonable accuracy. Heun's method is:
+\begin{align}
+\tilde{x}_{n+1} &= x_n + \Delta t \cdot v_n, \\
+x_{n+1} &= x_n + \frac{\Delta t}{2} \left(v_n + \tilde{v}_{n+1}\right),
+\end{align}
+where $\tilde{v}_{n+1}$ is the velocity computed at the intermediate point. This method is less accurate than RK4 but handles discontinuities more gracefully.
+
+The choice of integrator depends on the task characteristics. For smooth dynamics with occasional singularities, leapfrog provides the best combination of accuracy and stability. For highly non-smooth dynamics, Heun's method may be more robust.
+
+\textbf{Energy Damping} provides an additional mechanism for stability. The singularity acts as a massive friction source; by coupling this with thermodynamic gating, the kinetic energy of the particle is rapidly dissipated upon entering the horizon. This effectively "freezes" the thought in place, preventing escape even if the numerical integrator permits some motion.
+
+The combination of symplectic integration and energy damping ensures that particles entering semantic event horizons remain trapped, implementing the discrete stability required for logical reasoning.
+
+The Semantic Event Horizon framework provides a rich semantic interpretation for the relationship between geometry and logic.
+
+In this framework, a logical truth is not a label but a \textbf{location} on the manifold:
+\begin{itemize}
+    \item \textbf{Uncertainty} corresponds to flat regions of the manifold where geodesics diverge and explore. In these regions, small perturbations produce large changes in trajectory, reflecting high entropy and low confidence.
+    \item \textbf{Certainty} corresponds to high-curvature wells (singularities) where geodesics converge and stabilize. Once a particle enters these regions, it remains trapped regardless of initial conditions, reflecting low entropy and high confidence.
+\end{itemize}
+
+The network learns to shape the manifold such that valid logical states (e.g., the subject of a sentence, the result of an arithmetic operation) form these attractors. The inference process is then simply the physical relaxation of the system into these energy wells.
+
+This interpretation connects to philosophical theories of truth as correspondence. A statement is true if and only if the latent state occupies the corresponding region of the semantic manifold. The geometry of the manifold encodes the relationships between statements, and the dynamics encode the process of reasoning.
+
+Unlike LSTM gates which can "leak" over time due to floating-point drift, a Semantic Event Horizon provides \textbf{topological protection}. Once a state is inside the horizon (and its energy dissipated), small perturbations (noise) are insufficient to overcome the potential barrier required to escape.
+
+The escape velocity from a singularity is proportional to the square root of the curvature boost. For large $\lambda$, the escape velocity becomes arbitrarily large, effectively making the horizon an impenetrable barrier. This allows GFN to maintain discrete states over thousands of steps without special "long-term memory" modules—the memory is an emergent property of the geometry itself.
+
+The topological protection is robust to numerical errors. Even if floating-point inaccuracies accumulate, the state remains trapped as long as the effective $\Psi(x) > 1$. The singularity provides a form of error correction that does not require explicit mechanisms.
+
+Semantic Event Horizons provide a rigorous mechanism for embedding discrete logic into continuous manifolds. By extending the Levi-Civita connection with a learned singularity potential, we enable neural networks to dynamically create "traps" for information.
+
+The key innovations are:
+\begin{enumerate}
+    \item \textbf{Effective connection}: Multiplicative modulation of Christoffel symbols by a singularity potential.
+    \item \textbf{Semantic potential}: Learned function identifying regions corresponding to stable logical attractors.
+    \item \textbf{Event horizon condition}: Differentiable thresholding for activating high-curvature regions.
+    \item \textbf{Stability mechanisms}: Symplectic integration and energy damping for numerical robustness.
+    \item \textbf{Topological protection}: Impenetrable barriers for maintaining discrete states over long sequences.
+\end{enumerate}
+
+This synthesis of differential geometry and machine learning opens new directions for neuro-symbolic reasoning. The framework provides:
+\begin{itemize}
+    \item \textbf{Robustness}: Discrete states are protected by geometry, not vulnerable to numerical drift.
+    \item \textbf{Differentiability}: All components are trainable through gradient-based optimization.
+    \item \textbf{Interpretability}: The geometry itself reveals the logical structure of the domain.
+    \item \textbf{Efficiency}: Constant-memory computation with no explicit storage of discrete states.
+\end{itemize}
+
+Future directions include:
+\begin{itemize}
+    \item Learning hierarchical singularities for multi-level logical reasoning.
+    \item Connecting singularities across sequences for long-range dependencies.
+    \item Formalizing the correspondence between manifold topology and logical entailment.
+    \item Applying event horizons to reinforcement learning for credit assignment.
+\end{itemize}
+
+The code and models for Semantic Event Horizons are available at \url{github.com/jsturtz/semantic-event-horizons}, enabling practitioners to incorporate geometric singularities into their own architectures.
+
+\bibliographystyle{plain}
+\bibliography{references}
+
+\end{document}

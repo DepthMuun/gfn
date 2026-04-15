@@ -39,12 +39,14 @@ class HysteresisModule(nn.Module):
         self, 
         dim: int, 
         heads: int = 1, 
-        hidden_dim: Optional[int] = None
+        hidden_dim: Optional[int] = None,
+        ghost_force_enabled: bool = True
     ):
         super().__init__()
         self.dim = dim
         self.heads = heads
         self.hidden_dim = hidden_dim if hidden_dim is not None else dim
+        self.ghost_force_enabled = ghost_force_enabled
         
         # State update parameters: Input [x_feat, v]
         # Multi-head weights using 3D parameters [Heads, D_out, D_in]
@@ -91,7 +93,8 @@ class HysteresisModule(nn.Module):
         return cls(
             dim=dim,
             heads=heads,
-            hidden_dim=dim  # Use same dimension for hidden state
+            hidden_dim=dim,  # Use same dimension for hidden state
+            ghost_force_enabled=getattr(config, 'ghost_force', True)
         )
     
     def _extract_features(self, x: torch.Tensor, topo_id: int) -> torch.Tensor:
@@ -162,6 +165,13 @@ class HysteresisModule(nn.Module):
         Returns:
             Ghost force tensor [..., H, D]
         """
+        if not self.ghost_force_enabled:
+            # Ghost force disabled via config - return zero
+            return torch.zeros(
+                1, self.heads, self.dim, 
+                device=self.state.device if self.state is not None else 'cpu'
+            )
+            
         if h_state is None:
             # Return zero force for uninitialized state
             return torch.zeros(

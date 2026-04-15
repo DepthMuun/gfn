@@ -12,7 +12,7 @@ class BaseModel(nn.Module):
     """
     def __init__(self, layers: nn.ModuleList, embedding: nn.Module, 
                  x0: nn.Parameter, v0: nn.Parameter, holographic: bool = False,
-                 config: Optional[Any] = None):
+                 config: Optional[Any] = None, store_full_sequence: bool = True):
         super().__init__()
         self.layers = layers
         self.embedding = embedding
@@ -20,6 +20,7 @@ class BaseModel(nn.Module):
         self.v0 = v0
         self.holographic = holographic
         self.config = config
+        self.store_full_sequence = store_full_sequence
         self.hooks = HookManager()
         
         # Set seed for reproducible initialization if requested in config
@@ -92,8 +93,14 @@ class BaseModel(nn.Module):
         )
 
         # 5. Result Assembly
-        res_x_seq = torch.stack(x_seq_total, dim=1) if isinstance(x_seq_total, list) else x_seq_total
-        res_v_seq = torch.stack(v_seq_total, dim=1) if isinstance(v_seq_total, list) else v_seq_total
+        if self.store_full_sequence:
+            res_x_seq = torch.stack(x_seq_total, dim=1) if isinstance(x_seq_total, list) and x_seq_total else x_seq_total
+            res_v_seq = torch.stack(v_seq_total, dim=1) if isinstance(v_seq_total, list) and v_seq_total else v_seq_total
+        else:
+            # Only store final state, reshape for consistency
+            res_x_seq = x_final.unsqueeze(1) if x_final.dim() >= 2 else x_final
+            res_v_seq = v_final.unsqueeze(1) if v_final.dim() >= 2 else v_final
+        
         res_logits = torch.stack(logits_total, dim=1) if isinstance(logits_total, list) and logits_total \
                      else (logits_total if not isinstance(logits_total, list) else x_final)
 
@@ -154,10 +161,13 @@ class BaseModel(nn.Module):
                     if isinstance(r, torch.Tensor):
                         l_logits.append(r)
                 
-                l_x_seq.append(local_x)
-                l_v_seq.append(local_v)
+                # Only store sequence if configured
+                if self.store_full_sequence:
+                    l_x_seq.append(local_x)
+                    l_v_seq.append(local_v)
                 
-            return l_logits, (local_x, local_v), (l_x_seq, l_v_seq)
+            return l_logits, (local_x, local_v), (l_x_seq if self.store_full_sequence else [], 
+                                                   l_v_seq if self.store_full_sequence else [])
 
         # Hook to wrap evolution (e.g. for checkpointing)
         evolve_fn = run_evolution
