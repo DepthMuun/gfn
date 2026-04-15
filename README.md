@@ -16,77 +16,62 @@
 
 ## What is GFN?
 
-**Geometric Flow Networks (GFN)** represent a fundamental shift in how neural architectures process sequential information. Instead of relying on token-to-token correlation mechanisms (Attention), GFN treats intelligence as a trajectory through a high-integrity dynamical system.
+**Geometric Flow Networks (GFN)** treat intelligence not as statistical pattern matching, but as the evolution of a state through a learned geometry. Where traditional architectures compute correlations between tokens, GFN computes trajectories through a manifold where state transitions follow paths of minimal resistance.
 
-### Core Concept
+### Core Distinction
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Traditional (Attention)          GFN (Geometric Flow)      │
+│  Statistical Models                 GFN (Geometric Flow)      │
 ├─────────────────────────────────────────────────────────────┤
-│  Token → Correlation → Token      Token → Perturbation →    │
-│  (with KV-cache buffer)           World State Evolution     │
+│  Token → Correlation → Token      State → Geodesic Flow →   │
+│  (weighted similarity)            (trajectory through space) │
 │                                                             │
-│  ❌ Memory buffer (crutch)        ✅ Persistent simulator  │
-│  ❌ O(N^2) complexity             ✅ O(1) per step         │
-│  ❌ Statistical guessing          ✅ Physical orbits       │
+│  ❌ Statistical transformation      ✅ Geodesic state flow     │
+│  ❌ Memory buffer (KV-cache)        ✅ Persistent world      │
+│  ❌ Global correlation (O(N^2))     ✅ Causal locality       │
+│  ❌ Probabilistic constraints       ✅ Structural invariance │
+│  ❌ Likelihood coherence            ✅ Physics-grounded      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
+The difference is ontological: statistical models manipulate tokens; GFN evolves a world.
+
 ---
 
-## The Five Pillars
+## The Five Pillars of Geometric Flow Networks
 
-A valid GFN implementation must satisfy all five requirements:
+The GFN paradigm is defined by five structural pillars that capture its philosophical essence rather than prescribing specific implementations. These pillars distinguish GFN from both statistical models (attention, SSMs) and generic continuous models (Neural ODEs) by articulating what the paradigm fundamentally *is*, not how it must be *computed*:
 
-### 1. Persistent Internal World
+### 1. Geodesic State Flow
 
-The system maintains a simulator rather than a memory buffer. State evolves through geometric space rather than being stored in a cache.
+The state evolves as a continuous trajectory through a learned geometry, not as a statistical transformation of tokens. This pillar captures the essential nature of GFN computation: the system computes transitions as flow along geodesics in a manifold where valid transitions correspond to trajectories of minimal resistance.
 
-```
-Transformer KV-cache: "Remove the cache → instant amnesia"
-GFN World-State: "The geometry itself IS the memory"
-```
+Unlike attention which computes weighted correlations, GFN computes how state moves through semantic curvature. The state possesses "semantic inertia": history manifests as trajectory shape, not as explicit storage.
 
-### 2. At Least One Invariant
+### 2. Persistent Internal World
 
-Physical or mathematical invariants provide constraints that prevent state collapse or divergence, similar to how conservation laws operate in physics.
+The state exists as a geometric configuration that persists independently of inputs; inputs perturb the trajectory without replacing the state. This pillar articulates an ontological distinction: the internal world is not a memory buffer that stores history (like a KV-cache), but a reality that *is*.
 
-| Invariant Type | Description |
-|:--------------|:------------|
-| **Casimir Operators** | Commute with all generators of a Lie algebra |
-| **Hamiltonian Conservation** | Total energy preserved through symplectic integration |
-| **Norm Preservation** | State norm remains bounded |
-| **Group Symmetries** | Topological constraints make invalid states impossible |
-| **Phase Space Volume** | Liouville's theorem preservation |
+Inputs do not add information to a list; they curve the space-time where the state orbits. A Transformer without KV-cache forgets everything; the GFN world exists as geometry itself, not as a record of events.
 
-### 3. Structural Integrity
+### 3. Structural Invariance
 
-The state cannot collapse to zero or explode to infinity. Gradient stability emerges from geometric properties rather than architectural patches:
+At least one conservation law (physical, logical, or topological) governs valid transitions, making certain states structurally impossible rather than merely improbable. This is the paradigm's most philosophically distinctive pillar.
 
-- No gradient vanishing (singular values ≈ 1)
-- No gradient explosion (volume preserved)
-- Stable by design, not by intervention
+Invariants are not soft regularization or probabilistic normalization (like softmax in attention), but physical laws encoded in geometry. In logical domains (XOR), the space has toroidal topology: invalid transitions are geometrically impossible. In semantic domains, invariants are "soft" but remain structural, not statistical.
 
-### 4. Temporal Locality (True O(1))
+### 4. Causal Locality
 
-Computational cost per step is independent of sequence length.
+Dynamics emerge from local interactions (forces, curvature, couplings), not from global correlation over the entire sequence. This pillar distinguishes GFN from architectures requiring simultaneous access to all historical context.
 
-```python
-# Valid GFN: O(1) per step
-state_update = f(current_state, present_input)
+Locality here is not necessarily spatial (as in CNNs) but causal: the next state depends on forces acting on the current state, not on computing similarity with all prior tokens. This enables memory without memory buffers.
 
-# Invalid: O(N) - violates temporal locality
-state_update = f(current_state, all_previous_tokens)
-```
+### 5. Physics-Grounded Computation
 
-> "The flow is calculated over the current state and present input, nothing more."
+Validity constraints are geometric and topological, not statistical; coherence is measured in terms of curvature and conservation, not likelihood. This pillar articulates that GFN is not "more of the same with a different name".
 
-### 5. Geometric Differentiability
-
-All states exist in a manifold where distance is physically coherent. This enables meaningful gradients and coherent state evolution.
-
-> "For there to be forces and flows, you need to know how far one concept is from another in that curved space."
+Constraints are not learned statistics or probabilistic normalization, but validity conditions encoded in geometry. The system "knows" which states are invalid because they are topologically inconsistent, not because they are statistically improbable.
 
 ---
 
