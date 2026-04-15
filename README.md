@@ -179,13 +179,6 @@ cd gfn
 pip install -e .
 ```
 
-```python
-from gfn import GFNModel, PhysicsConfig
-
-config = PhysicsConfig(dim=512, depth=6)
-model = GFNModel(config)
-output = model(input_tokens)
-```
 
 ---
 
