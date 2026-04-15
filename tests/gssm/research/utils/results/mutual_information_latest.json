@@ -1,0 +1,40 @@
+{
+  "test_name": "mutual_information",
+  "category": "information_theory",
+  "timestamp": "2026-04-15T17:39:02.363583",
+  "elapsed_seconds": 0.10975337028503418,
+  "passed": true,
+  "metrics": {
+    "input_variance": 0.07766474038362503,
+    "output_variance": 0.06943456828594208,
+    "variance_ratio": 0.8940293755271218,
+    "correlation_estimate": 0.005392617546021938
+  },
+  "history": [
+    {
+      "name": "input_variance",
+      "value": 0.07766474038362503,
+      "timestamp": 1776285542.3635712,
+      "step": null
+    },
+    {
+      "name": "output_variance",
+      "value": 0.06943456828594208,
+      "timestamp": 1776285542.3635752,
+      "step": null
+    },
+    {
+      "name": "variance_ratio",
+      "value": 0.8940293755271218,
+      "timestamp": 1776285542.3635778,
+      "step": null
+    },
+    {
+      "name": "correlation_estimate",
+      "value": 0.005392617546021938,
+      "timestamp": 1776285542.3635786,
+      "step": null
+    }
+  ],
+  "errors": []
+}

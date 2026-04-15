@@ -1,0 +1,10 @@
+{
+  "test_name": "gradient_by_layer",
+  "category": "diagnostics",
+  "timestamp": "2026-04-02T01:09:50.310274",
+  "elapsed_seconds": 1.9212746620178223,
+  "passed": false,
+  "metrics": {},
+  "history": [],
+  "errors": []
+}

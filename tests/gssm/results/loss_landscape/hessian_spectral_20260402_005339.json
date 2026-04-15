@@ -1,0 +1,47 @@
+{
+  "test_name": "hessian_spectral",
+  "category": "loss_landscape",
+  "timestamp": "2026-04-02T00:53:39.993309",
+  "elapsed_seconds": 0.19469642639160156,
+  "passed": true,
+  "metrics": {
+    "mean_grad_norm": 0.005555900399986978,
+    "std_grad_norm": 0.006927852527789813,
+    "max_grad_norm": 0.031221751123666763,
+    "min_grad_norm": 8.756186054004189e-11,
+    "positive_grad_ratio": 1.0
+  },
+  "history": [
+    {
+      "name": "mean_grad_norm",
+      "value": 0.005555900399986978,
+      "timestamp": 1775102019.9928124,
+      "step": null
+    },
+    {
+      "name": "std_grad_norm",
+      "value": 0.006927852527789813,
+      "timestamp": 1775102019.9932551,
+      "step": null
+    },
+    {
+      "name": "max_grad_norm",
+      "value": 0.031221751123666763,
+      "timestamp": 1775102019.993282,
+      "step": null
+    },
+    {
+      "name": "min_grad_norm",
+      "value": 8.756186054004189e-11,
+      "timestamp": 1775102019.9932964,
+      "step": null
+    },
+    {
+      "name": "positive_grad_ratio",
+      "value": 1.0,
+      "timestamp": 1775102019.993304,
+      "step": null
+    }
+  ],
+  "errors": []
+}

@@ -35,7 +35,7 @@ First, clone the repository and navigate to the project directory.
 
 ```bash
 git clone https://github.com/DepthMuun/gfn.git
-cd manifold
+cd gfn
 ```
 
 Second, install the Python dependencies. The requirements.txt file includes all required dependencies.

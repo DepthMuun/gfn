@@ -1,0 +1,42 @@
+{
+  "test_name": "information_bottleneck",
+  "category": "information_theory",
+  "timestamp": "2026-04-02T00:57:42.504123",
+  "elapsed_seconds": 0.1915433406829834,
+  "passed": false,
+  "metrics": {
+    "input_bits": 4096,
+    "bottleneck_bits": 65536,
+    "compression_ratio": 0.0625,
+    "output_entropy_bits": 4.906247138977051
+  },
+  "history": [
+    {
+      "name": "input_bits",
+      "value": 4096,
+      "timestamp": 1775102262.5040905,
+      "step": null
+    },
+    {
+      "name": "bottleneck_bits",
+      "value": 65536,
+      "timestamp": 1775102262.5040956,
+      "step": null
+    },
+    {
+      "name": "compression_ratio",
+      "value": 0.0625,
+      "timestamp": 1775102262.504097,
+      "step": null
+    },
+    {
+      "name": "output_entropy_bits",
+      "value": 4.906247138977051,
+      "timestamp": 1775102262.5041075,
+      "step": null
+    }
+  ],
+  "errors": [
+    "Very low compression: 0.0625"
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "test_name": "activation_entropy",
+  "category": "forward_pass",
+  "timestamp": "2026-04-02T01:06:47.290286",
+  "elapsed_seconds": 0.18556714057922363,
+  "passed": true,
+  "metrics": {
+    "layer_0_entropy_bits": 5.095104217529297,
+    "layer_0_std": 0.7974609732627869,
+    "layer_0_mean": 0.07097353786230087,
+    "layer_1_entropy_bits": 5.041659355163574,
+    "layer_1_std": 0.7977524995803833,
+    "layer_1_mean": 0.06545963138341904,
+    "layer_2_entropy_bits": 5.137274742126465,
+    "layer_2_std": 0.8021231293678284,
+    "layer_2_mean": 0.07788481563329697,
+    "layer_3_entropy_bits": 5.145666122436523,
+    "layer_3_std": 0.7852051258087158,
+    "layer_3_mean": 0.05951306223869324
+  },
+  "history": [
+    {
+      "name": "layer_0_entropy_bits",
+      "value": 5.095104217529297,
+      "timestamp": 1775102807.2891965,
+      "step": null
+    },
+    {
+      "name": "layer_0_std",
+      "value": 0.7974609732627869,
+      "timestamp": 1775102807.2892964,
+      "step": null
+    },
+    {
+      "name": "layer_0_mean",
+      "value": 0.07097353786230087,
+      "timestamp": 1775102807.2893174,
+      "step": null
+    },
+    {
+      "name": "layer_1_entropy_bits",
+      "value": 5.041659355163574,
+      "timestamp": 1775102807.289505,
+      "step": null
+    },
+    {
+      "name": "layer_1_std",
+      "value": 0.7977524995803833,
+      "timestamp": 1775102807.2895386,
+      "step": null
+    },
+    {
+      "name": "layer_1_mean",
+      "value": 0.06545963138341904,
+      "timestamp": 1775102807.289557,
+      "step": null
+    },
+    {
+      "name": "layer_2_entropy_bits",
+      "value": 5.137274742126465,
+      "timestamp": 1775102807.2897742,
+      "step": null
+    },
+    {
+      "name": "layer_2_std",
+      "value": 0.8021231293678284,
+      "timestamp": 1775102807.2898076,
+      "step": null
+    },
+    {
+      "name": "layer_2_mean",
+      "value": 0.07788481563329697,
+      "timestamp": 1775102807.289825,
+      "step": null
+    },
+    {
+      "name": "layer_3_entropy_bits",
+      "value": 5.145666122436523,
+      "timestamp": 1775102807.2902133,
+      "step": null
+    },
+    {
+      "name": "layer_3_std",
+      "value": 0.7852051258087158,
+      "timestamp": 1775102807.2902606,
+      "step": null
+    },
+    {
+      "name": "layer_3_mean",
+      "value": 0.05951306223869324,
+      "timestamp": 1775102807.29028,
+      "step": null
+    }
+  ],
+  "errors": []
+}

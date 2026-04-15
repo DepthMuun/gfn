@@ -1,0 +1,12 @@
+{
+  "test_name": "loss_direction_curvature",
+  "category": "loss_landscape",
+  "timestamp": "2026-04-02T00:52:11.370855",
+  "elapsed_seconds": 0.10031890869140625,
+  "passed": false,
+  "metrics": {},
+  "history": [],
+  "errors": [
+    "'float' object has no attribute 'backward'"
+  ]
+}

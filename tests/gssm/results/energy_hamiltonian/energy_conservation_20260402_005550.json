@@ -1,0 +1,47 @@
+{
+  "test_name": "energy_conservation",
+  "category": "energy_hamiltonian",
+  "timestamp": "2026-04-02T00:55:50.911894",
+  "elapsed_seconds": 0.13971281051635742,
+  "passed": true,
+  "metrics": {
+    "initial_energy": 7.668514251708984,
+    "final_energy": 19.302637100219727,
+    "energy_variance": 12.112048850893581,
+    "energy_drift": 11.634122848510742,
+    "energy_drift_ratio": 1.5171286707521874
+  },
+  "history": [
+    {
+      "name": "initial_energy",
+      "value": 7.668514251708984,
+      "timestamp": 1775102150.9118707,
+      "step": null
+    },
+    {
+      "name": "final_energy",
+      "value": 19.302637100219727,
+      "timestamp": 1775102150.911878,
+      "step": null
+    },
+    {
+      "name": "energy_variance",
+      "value": 12.112048850893581,
+      "timestamp": 1775102150.911881,
+      "step": null
+    },
+    {
+      "name": "energy_drift",
+      "value": 11.634122848510742,
+      "timestamp": 1775102150.9118822,
+      "step": null
+    },
+    {
+      "name": "energy_drift_ratio",
+      "value": 1.5171286707521874,
+      "timestamp": 1775102150.911887,
+      "step": null
+    }
+  ],
+  "errors": []
+}

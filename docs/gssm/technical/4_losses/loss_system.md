@@ -1,6 +1,6 @@
 # GFN Loss System: Geometric & Path Optimization
 
-The `gfn/losses` module defines how the model is trained. Since GFN is a physical system, losses often target "Paths" rather than just isolated outputs.
+The `gfn/realizations/gssm/losses` module defines how the model is trained. Since GFN is a physical system, losses often target "Paths" rather than just isolated outputs.
 
 ## 1. Probabilistic vs. Geometric Losses
 
@@ -20,7 +20,7 @@ $$L = L_{NLL} + \lambda_{geo} L_{geo} + \lambda_{ham} L_{ham} + \lambda_{kin} L_
 ### Components:
 - **Geodesic ($L_{geo}$)**: Penalizes local curvature. Forces the model to find the most "natural" (straightest) paths in coordinates.
 - **Hamiltonian ($L_{ham}$)**: Penalizes energy fluctuations. Ensures the symplectic integrator is operating in a stable regime.
-- **Kinetic ($L_{kin}$)**: Prevents "Velocidad Fugitiva" (exploding kinetic energy).
+- **Kinetic ($L_{kin}$)**: Prevents runaway kinetic energy (exploding velocity).
 
 ---
 

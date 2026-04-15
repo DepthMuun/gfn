@@ -1,0 +1,54 @@
+{
+  "test_name": "phase_space_volume",
+  "category": "research",
+  "timestamp": "2026-04-15T17:39:10.692802",
+  "elapsed_seconds": 0.004836320877075195,
+  "passed": true,
+  "metrics": {
+    "num_particles": 100,
+    "dt": 0.01,
+    "initial_spread": 0.19306603074073792,
+    "final_spread": 0.19305942952632904,
+    "spread_ratio": 0.9999657869338989,
+    "volume_preserved": true
+  },
+  "history": [
+    {
+      "name": "num_particles",
+      "value": 100,
+      "timestamp": 1776285550.6927204,
+      "step": null
+    },
+    {
+      "name": "dt",
+      "value": 0.01,
+      "timestamp": 1776285550.692723,
+      "step": null
+    },
+    {
+      "name": "initial_spread",
+      "value": 0.19306603074073792,
+      "timestamp": 1776285550.692727,
+      "step": null
+    },
+    {
+      "name": "final_spread",
+      "value": 0.19305942952632904,
+      "timestamp": 1776285550.6927283,
+      "step": null
+    },
+    {
+      "name": "spread_ratio",
+      "value": 0.9999657869338989,
+      "timestamp": 1776285550.6927297,
+      "step": null
+    },
+    {
+      "name": "volume_preserved",
+      "value": true,
+      "timestamp": 1776285550.69277,
+      "step": null
+    }
+  ],
+  "errors": []
+}

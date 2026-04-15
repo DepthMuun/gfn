@@ -10,7 +10,7 @@ from gfn.cuda.ops import leapfrog_fused, CUDA_AVAILABLE
 # Fallback import if needed
 try:
     from gfn.integrators.symplectic.leapfrog import LeapfrogIntegrator
-    from gfn.geometry.toroidal import ToroidalRiemannianGeometry
+    from gfn.realizations.gssm.geometry.toroidal import ToroidalRiemannianGeometry
 except ImportError:
     pass
 

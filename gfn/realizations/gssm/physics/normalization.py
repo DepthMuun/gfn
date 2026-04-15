@@ -1,10 +1,10 @@
 """
 gfn/physics/normalization.py — GFN V5
-Portado desde: gfn_old/nn/layers/physics/normalization.py
+Ported from: gfn_old/nn/layers/physics/normalization.py
 
-Registry centralizado de normalizaciones dependientes de la geometría del manifold.
-Principio: las normalizaciones de POSICIÓN dependen de la topología; las de VELOCIDAD
-siempre son Euclidianas (espacio tangente).
+Centralized registry of geometry-dependent normalizations for the manifold.
+Principle: POSITION normalizations depend on topology; VELOCITY normalizations
+are always Euclidean (tangent space).
 """
 import torch
 import torch.nn as nn
@@ -22,8 +22,8 @@ class BaseManifoldNormalization(nn.Module, ABC):
 
 class TorusPositionNormalization(BaseManifoldNormalization):
     """
-    Envuelve la posición de forma isométrica en [-π, π].
-    Preserva la topología toroidal: atan2(sin(x), cos(x)).
+    Wraps position isometrically in [-π, π].
+    Preserves toroidal topology: atan2(sin(x), cos(x)).
     """
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return torch.atan2(torch.sin(x), torch.cos(x))
@@ -31,8 +31,8 @@ class TorusPositionNormalization(BaseManifoldNormalization):
 
 class TangentVelocityNormalization(nn.Module):
     """
-    RMSNorm con clamp de velocidad máxima para el espacio tangente.
-    Previene la aceleración descontrolada en regiones de alta curvatura.
+    RMSNorm with maximum velocity clamp for tangent space.
+    Prevents uncontrolled acceleration in high curvature regions.
     """
     def __init__(self, dim: int, eps: float = EPSILON_STANDARD):
         super().__init__()
@@ -40,35 +40,35 @@ class TangentVelocityNormalization(nn.Module):
         self.max_v = MAX_VELOCITY
 
     def forward(self, x: torch.Tensor, context_x: Optional[torch.Tensor] = None) -> torch.Tensor:
-        # Nota: x es la velocidad a normalizar. context_x es la posición (opcional para metric-aware)
+        # Note: x is the velocity to normalize. context_x is position (optional for metric-aware)
         x = torch.clamp(x, -self.max_v, self.max_v)
         return self.rms(x)
 
 
 class MetricAwareVelocityNormalization(nn.Module):
     """
-    Normalización que escala la velocidad basándose en la métrica Riemanniana.
-    Asegura que la norma geodésica ||v||_g no exceda el límite físico.
+    Normalization that scales velocity based on the Riemannian metric.
+    Ensures the geodesic norm ||v||_g does not exceed the physical limit.
     """
     def __init__(self, dim: int, geometry=None, max_v: float = MAX_VELOCITY):
         super().__init__()
         self.geometry = geometry
         self.max_v = max_v
-        self.rms = nn.RMSNorm(dim)  # Fallback si no hay geometría
+        self.rms = nn.RMSNorm(dim)  # Fallback if no geometry
 
     def forward(self, x: torch.Tensor, context_x: Optional[torch.Tensor] = None) -> torch.Tensor:
         if self.geometry is not None and context_x is not None:
-            # x: [B, D] (velocidad), context_x: [B, D] (posición)
-            # 1. Obtener tensor métrico g(context_x)
+            # x: [B, D] (velocity), context_x: [B, D] (position)
+            # 1. Get metric tensor g(context_x)
             g = self.geometry.metric_tensor(context_x)  # [B, D, D] or [B, D] or [D, D]
             
-            # 2. Calcular norma cuadrada: x^T g x
-            # Usamos broadcast matmul para mayor robustez que bmm
+            # 2. Compute squared norm: x^T g x
+            # Use broadcast matmul for more robustness than bmm
             # v: [B, D] -> [B, 1, D]
             v_exp = x.unsqueeze(1)
-            if g.dim() == 2 and g.shape[0] == x.shape[0]: # [B, D] - métrica diagonal
+            if g.dim() == 2 and g.shape[0] == x.shape[0]: # [B, D] - diagonal metric
                 norm_sq = (x * g * x).sum(dim=-1, keepdim=True).unsqueeze(-1)
-            elif g.dim() == 2: # [D, D] - métrica constante
+            elif g.dim() == 2: # [D, D] - constant metric
                 g_exp = g.unsqueeze(0) # [1, D, D]
                 norm_sq = v_exp @ g_exp @ v_exp.transpose(1, 2)
             else: # [B, D, D]
@@ -76,44 +76,44 @@ class MetricAwareVelocityNormalization(nn.Module):
             
             norm_g = torch.sqrt(norm_sq.squeeze(-1).squeeze(-1) + 1e-8)
             
-            # 3. Escalar si excede max_v
+            # 3. Scale if exceeds max_v
             scale = torch.clamp(self.max_v / norm_g, max=1.0)
             x = x * scale.unsqueeze(-1)
             
-            # 4. Retornar velocidad clampada pero con magnitud preservada
+            # 4. Return clamped velocity with preserved magnitude
             return x
             
-        # Fallback a clamp estándar
+        # Fallback to standard clamp
         return torch.clamp(x, -self.max_v, self.max_v)
 
 
 class EuclideanPositionNormalization(BaseManifoldNormalization):
     """
-    Identidad para posiciones Euclidianas.
-    Físicamente más seguro que RMSNorm para coordenadas de posición.
+    Identity for Euclidean positions.
+    Physically safer than RMSNorm for position coordinates.
     """
     def forward(self, x: torch.Tensor, context_x: Optional[torch.Tensor] = None) -> torch.Tensor:
         return x
 
 
 class IdentityNormalization(BaseManifoldNormalization):
-    """Pass-through — usar cuando ninguna normalización es requerida."""
+    """Pass-through — use when no normalization is required."""
     def forward(self, x: torch.Tensor, context_x: Optional[torch.Tensor] = None) -> torch.Tensor:
         return x
 
 
 class ManifoldNormalizationRegistry:
     """
-    Registry centralizado para obtener la normalización apropiada
-    según el tipo de variable física y la topología del manifold.
+    Centralized registry to get appropriate normalization
+    according to physical variable type and manifold topology.
 
-    Tipos disponibles:
+    Available types:
       'position_torus'    — atan2(sin, cos) wrapping
-      'position_euclidean'— Identidad (seguro para coordenadas Euclidianas)
-      'velocity_tangent'  — RMSNorm clampado (espacio tangente)
-      'velocity_metric'   — MetricAware norm (estricto)
-      'feature_hidden'    — Igual a velocity_tangent (features internas)
-      'identity'          — Sin transformación
+      'position_euclidean'— Identity (safe for Euclidean coordinates)
+      'velocity_tangent'  — Clamped RMSNorm (tangent space)
+      'velocity_metric'   — MetricAware norm (strict)
+      'feature_hidden'    — Same as velocity_tangent (internal features)
+      'identity'          — No transformation
     """
     _REGISTRY = {
         'position_torus':    TorusPositionNormalization,
@@ -137,11 +137,11 @@ class ManifoldNormalizationRegistry:
     def get_for_topology(cls, topology: str, dim: int = 64, 
                          is_velocity: bool = False, geometry=None) -> nn.Module:
         """
-        Atajo: selecciona automáticamente la normalización correcta
-        basándose en la topología y si es posición o velocidad.
+        Shortcut: automatically selects the correct normalization
+        based on topology and whether it is position or velocity.
         """
         if is_velocity:
-            # Si hay geometría disponible, usamos la estricta
+            # If geometry is available, we use the strict one
             if geometry is not None:
                 return cls.get('velocity_metric', dim, geometry=geometry)
             return cls.get('velocity_tangent', dim)

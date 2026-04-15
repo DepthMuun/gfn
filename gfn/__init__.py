@@ -3,28 +3,31 @@ GFN (Geodesic Flow Network) Package
 ==================================
 Unified framework for Geodesic State Space Models (G-SSM)
 and Inertial State Networks (ISN).
-
-This package implements the GFN paradigm as a platform for
-physics-informed neural dynamics.
 """
 
-# ── Realizations ──────────────────────────────────────────────────────────────
-from .realizations import api, gssm, isn
-from .realizations.api import create, load, save
+# ── API Entry Points ──────────────────────────────────────────────────────────
+from .api import create, load, save, list_available, register
+from .api import REALIZATIONS as _dummy_reg # Just for backward compatibility if needed
 
-# ── Dynamic Registry
-REALIZATIONS = api.list_available()
-
-# ── Package Metadata ──────────────────────────────────────────────────────────
-__version__ = "2.7.1"
+# ── Metadata ──────────────────────────────────────────────────────────────────
+__version__ = "2.7.2" # Incrementing version due to refactor
 __author__ = "DepthMuun"
 
+# ── Realizations ──────────────────────────────────────────────────────────────
+# We trigger registration by importing the realizations subpackage
+from . import realizations
+
+# ── Shortcuts for easier access ───────────────────────────────────────────────
+# Allows: import gfn; model = gfn.gssm.create(...)
+from .realizations import gssm, isn
+
 __all__ = [
-    "gssm",
-    "isn",
-    "api",
     "create",
     "load",
     "save",
-    "REALIZATIONS",
+    "list_available",
+    "register",
+    "realizations",
+    "gssm",
+    "isn",
 ]

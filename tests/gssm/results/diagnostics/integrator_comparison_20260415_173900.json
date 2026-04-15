@@ -1,0 +1,96 @@
+{
+  "test_name": "integrator_comparison",
+  "category": "diagnostics",
+  "timestamp": "2026-04-15T17:39:00.320300",
+  "elapsed_seconds": 0.6829643249511719,
+  "passed": true,
+  "metrics": {
+    "leapfrog_x_norm_mean": 14.288177490234375,
+    "leapfrog_v_norm_mean": 25.593276977539062,
+    "leapfrog_has_nan": 0,
+    "leapfrog_x_norm_std": 0.0,
+    "yoshida_x_norm_mean": 16.324243545532227,
+    "yoshida_v_norm_mean": 40.58023452758789,
+    "yoshida_has_nan": 0,
+    "yoshida_x_norm_std": 0.0,
+    "heun_x_norm_mean": 16.32503318786621,
+    "heun_v_norm_mean": 40.32756042480469,
+    "heun_has_nan": 0,
+    "heun_x_norm_std": 0.0
+  },
+  "history": [
+    {
+      "name": "leapfrog_x_norm_mean",
+      "value": 14.288177490234375,
+      "timestamp": 1776285539.9061997,
+      "step": null
+    },
+    {
+      "name": "leapfrog_v_norm_mean",
+      "value": 25.593276977539062,
+      "timestamp": 1776285539.906214,
+      "step": null
+    },
+    {
+      "name": "leapfrog_has_nan",
+      "value": 0,
+      "timestamp": 1776285539.906216,
+      "step": null
+    },
+    {
+      "name": "leapfrog_x_norm_std",
+      "value": 0.0,
+      "timestamp": 1776285539.90678,
+      "step": null
+    },
+    {
+      "name": "yoshida_x_norm_mean",
+      "value": 16.324243545532227,
+      "timestamp": 1776285540.143594,
+      "step": null
+    },
+    {
+      "name": "yoshida_v_norm_mean",
+      "value": 40.58023452758789,
+      "timestamp": 1776285540.143609,
+      "step": null
+    },
+    {
+      "name": "yoshida_has_nan",
+      "value": 0,
+      "timestamp": 1776285540.1436114,
+      "step": null
+    },
+    {
+      "name": "yoshida_x_norm_std",
+      "value": 0.0,
+      "timestamp": 1776285540.1436696,
+      "step": null
+    },
+    {
+      "name": "heun_x_norm_mean",
+      "value": 16.32503318786621,
+      "timestamp": 1776285540.3202345,
+      "step": null
+    },
+    {
+      "name": "heun_v_norm_mean",
+      "value": 40.32756042480469,
+      "timestamp": 1776285540.3202488,
+      "step": null
+    },
+    {
+      "name": "heun_has_nan",
+      "value": 0,
+      "timestamp": 1776285540.32025,
+      "step": null
+    },
+    {
+      "name": "heun_x_norm_std",
+      "value": 0.0,
+      "timestamp": 1776285540.3202968,
+      "step": null
+    }
+  ],
+  "errors": []
+}

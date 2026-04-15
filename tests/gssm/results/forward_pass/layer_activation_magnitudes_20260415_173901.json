@@ -1,0 +1,145 @@
+{
+  "test_name": "layer_activation_magnitudes",
+  "category": "forward_pass",
+  "timestamp": "2026-04-15T17:39:01.727891",
+  "elapsed_seconds": 0.0666964054107666,
+  "passed": true,
+  "metrics": {
+    "layer_0_x_norm": 3.323676109313965,
+    "layer_0_v_norm": 2.471299171447754,
+    "layer_1_x_norm": 3.0920004844665527,
+    "layer_1_v_norm": 3.0350959300994873,
+    "layer_2_x_norm": 3.1046743392944336,
+    "layer_2_v_norm": 3.8752641677856445,
+    "layer_3_x_norm": 3.124812126159668,
+    "layer_3_v_norm": 4.143573760986328,
+    "layer_4_x_norm": 3.1538801193237305,
+    "layer_4_v_norm": 4.15541410446167,
+    "layer_5_x_norm": 3.1872992515563965,
+    "layer_5_v_norm": 4.223506450653076,
+    "layer_6_x_norm": 3.1720569133758545,
+    "layer_6_v_norm": 4.141302585601807,
+    "layer_7_x_norm": 3.136885166168213,
+    "layer_7_v_norm": 4.155826568603516,
+    "x_norm_ratio_first_last": 0.943799893118254,
+    "v_norm_ratio_first_last": 1.6816363634972435,
+    "max_layer_norm_change": 0.2316756248474121
+  },
+  "history": [
+    {
+      "name": "layer_0_x_norm",
+      "value": 3.323676109313965,
+      "timestamp": 1776285541.727346,
+      "step": null
+    },
+    {
+      "name": "layer_0_v_norm",
+      "value": 2.471299171447754,
+      "timestamp": 1776285541.7273488,
+      "step": null
+    },
+    {
+      "name": "layer_1_x_norm",
+      "value": 3.0920004844665527,
+      "timestamp": 1776285541.7274294,
+      "step": null
+    },
+    {
+      "name": "layer_1_v_norm",
+      "value": 3.0350959300994873,
+      "timestamp": 1776285541.7274308,
+      "step": null
+    },
+    {
+      "name": "layer_2_x_norm",
+      "value": 3.1046743392944336,
+      "timestamp": 1776285541.727504,
+      "step": null
+    },
+    {
+      "name": "layer_2_v_norm",
+      "value": 3.8752641677856445,
+      "timestamp": 1776285541.7275057,
+      "step": null
+    },
+    {
+      "name": "layer_3_x_norm",
+      "value": 3.124812126159668,
+      "timestamp": 1776285541.7275789,
+      "step": null
+    },
+    {
+      "name": "layer_3_v_norm",
+      "value": 4.143573760986328,
+      "timestamp": 1776285541.7275803,
+      "step": null
+    },
+    {
+      "name": "layer_4_x_norm",
+      "value": 3.1538801193237305,
+      "timestamp": 1776285541.7276537,
+      "step": null
+    },
+    {
+      "name": "layer_4_v_norm",
+      "value": 4.15541410446167,
+      "timestamp": 1776285541.727655,
+      "step": null
+    },
+    {
+      "name": "layer_5_x_norm",
+      "value": 3.1872992515563965,
+      "timestamp": 1776285541.7277274,
+      "step": null
+    },
+    {
+      "name": "layer_5_v_norm",
+      "value": 4.223506450653076,
+      "timestamp": 1776285541.727729,
+      "step": null
+    },
+    {
+      "name": "layer_6_x_norm",
+      "value": 3.1720569133758545,
+      "timestamp": 1776285541.727801,
+      "step": null
+    },
+    {
+      "name": "layer_6_v_norm",
+      "value": 4.141302585601807,
+      "timestamp": 1776285541.7278023,
+      "step": null
+    },
+    {
+      "name": "layer_7_x_norm",
+      "value": 3.136885166168213,
+      "timestamp": 1776285541.7278743,
+      "step": null
+    },
+    {
+      "name": "layer_7_v_norm",
+      "value": 4.155826568603516,
+      "timestamp": 1776285541.7278752,
+      "step": null
+    },
+    {
+      "name": "x_norm_ratio_first_last",
+      "value": 0.943799893118254,
+      "timestamp": 1776285541.7278779,
+      "step": null
+    },
+    {
+      "name": "v_norm_ratio_first_last",
+      "value": 1.6816363634972435,
+      "timestamp": 1776285541.7278793,
+      "step": null
+    },
+    {
+      "name": "max_layer_norm_change",
+      "value": 0.2316756248474121,
+      "timestamp": 1776285541.7278879,
+      "step": null
+    }
+  ],
+  "errors": []
+}

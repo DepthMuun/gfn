@@ -1,0 +1,608 @@
+% =============================================================================
+% Parallel Manifold Scans: Logarithmic-Time Sequence Integration for Geodesic Flows
+% Complete LaTeX Document
+% =============================================================================
+
+\documentclass[12pt,a4paper]{article}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usepackage{geometry}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{enumitem}
+
+% TikZ libraries for diagrams
+\usetikzlibrary{shapes.geometric, arrows, positioning, calc, patterns, 
+                decorations.pathreplacing, decorations.markings, fit, 
+                through, intersections, shapes.multipart, backgrounds}
+
+% Page setup
+\geometry{margin=1in}
+
+% Color definitions
+\definecolor{primary}{RGB}{41, 128, 185}
+\definecolor{secondary}{RGB}{39, 174, 96}
+\definecolor{accent}{RGB}{142, 68, 173}
+\definecolor{warning}{RGB}{231, 76, 60}
+\definecolor{lightgray}{RGB}{245, 247, 250}
+\definecolor{darkgray}{RGB}{52, 73, 94}
+
+% Custom commands
+\newcommand{\bA}{\mathbf{A}}
+\newcommand{\bB}{\mathbf{B}}
+\newcommand{\bF}{\mathbf{F}}
+\newcommand{\bs}{\mathbf{s}}
+\newcommand{\bv}{\mathbf{v}}
+\newcommand{\bx}{\mathbf{x}}
+\newcommand{\cP}{\mathcal{P}}
+\DeclareMathOperator{\det}{det}
+
+% Title formatting
+\title{\textbf{Parallel Manifold Scans: Logarithmic-Time Sequence Integration\\ for Geodesic Flows}}
+\author{\textbf{Joaquin Stürtz}}
+\date{\textbf{January 26, 2026}}
+
+\begin{document}
+
+\maketitle
+\vspace{-0.5cm}
+\begin{center}
+\hrule height 1pt
+\end{center}
+\vspace{0.5cm}
+
+\begin{abstract}
+The sequential dependency of recursive architectures (e.g., RNNs, S4, Mamba) constitutes a primary bottleneck in high-throughput neural training, where token $t$ traditionally requires the completion of token $t-1$. We introduce \textbf{Parallel Manifold Scans}, an associative reformulation of the manifold update operator that enables $O(\log N)$ parallel depth for sequence trajectories. By expressing the discretized flow as a prefix-sum over affine propagators, we obtain a scan-compatible formulation that supports GPU acceleration via fused kernels. We demonstrate that geodesic flows, when linearized into a Linear Time-Varying (LTV) system, can be integrated across massive sequence lengths with logarithmic parallel complexity, bridging the gap between the constant-memory recursion of Geodesic Flow Networks (GFN) and the parallel training efficiency of attention-based models.
+\end{abstract}
+
+\vspace{1cm}
+
+% =============================================================================
+% SECTION 1: SERIAL BOTTLENECK
+% =============================================================================
+\section{The Serial Bottleneck in Manifold Dynamics}
+
+Geodesic Flow Networks (GFN) treat sequence processing as the integration of a trajectory on a Riemannian manifold. While this continuous framing provides superior memory stability and infinite-horizon tracking, the traditional numerical integration (e.g., Runge-Kutta or Symplectic integrators) is inherently serial:
+
+\begin{equation}
+\bs_{t} = \text{Integrate}(\bs_{t-1}, \mathbf{F}_t, \Delta t)
+\end{equation}
+
+This $O(N)$ dependency prevents efficient scaling on modern parallel hardware (GPUs/TPUs). Parallel Manifold Scans solve this by revealing the associative structure hidden within the discretized manifold equations.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.1]
+
+% Sequential processing visualization
+\node[draw, rectangle, rounded corners, fill=lightgray,
+      minimum width=8cm, minimum height=4cm] (sequential) {};
+
+% Time steps
+\foreach \i in {1,2,3,4,5} {
+    \node[circle, draw=primary, thick, fill=primary!20,
+          minimum size=8mm] at ({\i*1.2+0.6}, 1.2) (t\i) {$t_\i$};
+}
+
+% Sequential arrows
+\foreach \i in {1,2,3,4} {
+    \draw[->, thick, draw=accent] (t\i) -- (t\the\numexpr\i+1\relax);
+}
+
+% Processing boxes
+\node[rectangle, draw=secondary, fill=secondary!20, rounded corners,
+      minimum width=0.6cm, minimum height=0.4cm,
+      at ($(t1)!0.5!(t2)$)] (p1) {};
+\node[rectangle, draw=secondary, fill=secondary!20, rounded corners,
+      minimum width=0.6cm, minimum height=0.4cm,
+      at ($(t2)!0.5!(t3)$)] (p2) {};
+\node[rectangle, draw=secondary, fill=secondary!20, rounded corners,
+      minimum width=0.6cm, minimum height=0.4cm,
+      at ($(t3)!0.5!(t4)$)] (p3) {};
+\node[rectangle, draw=secondary, fill=secondary!20, rounded corners,
+      minimum width=0.6cm, minimum height=0.4cm,
+      at ($(t4)!0.5!(t5)$)] (p4) {};
+
+% Bottleneck indicator
+\node[draw, rectangle, fill=warning!20, rounded corners,
+      minimum width=6cm, minimum height=0.8cm,
+      at (4.8, -0.8)] (bottleneck)
+      {\begin{tabular}{c}
+        \textbf{Serial Bottleneck} \\ 
+        Each step $t$ waits for $t-1$ to complete \\ 
+        $O(N)$ time steps, cannot parallelize
+       \end{tabular}};
+
+% Sequential label
+\node[above of=t3, font=\small, color=primary] 
+      {\textbf{Sequential Integration}};
+
+\end{tikzpicture}
+caption{\textbf{Serial Dependency Structure:} Traditional manifold 
+         integration requires each timestep to wait for the previous 
+         one to complete, creating an $O(N)$ sequential bottleneck that 
+         prevents efficient GPU utilization.}
+\label{fig:serial_bottleneck}
+\end{figure}
+
+The fundamental limitation of sequential processing becomes increasingly severe as sequence lengths grow. While a single forward pass through a sequence of length $N$ theoretically requires $N$ sequential operations, the practical constraint is even tighter due to memory latency and the need to maintain hidden state across timesteps. Modern GPU architectures, designed for massive parallelism, remain woefully underutilized under this regime.
+
+The serial bottleneck has several cascading effects on model training and deployment. First, training throughput is limited by the single-threaded execution speed, regardless of available parallel hardware. Second, the minimum latency for processing a sequence cannot be reduced below $O(N)$, making real-time applications challenging for long sequences. Third, the memory bandwidth requirements for repeatedly accessing and updating hidden state create additional performance bottlenecks.
+
+% =============================================================================
+% SECTION 2: ASSOCIATIVE REFORMULATION
+% =============================================================================
+\section{Associative Reformulation of Geodesic Flows}
+
+\subsection{Linearization into LTV Systems}
+
+To enable parallelization, we approximate the non-linear geodesic equation $\frac{d\mathbf{v}}{dt} = \mathbf{F} - \Gamma(\mathbf{v}, \mathbf{v})$ as a Linear Time-Varying (LTV) system. For a sufficiently small step $\Delta t$, the update for velocity $\mathbf{v}$ and position $\mathbf{x}$ can be expressed as a first-order affine recurrence:
+
+\begin{equation}
+\bv_t = \bA_t \bv_{t-1} + \mathbf{B}_t
+\end{equation}
+\begin{equation}
+\bx_t = \bx_{t-1} + \bv_t \Delta t
+\end{equation}
+
+where:
+\begin{itemize}[leftmargin=1.5cm]
+\item $\bA_t$ is the \textbf{Retention Operator} (a diagonal decay/rotation matrix predicted from the input force $\mathbf{F}_t$).
+\item $\mathbf{B}_t$ is the \textbf{Input Propagator} (the effective impulse applied to the state).
+\end{itemize}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[node distance=2cm, auto]
+
+% Linear time-varying system diagram
+\node[rectangle, draw=darkgray, thick, fill=darkgray!15, rounded corners,
+      minimum width=3cm, minimum height=1.2cm] (ltv) 
+      {\textbf{LTV System}};
+\node[below of=ltv, font=\small] 
+      {$\bv_t = \bA_t \bv_{t-1} + \mathbf{B}_t$};
+
+% Components
+\node[rectangle, draw=primary, fill=primary!20, rounded corners,
+      minimum width=1.8cm, minimum height=0.8cm,
+      left of=ltv, xshift=-2.5cm] (A) {$\bA_t$};
+\node[below of=A, font=\small, color=primary] 
+      {\textbf{Retention} \\ decay/rotation};
+
+\node[rectangle, draw=secondary, fill=secondary!20, rounded corners,
+      minimum width=1.8cm, minimum height=0.8cm,
+      right of=ltv, xshift=2.5cm] (B) {$\mathbf{B}_t$};
+\node[below of=B, font=\small, color=secondary] 
+      {\textbf{Input} \\ impulse};
+
+% Arrows
+\draw[->, thick, draw=primary] ($(A)+(1,0)$) -- (ltv);
+\draw[->, thick, draw=secondary] ($(B)+(-1,0)$) -- (ltv);
+\draw[->, thick] (ltv) -- ($(ltv)+(0,-1.5)$) 
+      node[midway, right] {$\bv_t$};
+
+% Feedback loop
+\draw[->, thick, draw=accent] ($(ltv)+(0,-1.5)$) -- 
+      ($(A)+(1,-1.2)$) -- ($(A)+(1,0)$);
+\node[right of=A, font=\small, color=accent] 
+      {$\bv_{t-1}$};
+
+\end{tikzpicture}
+caption{\textbf{LTV System Components:} The linear time-varying system 
+         decomposes the manifold update into a retention operator $\bA_t$ 
+         and an input propagator $\mathbf{B}_t$, enabling the associative 
+         structure necessary for parallelization.}
+\label{fig:ltv_system}
+\end{figure}
+
+The linearization process preserves the essential geometric properties of the geodesic flow while making the computational structure amenable to parallel algorithms. By expressing the update as an affine transformation rather than a general nonlinear function, we create a compositional structure that can be aggregated across multiple timesteps.
+
+\subsection{The Manifold Propagator Group}
+
+We define a manifold update as a pair $\cP_t = (\bA_t, \mathbf{B}_t)$. The composition of two consecutive updates $\cP_{i+1} \circ \cP_i$ is governed by the associative rule:
+
+\begin{equation}
+(\bA_{i+1}, \mathbf{B}_{i+1}) \circ (\bA_i, \mathbf{B}_i) = 
+(\bA_{i+1} \bA_i, \bA_{i+1} \mathbf{B}_i + \mathbf{B}_{i+1})
+\end{equation}
+
+\textbf{Theorem (Associativity):} The operation $\circ$ satisfies $(\cP_k \circ \cP_j) \circ \cP_i = \cP_k \circ (\cP_j \circ \cP_i)$. This algebraic property is the foundation of parallel sequence processing.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.1]
+
+% Propagator composition visualization
+\node[rectangle, draw=primary, fill=primary!20, rounded corners,
+      minimum width=1.2cm, minimum height=1cm,
+      at (0,0)] (P1) {$\cP_1$};
+
+\node[rectangle, draw=secondary, fill=secondary!20, rounded corners,
+      minimum width=1.2cm, minimum height=1cm,
+      at (2.5,0)] (P2) {$\cP_2$};
+
+\node[rectangle, draw=accent, fill=accent!20, rounded corners,
+      minimum width=1.2cm, minimum height=1cm,
+      at (5,0)] (P3) {$\cP_3$};
+
+% Composition arrows
+\draw[->, thick, draw=darkgray] (P1) -- (P2) 
+      node[midway, above] {$\circ$};
+\draw[->, thick, draw=darkgray] (P2) -- (P3) 
+      node[midway, above] {$\circ$};
+
+% Result
+\node[rectangle, draw=darkgray, thick, fill=darkgray!15, rounded corners,
+      minimum width=3cm, minimum height=1.2cm,
+      at (2.5, -2.5)] (combined) 
+      {$\cP_3 \circ \cP_2 \circ \cP_1 = (\bA_3\bA_2\bA_1, \bA_3\bA_2\mathbf{B}_1 + \bA_3\mathbf{B}_2 + \mathbf{B}_3)$};
+
+% Association proof
+\draw[->, dashed, thick, draw=primary] ($(P1)+(0,1.2)$) -- 
+      ($(P3)+(0,1.2)$) node[midway, above] 
+      {$\cP_3 \circ (\cP_2 \circ \cP_1) = (\cP_3 \circ \cP_2) \circ \cP_1$};
+
+% Associativity property box
+\node[draw, rounded corners, fill=lightgray,
+      minimum width=5cm, minimum height=1.2cm,
+      at (7, 0)] (assoc-box)
+      {\begin{tabular}{c}
+        \textbf{Associativity Property} \\ 
+        $(\mathbf{A}_3, \mathbf{B}_3) \circ (\mathbf{A}_2, \mathbf{B}_2) \circ (\mathbf{A}_1, \mathbf{B}_1)$ \\ 
+        $= (\mathbf{A}_3\mathbf{A}_2\mathbf{A}_1, \mathbf{A}_3\mathbf{A}_2\mathbf{B}_1 + \mathbf{A}_3\mathbf{B}_2 + \mathbf{B}_3)$
+       \end{tabular}};
+
+\end{tikzpicture}
+\caption{\textbf{Propagator Composition:} The manifold propagators 
+         $\cP_t = (\bA_t, \mathbf{B}_t)$ form an associative semigroup 
+         under composition. This property enables the reduction of 
+         sequential dependencies to parallel prefix computations.}
+\label{fig:propagator_composition}
+\end{figure}
+
+The associativity of propagator composition is not merely a mathematical curiosity—it is the key algorithmic insight that enables parallelization. By recognizing that the composition operation satisfies the associative law, we can apply well-established parallel scan algorithms to compute the composed propagator for any prefix of the sequence in logarithmic time.
+
+% =============================================================================
+% SECTION 3: PARALLEL ALGORITHMS
+% =============================================================================
+\section{Parallel Integration Algorithms}
+
+\subsection{Logarithmic-Depth Prefix Scans}
+
+By exploiting associativity, the entire sequence $\bs_{1:N}$ can be computed in $O(\log N)$ parallel steps using the \textbf{Hillis-Steele} or \textbf{Blelloch} algorithms.
+
+\begin{enumerate}[label=\textbf{\arabic*.}, leftmargin=1.5cm]
+\item \textbf{Up-Sweep (Reduction):} Build a tree of partial compositions $\cP_{i:j}$.
+\item \textbf{Down-Sweep (Distribution):} Distribute prefixes to compute all final states $\bs_t$ simultaneously.
+\end{enumerate}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=0.9]
+
+% Binary tree structure for parallel scan
+\node[circle, draw=darkgray, thick, fill=darkgray!15,
+      minimum size=6mm] (root) at (4, 0) {$\cP_{1:8}$};
+
+\node[circle, draw=primary, thick, fill=primary!20,
+      minimum size=5mm] (l1) at (2, -1.5) {$\cP_{1:4}$};
+\node[circle, draw=primary, thick, fill=primary!20,
+      minimum size=5mm] (r1) at (6, -1.5) {$\cP_{5:8}$};
+
+\node[circle, draw=secondary, thick, fill=secondary!20,
+      minimum size=4mm] (ll1) at (1, -3) {$\cP_{1:2}$};
+\node[circle, draw=secondary, thick, fill=secondary!20,
+      minimum size=4mm] (lr1) at (3, -3) {$\cP_{3:4}$};
+\node[circle, draw=secondary, thick, fill=secondary!20,
+      minimum size=4mm] (rl1) at (5, -3) {$\cP_{5:6}$};
+\node[circle, draw=secondary, thick, fill=secondary!20,
+      minimum size=4mm] (rr1) at (7, -3) {$\cP_{7:8}$};
+
+% Leaf nodes
+\foreach \i/\x in {1/0, 2/0.5, 3/1.5, 4/2, 5/3, 6/3.5, 7/4.5, 8/5} {
+    \node[rectangle, draw=accent, fill=accent!20, rounded corners,
+          minimum width=5mm, minimum height=4mm,
+          at (\x, -4.5)] (leaf\i) {$\cP_\i$};
+}
+
+% Tree edges
+\draw[->, thick] (root) -- (l1);
+\draw[->, thick] (root) -- (r1);
+\draw[->, thick] (l1) -- (ll1);
+\draw[->, thick] (l1) -- (lr1);
+\draw[->, thick] (r1) -- (rl1);
+\draw[->, thick] (r1) -- (rr1);
+
+\draw[->, thick] (ll1) -- (leaf1);
+\draw[->, thick] (ll1) -- (leaf2);
+\draw[->, thick] (lr1) -- (leaf3);
+\draw[->, thick] (lr1) -- (leaf4);
+\draw[->, thick] (rl1) -- (leaf5);
+\draw[->, thick] (rl1) -- (leaf6);
+\draw[->, thick] (rr1) -- (leaf7);
+\draw[->, thick] (rr1) -- (leaf8);
+
+% Depth indicator
+\draw[<->, thick, draw=primary] (-0.8, 0) -- (-0.8, -4.5)
+      node[midway, left, font=\small] {$\log_2 N$};
+
+% Labels
+\node[above of=root, font=\small] 
+      {\textbf{Up-Sweep (Reduction)}};
+
+% Down-sweep arrows
+\draw[<-, dashed, thick, draw=secondary] ($(root)+(0.5,0.3)$) -- 
+      ($(root)+(2,1.5)$) node[above right] {\small Down-Sweep};
+
+\end{tikzpicture}
+caption{\textbf{Parallel Scan Tree Structure:} The Hillis-Steele algorithm 
+         builds a binary tree of partial propagator compositions during 
+         the up-sweep phase. The down-sweep phase then distributes these 
+         compositions to compute all prefix states in $O(\log N)$ depth.}
+\label{fig:parallel_scan_tree}
+\end{figure}
+
+The parallel scan algorithm achieves its logarithmic depth through a clever division of labor. During the up-sweep phase, adjacent pairs of propagators are composed to form partial results. These partial results are then combined in subsequent rounds, creating a binary tree structure where each level represents the composition of a larger segment of the sequence. After $\log_2 N$ rounds, the root node contains the composition of the entire sequence.
+
+The down-sweep phase distributes these pre-composed results back to the leaves, allowing each position in the sequence to compute its final state by composing only the propagators that precede it. This two-phase approach ensures that all final states can be computed simultaneously, achieving maximum parallel efficiency.
+
+\subsection{Fused CUDA Implementation}
+
+For maximum efficiency, we implement a \textbf{Fused Parallel Scan} kernel. This kernel performs the following operations in a single GPU pass:
+
+\begin{itemize}[leftmargin=1.5cm]
+\item \textbf{Warp-Level Composition:} Uses `shfl_sync` primitives to compose operators within a thread warp.
+\item \textbf{Shared Memory Buffering:} Uses a block-level Blelloch scan to handle chunks of the sequence.
+\item \textbf{Multi-Scale Integration:} Each head in the manifold processes the scan at a different base time-scale $\Delta t$, allowing the model to capture both high-frequency local dependencies and low-frequency global structures.
+\end{itemize}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.0]
+
+% GPU architecture visualization
+\node[draw, rectangle, rounded corners, fill=lightgray,
+      minimum width=8cm, minimum height=5cm] (gpu) {};
+
+% Warp structure
+\foreach \i in {0,1,2,3} {
+    \node[draw, rectangle, rounded corners, fill=primary!15,
+          minimum width=1.5cm, minimum height=1cm,
+          at ({\i*1.8+1}, 3)] (warp\i) 
+          {\small Warp \i};
+}
+
+% Shared memory
+\node[draw, rectangle, dashed, draw=secondary, thick,
+      minimum width=6cm, minimum height=0.8cm,
+      at (4, 1.5)] (shared) 
+      {\begin{tabular}{c}
+        \textbf{Shared Memory} \\ 
+        Blelloch Scan Buffer
+       \end{tabular}};
+
+% Thread blocks
+\foreach \i in {0,1,2,3} {
+    \foreach \j in {0,1,2} {
+        \node[circle, draw=darkgray, fill=darkgray!10,
+              minimum size=3mm,
+              at ({\i*1.8+1 + \j*0.3}, {\j*0.4-0.3}) (t\i\j) {};
+    }
+}
+
+% Data flow arrows
+\draw[->, thick, draw=accent] ($(shared)+(0,0.5)$) -- 
+      ($(warp0)+(0,-0.7)$);
+\draw[->, thick, draw=accent] ($(shared)+(0,0.5)$) -- 
+      ($(warp1)+(0,-0.7)$);
+\draw[->, thick, draw=accent] ($(shared)+(0,0.5)$) -- 
+      ($(warp2)+(0,-0.7)$);
+\draw[->, thick, draw=accent] ($(shared)+(0,0.5)$) -- 
+      ($(warp3)+(0,-0.7)$);
+
+% shfl_sync visualization
+\draw[<->, thick, draw=primary, opacity=0.6] 
+      ($(warp0)+(0.3,0)$) -- ($(warp1)+(-0.3,0)$);
+\draw[<->, thick, draw=primary, opacity=0.6] 
+      ($(warp2)+(0.3,0)$) -- ($(warp3)+(-0.3,0)$);
+
+% Label
+\node[above of=gpu, font=\small] 
+      {\textbf{Fused Parallel Scan CUDA Kernel}};
+
+\end{tikzpicture}
+caption{\textbf{CUDA Implementation Architecture:} The fused kernel 
+         coordinates warp-level compositions via `shfl_sync` primitives 
+         and block-level scans through shared memory buffering, enabling 
+         efficient parallel execution on GPU hardware.}
+\label{fig:cuda_kernel}
+\end{figure}
+
+The fused implementation eliminates the overhead of multiple kernel launches by performing all necessary operations in a single GPU pass. Warp-level synchronization primitives allow threads within the same warp to exchange data without accessing global memory, dramatically reducing latency. The shared memory buffer provides a high-bandwidth workspace for the Blelloch scan algorithm, which is optimized for work efficiency.
+
+% =============================================================================
+% SECTION 4: COMPLEXITY ANALYSIS
+% =============================================================================
+\section{Complexity and Performance Analysis}
+
+\begin{table}[htbp]
+\centering
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Metric} & \textbf{Sequential Integration} & \textbf{Parallel Manifold Scan} \\
+\midrule
+\textbf{Compute Complexity} & $O(N \cdot D)$ & $O(N \cdot D)$ (Work-efficient) \\
+\textbf{Parallel Depth} & $O(N)$ & $O(\log N)$ \\
+\textbf{Memory Footprint} & $O(1)$ (Inference) & $O(N \cdot D)$ (Training) \\
+\textbf{Hardware Utilization} & Low (Serial) & High (Massively Parallel) \\
+\textbf{Minimum Latency} & $N$ steps & $\log N$ steps \\
+\bottomrule
+\end{tabular}
+\caption{\textbf{Complexity Comparison:} Parallel Manifold Scans achieve 
+         logarithmic parallel depth while maintaining work efficiency. 
+         The memory trade-off enables training on sequences of length 
+         $10^5$ and beyond.}
+\label{tab:complexity}
+\end{table}
+
+The transition from $O(N)$ to $O(\log N)$ depth allows training on sequences of length $10^5$ and beyond, where traditional RNNs would fail due to the time-step bottleneck.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.1]
+
+% Scaling plot
+\draw[->, thick] (0,0) -- (8,0) node[right] {Sequence Length $N$};
+\draw[->, thick] (0,0) -- (0,5) node[above] {Time (arbitrary units)};
+
+% Sequential scaling (linear)
+\draw[blue, thick, domain=0:7.5, samples=50] 
+      plot ({\x}, {0.5*\x}) node[below right, blue] 
+      {\small Sequential $O(N)$};
+
+% Parallel scaling (logarithmic)
+\draw[red, thick, domain=0.2:7.5, samples=50] 
+      plot ({\x}, {1.2*ln(\x)+0.3}) node[above right, red] 
+      {\small Parallel $O(\log N)$};
+
+% Crossover point
+\node[circle, draw=accent, thick, fill=accent!20,
+      minimum size=8mm] (crossover) at (2.4, 1.2) {};
+\node[right of=crossover, font=\small] 
+      {\textbf{Crossover} $\approx N = 16$};
+
+% Amdahl's law annotation
+\node[draw, rounded corners, fill=lightgray,
+      minimum width=4cm, minimum height=1.5cm,
+      at (6, 4)] (amdahl)
+      {\begin{tabular}{c}
+        \textbf{Parallel Speedup} \\ 
+        Speedup $\approx \frac{N}{\log N}$ \\ 
+        For $N=1000$: $\approx 100\times$ \\ 
+        For $N=10^5$: $\approx 7000\times$
+       \end{tabular}};
+
+\end{tikzpicture}
+caption{\textbf{Scaling Behavior:} Parallel Manifold Scans achieve 
+         logarithmic time complexity, providing dramatic speedups for 
+         long sequences. The crossover point where parallelization 
+         becomes beneficial occurs at relatively short sequence lengths.}
+\label{fig:scaling}
+\end{figure}
+
+The practical implications of logarithmic scaling are profound. A sequence of length $10^5$ that would require $100,000$ sequential steps under traditional integration can be processed in approximately $17$ parallel steps—a speedup of nearly $6,000\times$ in terms of sequential time. This enables training regimes that were previously computationally infeasible.
+
+However, the parallel approach does require additional memory for storing intermediate results during the scan. For inference with constant memory requirements, the sequential formulation remains optimal. For training, where memory is typically abundant and computation is the primary bottleneck, the parallel approach provides clear advantages.
+
+% =============================================================================
+% SECTION 5: GEOMETRIC IMPLICATIONS
+% =============================================================================
+\section{Geometric and Physical Implications}
+
+\subsection{Emergent Symplecticity}
+
+Unlike explicit symplectic integrators that enforce $\det\left(\frac{\partial \bs_t}{\partial \bs_{t-1}}\right) = 1$, Parallel Manifold Scans rely on the learned $\bA_t$ to maintain stability. Any volume-preserving behavior is emergent from the loss functions (e.g., Hamiltonian regularization).
+
+The emergent symplecticity manifests through the learned retention operator $\bA_t$. When trained with appropriate regularization, the network learns to approximate volume-preserving transformations, even though this property is not explicitly enforced. This suggests that the geometric constraints of stable manifold dynamics are encoded in the data distribution and learned through gradient descent.
+
+\subsection{The ``Wormhole'' Effect}
+
+By modulating $\bA_t \to 1$, the model can create ``lossless'' conduits where information travels through the manifold without decay. In the parallel scan framing, this corresponds to long-range identity compositions, allowing a token at $t=1$ to influence $t=1000$ in a single $\log N$ jump.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.1]
+
+% Wormhole visualization
+\node[draw, ellipse, draw=accent, thick, fill=accent!15,
+      minimum width=3cm, minimum height=4cm] (wormhole) 
+      at (3,0) {};
+
+% Normal path (decaying)
+\draw[blue, thick, domain=0:3, samples=30]
+      plot ({\x+0.5}, {0.5*\x}) node[below] {};
+\node[blue, right] at (3.5, 1.5) 
+      {\small Standard flow \\ (information decay)};
+
+% Wormhole path (lossless)
+\draw[green, thick, dashed,
+      decoration={markings, mark=at position 0.5 with {\arrow{stealth}}},
+      postaction={decorate}] 
+      ($(wormhole)+(-1,1.5)$) .. 
+      controls ($(wormhole)+(2,1.5)$) and ($(wormhole)+(2,-1.5)$) ..
+      ($(wormhole)+(-1,-1.5)$);
+
+\node[green, above] at (5.5, 0) 
+      {\textbf{Wormhole} \\ lossless long-range connection};
+
+% Identity modulation
+\node[draw, rounded corners, fill=secondary!15,
+      minimum width=4cm, minimum height=1.2cm,
+      at (7, 0)] (identity)
+      {\begin{tabular}{c}
+        \textbf{Identity Modulation} \\ 
+        $\bA_t \to 1$ creates lossless channel \\ 
+        Information preserved across $\Delta t = 1000$
+       \end{tabular}};
+
+\end{tikzpicture}
+caption{\textbf{The ``Wormhole'' Effect:} When $\bA_t$ approaches the 
+         identity matrix, information travels through the manifold 
+         without decay, creating efficient long-range dependencies 
+         that bypass the intermediate timesteps.}
+\label{fig:wormhole}
+\end{figure}
+
+The wormhole effect has important implications for modeling long-range dependencies. Traditional recurrent architectures must propagate information through each intermediate timestep, causing degradation and requiring explicit gating mechanisms. The parallel scan formulation, combined with identity modulation, allows the model to create direct conduits between distant positions in the sequence, enabling more efficient information transfer.
+
+The mathematical structure underlying the wormhole effect is the composability of propagators. When $\bA_t = I$ for a range of timesteps, the composed propagator simplifies to an additive term that accumulates input effects without filtering. This corresponds to a direct information pathway that preserves the original signal with minimal distortion.
+
+% =============================================================================
+% SECTION 6: CONCLUSION
+% =============================================================================
+\section{Conclusion}
+
+Parallel Manifold Scans provide a rigorous bridge between the continuous physics of GFN and the requirements of modern deep learning. By reformulating manifold dynamics as an associative prefix-sum, we achieve $O(\log N)$ training speed without sacrificing the constant-memory, infinite-context advantages of recurrent flows. This architecture represents a new paradigm for scalable, physics-informed sequence modeling.
+
+The key contributions of this framework include:
+
+\begin{itemize}[leftmargin=1cm]
+\item \textbf{Logarithmic Parallel Depth}: Reducing sequential dependencies from $O(N)$ to $O(\log N)$ enables training on sequences of unprecedented length.
+
+\item \textbf{Work Efficiency}: The algorithm maintains optimal computational complexity while dramatically reducing parallel depth.
+
+\item \textbf{Hardware Utilization}: Fused CUDA kernels maximize GPU efficiency through warp-level synchronization and shared memory buffering.
+
+\item \textbf{Geometric Fidelity}: The parallel formulation preserves the geometric structure of geodesic flows while enabling parallel computation.
+
+\item \textbf{Emergent Properties}: The wormhole effect and emergent symplecticity provide additional capabilities beyond traditional sequence models.
+\end{itemize}
+
+Future work will explore adaptive scan algorithms that vary the parallelization strategy based on sequence characteristics, as well as extensions to multi-dimensional manifolds and hierarchical attention structures.
+
+\vfill
+
+% =============================================================================
+% REFERENCES
+% =============================================================================
+\section*{References}
+
+\begin{enumerate}[leftmargin=1.5cm, label={[\arabic*]}]
+\item Blelloch, G. E. (1990). \textit{Prefix Sums and Their Applications}. Technical Report, CMU.
+
+\item Hillis, W. D., \& Steele Jr, G. L. (1986). \textit{Data parallel algorithms}. Communications of the ACM.
+
+\item Gu, A., \& Dao, T. (2023). \textit{Mamba: Linear-Time Sequence Modeling with Selective State Spaces}. arXiv.
+
+\item Martin, E., \& Cundy, C. (2018). \textit{Parallelizing Linear Recurrent Neural Nets Over Sequence Length}. ICLR.
+
+\item Katharopoulos, A., et al. (2020). \textit{Transformers are RNNs: Fast Autoregressive Transformers with Linear Attention}. ICML.
+
+\item Smith, J. T., et al. (2023). \textit{S5: Real-Time Sequence Modeling with Selective State Spaces}. ICLR.
+\end{enumerate}
+
+\end{document}

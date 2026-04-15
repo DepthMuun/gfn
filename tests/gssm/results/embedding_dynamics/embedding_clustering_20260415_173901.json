@@ -1,0 +1,35 @@
+{
+  "test_name": "embedding_clustering",
+  "category": "embedding_dynamics",
+  "timestamp": "2026-04-15T17:39:01.244244",
+  "elapsed_seconds": 0.1619417667388916,
+  "passed": false,
+  "metrics": {
+    "avg_within_cluster_dist": 0.8381652440875769,
+    "avg_between_cluster_dist": 0.25340473651885986,
+    "clustering_ratio": 0.3023326668375381
+  },
+  "history": [
+    {
+      "name": "avg_within_cluster_dist",
+      "value": 0.8381652440875769,
+      "timestamp": 1776285541.244231,
+      "step": null
+    },
+    {
+      "name": "avg_between_cluster_dist",
+      "value": 0.25340473651885986,
+      "timestamp": 1776285541.2442334,
+      "step": null
+    },
+    {
+      "name": "clustering_ratio",
+      "value": 0.3023326668375381,
+      "timestamp": 1776285541.2442346,
+      "step": null
+    }
+  ],
+  "errors": [
+    "Poor clustering: 0.3023326668375381"
+  ]
+}

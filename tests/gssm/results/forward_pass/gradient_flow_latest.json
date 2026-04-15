@@ -1,0 +1,40 @@
+{
+  "test_name": "gradient_flow",
+  "category": "forward_pass",
+  "timestamp": "2026-04-15T17:39:02.210585",
+  "elapsed_seconds": 0.15755438804626465,
+  "passed": true,
+  "metrics": {
+    "avg_gradient_norm": 0.49165596203970124,
+    "max_gradient_norm": 3.2451682090759277,
+    "min_gradient_norm": 2.959269451707769e-08,
+    "gradient_range": 3.245168179483233
+  },
+  "history": [
+    {
+      "name": "avg_gradient_norm",
+      "value": 0.49165596203970124,
+      "timestamp": 1776285542.2105763,
+      "step": null
+    },
+    {
+      "name": "max_gradient_norm",
+      "value": 3.2451682090759277,
+      "timestamp": 1776285542.2105784,
+      "step": null
+    },
+    {
+      "name": "min_gradient_norm",
+      "value": 2.959269451707769e-08,
+      "timestamp": 1776285542.2105794,
+      "step": null
+    },
+    {
+      "name": "gradient_range",
+      "value": 3.245168179483233,
+      "timestamp": 1776285542.2105808,
+      "step": null
+    }
+  ],
+  "errors": []
+}

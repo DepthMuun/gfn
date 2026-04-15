@@ -1,0 +1,560 @@
+% =============================================================================
+% Symplectic Coupling Flows: Hybridizing Hamiltonian Dynamics and Normalizing Flows
+% Complete LaTeX Document
+% =============================================================================
+
+\documentclass[12pt,a4paper]{article}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usepackage{geometry}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{enumitem}
+
+% TikZ libraries for diagrams
+\usetikzlibrary{shapes.geometric, arrows, positioning, calc, patterns, 
+                decorations.pathreplacing, decorations.markings, fit, 
+                through, intersections, shapes.multipart, backgrounds}
+
+% Page setup
+\geometry{margin=1in}
+
+% Color definitions
+\definecolor{primary}{RGB}{41, 128, 185}
+\definecolor{secondary}{RGB}{39, 174, 96}
+\definecolor{accent}{RGB}{142, 68, 173}
+\definecolor{warning}{RGB}{231, 76, 60}
+\definecolor{lightgray}{RGB}{245, 247, 250}
+\definecolor{darkgray}{RGB}{52, 73, 94}
+
+% Custom commands
+\newcommand{\bJ}{\mathbf{J}}
+\newcommand{\bF}{\mathbf{F}}
+\DeclareMathOperator{\det}{det}
+
+% Title formatting
+\title{\textbf{Symplectic Coupling Flows: Hybridizing Hamiltonian Dynamics\\ and Normalizing Flows}}
+\author{\textbf{Joaquin Stürtz}}
+\date{\textbf{January 26, 2026}}
+
+\begin{document}
+
+\maketitle
+\vspace{-0.5cm}
+\begin{center}
+\hrule height 1pt
+\end{center}
+\vspace{0.5cm}
+
+\begin{abstract}
+Standard symplectic integrators, while stable, are typically restricted to separable Hamiltonian systems where the kinetic energy is a simple quadratic form of momentum. We introduce \textbf{Symplectic Coupling Flows}, a hybrid architecture that reformulates the numerical integration of geodesic flows as a sequence of volume-preserving coupling transformations. By borrowing the triangular structure of Normalizing Flows (e.g., NICE/RealNVP), we decouple the evolution of position and velocity into a series of shear mappings. This formulation guarantees a strictly unit Jacobian determinant ($\det J = 1$) regardless of the complexity of the learned force fields or the non-linear ``drift'' functions. We demonstrate that this approach enables the learning of \textbf{Intrinsic Kinematics}, where the relationship between velocity and coordinate updates is no longer fixed by Newtonian physics but is instead an optimized neural mapping, providing a flexible yet conservative foundation for Geodesic Flow Networks (GFN).
+\end{abstract}
+
+\vspace{1cm}
+
+% =============================================================================
+% SECTION 1: COUPLING TRANSFORMATION
+% =============================================================================
+\section{The Coupling Transformation in Phase Space}
+
+\subsection{Non-Linear Shear Invariance}
+
+A coupling flow maps an input $(x, v)$ to an output $(x', v')$ via a sequence of triangular transformations. For a state divided into two partitions, a shear transformation takes the form:
+
+\begin{equation}
+y_1 = x_1
+\end{equation}
+\begin{equation}
+y_2 = x_2 + f(x_1)
+\end{equation}
+
+The Jacobian of this mapping is lower-triangular with ones on the diagonal, ensuring that the volume in phase space is preserved exactly ($\det J = 1$). In the context of GFN, we apply this principle to the joint evolution of position and velocity.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.1]
+
+% Coupling flow visualization
+\node[rectangle, draw=darkgray, thick, fill=darkgray!15, rounded corners,
+      minimum width=2cm, minimum height=1.5cm,
+      at (0,0)] (input) 
+      {$\begin{pmatrix} x_1 \\ x_2 \end{pmatrix}$};
+
+% Coupling transformation
+\node[rectangle, draw=accent, thick, fill=accent!20, rounded corners,
+      minimum width=2.5cm, minimum height=1.5cm,
+      at (3,0)] (coupling) 
+      {$\begin{pmatrix} x_1 \\ x_2 + f(x_1) \end{pmatrix}$};
+
+% Output
+\node[rectangle, draw=secondary, thick, fill=secondary!20, rounded corners,
+      minimum width=2cm, minimum height=1.5cm,
+      at (6,0)] (output) 
+      {$\begin{pmatrix} y_1 \\ y_2 \end{pmatrix}$};
+
+% Arrows
+\draw[->, thick] (input) -- (coupling) 
+      node[midway, above] {$f$};
+\draw[->, thick] (coupling) -- (output);
+
+% Jacobian visualization
+\node[draw, rectangle, rounded corners, fill=lightgray,
+      minimum width=4cm, minimum height=1.2cm,
+      at (3, -2.2)] (jacobian)
+      {\begin{tabular}{c}
+        \textbf{Jacobian Matrix} \\ 
+        $J = \begin{pmatrix} 1 & 0 \\ \frac{\partial f}{\partial x_1} & 1 \end{pmatrix}$ \\ 
+        $\det(J) = 1$ (Volume Preserved)
+       \end{tabular}};
+
+% Phase space transformation
+\node[draw, rectangle, rounded corners, fill=primary!15,
+      minimum width=4cm, minimum height=1.8cm,
+      at (3, -4)] (phasespace)
+      {\begin{tabular}{c}
+        \textbf{Shear Transformation in Phase Space} \\ 
+        Vertical lines map to vertical lines (shifted) \\ 
+        Area of any region is invariant
+       \end{tabular}};
+
+\end{tikzpicture}
+caption{\textbf{Coupling Flow Structure:} The triangular shear transformation 
+         preserves volume through its unit lower-triangular Jacobian. This 
+         structure is the foundation of both Normalizing Flows and 
+         Symplectic Coupling Flows.}
+\label{fig:coupling_flow}
+\end{figure}
+
+The triangular structure of the coupling transformation provides a powerful mechanism for learning complex mappings while guaranteeing exact volume preservation. Unlike approximation-based methods that only preserve volume to a certain order, the coupling flow maintains exact volume preservation regardless of the complexity of the learned function $f$.
+
+The geometric interpretation of the coupling transformation is particularly intuitive in phase space. The transformation shears the phase space along the direction of the function $f$, maintaining the measure of all regions. This shearing behavior is characteristic of Hamiltonian dynamics, where the flow in phase space preserves the symplectic form and consequently the phase space volume.
+
+\subsection{Symplectic Splitting as Coupling}
+
+We decompose a single integration step $\Delta t$ into a symmetric splitting of ``Kick'' (velocity update) and ``Drift'' (position update) operators. Unlike traditional integrators that assume a fixed identity for the drift, our formulation allows for a learnable \textbf{Neural Drift}:
+
+\begin{enumerate}[label=\textbf{\arabic*.}, leftmargin=1.5cm]
+\item \textbf{Half-Kick (Velocity):} 
+    \begin{equation}
+    \mathbf{v}_{t+1/2} = \mathbf{v}_t + \frac{\Delta t}{2} \cdot \mathbf{a}(\mathbf{x}_t, \mathbf{v}=0, \mathbf{F}_t)
+    \end{equation}
+    
+\item \textbf{Neural Drift (Position):}
+    \begin{equation}
+    \mathbf{x}_{t+1} = \mathbf{x}_t + \Delta t \cdot \left( \mathbf{v}_{t+1/2} + \mathcal{G}_\theta(\mathbf{v}_{t+1/2}) \right)
+    \end{equation}
+    
+\item \textbf{Full-Kick (Velocity):}
+    \begin{equation}
+    \mathbf{v}_{t+1} = \mathbf{v}_{t+1/2} + \frac{\Delta t}{2} \cdot \mathbf{a}(\mathbf{x}_{t+1}, \mathbf{v}=0, \mathbf{F}_t)
+    \end{equation}
+\end{enumerate}
+
+where $\mathbf{a}$ represents the acceleration (including learned Christoffel forces) and $\mathcal{G}_\theta$ is a learned MLP that warps the kinematic relationship.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.1]
+
+% Kick-Drift-Kick visualization
+\node[circle, draw=primary, thick, fill=primary!20,
+      minimum size=1.2cm] (start) at (0,0) {$\bs_t$};
+
+% First kick
+\node[rectangle, draw=warning, fill=warning!20, rounded corners,
+      minimum width=1.5cm, minimum height=0.8cm,
+      at (2,0)] (kick1) {Half-Kick};
+
+\node[circle, draw=primary, thick, fill=primary!20,
+      minimum size=1cm] (mid1) at (4,0) {$\bv_{t+1/2}$};
+
+% Drift
+\node[rectangle, draw=accent, fill=accent!20, rounded corners,
+      minimum width=1.8cm, minimum height=0.8cm,
+      at (6,0)] (drift) {Neural Drift};
+
+\node[circle, draw=primary, thick, fill=primary!20,
+      minimum size=1cm] (mid2) at (8,0) {$\bx_{t+1}$};
+
+% Second kick
+\node[rectangle, draw=warning, fill=warning!20, rounded corners,
+      minimum width=1.5cm, minimum height=0.8cm,
+      at (10,0)] (kick2) {Full-Kick};
+
+\node[circle, draw=secondary, thick, fill=secondary!20,
+      minimum size=1.2cm] (end) at (12,0) {$\bs_{t+1}$};
+
+% Arrows
+\draw[->, thick] (start) -- (kick1);
+\draw[->, thick] (kick1) -- (mid1);
+\draw[->, thick] (mid1) -- (drift);
+\draw[->, thick] (drift) -- (mid2);
+\draw[->, thick] (mid2) -- (kick2);
+\draw[->, thick] (kick2) -- (end);
+
+% Neural drift detail
+\node[draw, rectangle, rounded corners, fill=lightgray,
+      minimum width=4cm, minimum height=1.5cm,
+      at (6, -2)] (neural-detail)
+      {\begin{tabular}{c}
+        \textbf{Neural Drift Module} \\ 
+        $\mathbf{x}_{t+1} = \mathbf{x}_t + \Delta t \cdot (\mathbf{v}_{t+1/2} + \mathcal{G}_\theta(\mathbf{v}_{t+1/2}))$ \\ 
+        $\mathcal{G}_\theta$: Learnable velocity-dependent correction
+       \end{tabular}};
+
+\end{tikzpicture}
+caption{\textbf{Symplectic Splitting Scheme:} The integration step is 
+         decomposed into alternating Kick and Neural Drift operations. 
+         The half-kicks surround the drift, maintaining time-reversal 
+         symmetry and symplecticity.}
+\label{fig:symplectic_splitting}
+\end{figure}
+
+The Kick-Drift-Kick structure is a symmetric splitting that preserves both the symplectic structure and time-reversal symmetry. By placing half-steps of velocity update at both ends of the position update, the integrator maintains the reversibility property that is essential for the preservation of phase space volume and energy in Hamiltonian systems.
+
+% =============================================================================
+% SECTION 2: LEARNABLE KINEMATICS
+% =============================================================================
+\section{Learnable Kinematics and the Neural Drift}
+
+\subsection{Beyond Newtonian Drift}
+
+In standard Euclidean physics, the drift is simply $\Delta x = v \Delta t$. However, on complex semantic manifolds, the ``effective mass'' or ``inertial resistance'' may vary depending on the direction of thought. By introducing the \textbf{Drift Network} $\mathcal{G}_\theta(\mathbf{v})$, we allow the model to learn a non-linear velocity-to-position mapping.
+
+The Newtonian assumption of constant inertial mass is inadequate for modeling the complex dynamics of semantic manifolds. Different regions of the semantic space may exhibit different effective ``stiffness'' or ``resistance'' to change, requiring a more flexible kinematic model. The neural drift provides this flexibility by learning a data-dependent mapping from velocity to position increment.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.1]
+
+% Velocity space to position space mapping
+\node[rectangle, draw=primary, fill=primary!20, rounded corners,
+      minimum width=2.5cm, minimum height=2cm,
+      at (0,0)] (velocity) 
+      {\begin{tabular}{c}
+        \textbf{Velocity Space} \\ 
+        $\mathbf{v}$ \\ 
+        \hline
+        High velocity regions \\ 
+        Low velocity regions
+       \end{tabular}};
+
+% Neural drift network
+\node[rectangle, draw=accent, thick, fill=accent!20, rounded corners,
+      minimum width=3cm, minimum height=2.5cm,
+      at (4,0)] (drift-net) 
+      {\begin{tabular}{c}
+        \textbf{Drift Network} \\ 
+        $\mathcal{G}_\theta(\mathbf{v})$ \\ 
+        \hline
+        MLP(256, 256, d) \\ 
+        Tanh activations \\ 
+        Learned kinematics
+       \end{tabular}};
+
+% Position increment
+\node[rectangle, draw=secondary, fill=secondary!20, rounded corners,
+      minimum width=2.5cm, minimum height=2cm,
+      at (8,0)] (position) 
+      {\begin{tabular}{c}
+        \textbf{Position Increment} \\ 
+        $\Delta \mathbf{x} = \Delta t \cdot (\mathbf{v} + \mathcal{G}_\theta(\mathbf{v}))$ \\ 
+        \hline
+        Adaptive scaling \\ 
+        Direction-dependent
+       \end{tabular}};
+
+% Arrows
+\draw[->, thick, draw=primary] (velocity) -- (drift-net)
+      node[midway, above] {$\mathbf{v}$};
+\draw[->, thick, draw=secondary] (drift-net) -- (position)
+      node[midway, above] {$\mathcal{G}_\theta(\mathbf{v})$};
+
+% Jacobian indicator
+\node[draw, rounded corners, fill=lightgray,
+      minimum width=4cm, minimum height=1.2cm,
+      at (4, -2.5)] (jacobian-note)
+      {\begin{tabular}{c}
+        \textbf{Triangular Coupling Preserves Volume} \\ 
+        $\frac{\partial \Delta \mathbf{x}}{\partial \mathbf{v}} = \Delta t \cdot (I + \nabla \mathcal{G}_\theta)$ \\ 
+        $\det(J) = \prod_i (1 + \frac{\partial \mathcal{G}_\theta^i}{\partial v_i}) \neq 1$ is OK because \\ 
+        $\mathcal{G}$ operates on $\mathbf{v}$ only, not $\mathbf{x}$
+       \end{tabular}};
+
+\end{tikzpicture}
+caption{\textbf{Neural Drift Architecture:} The drift network $\mathcal{G}_\theta$ 
+         learns a non-linear mapping from velocity to position increment. 
+         Despite the complexity of the neural network, the triangular 
+         coupling structure maintains exact volume preservation.}
+\label{fig:neural_drift}
+\end{figure}
+
+The key insight is that the neural drift operates exclusively on velocity, not on position. This triangular structure—where position update depends on velocity, but velocity update depends on position—maintains the lower-triangular Jacobian structure that guarantees volume preservation.
+
+\subsection{Preserving the Symplectic Structure}
+
+Even with a complex neural network $\mathcal{G}_\theta$, the volume preservation is maintained because the update to $\mathbf{x}$ depends only on the current (half-stepped) $\mathbf{v}$. This is a \textbf{triangular coupling}: the change in position is a function of velocity, and the change in velocity is a function of position. As long as the partitions are updated sequentially, the Jacobian remains unit-valued.
+
+The symplectic structure is preserved through the careful sequencing of operations. By computing the velocity update before the position update and then computing the final velocity update based on the new position, the integrator maintains the alternating structure that characterizes symplectic maps. The addition of the neural drift does not disrupt this structure because it operates as an additive correction to the standard Newtonian drift.
+
+% =============================================================================
+% SECTION 3: IMPLEMENTATION
+% =============================================================================
+\section{Implementation and Discretization}
+
+\subsection{Separable Approximation of Christoffel Forces}
+
+To ensure exact coupling, the acceleration $\mathbf{a}(\mathbf{x})$ should ideally be independent of $\mathbf{v}$. However, Riemannian Christoffel symbols $\Gamma(v, v)$ are inherently quadratic in velocity. We resolve this by evaluating the geometric force at a base velocity state (e.g., $\mathbf{v}=0$) during the ``Kick'' phase, treating the velocity-dependent terms as a separate coupling or an auxiliary force.
+
+This approximation trades exact Christoffel dynamics for the flexibility of learning intrinsic kinematics. The trade-off is justified by the observation that the learned neural drift implicitly captures some of the velocity-dependent dynamics, compensating for the approximation in the geometric force calculation.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.0]
+
+% Force decomposition
+\node[rectangle, draw=primary, fill=primary!20, rounded corners,
+      minimum width=2.5cm, minimum height=2cm,
+      at (0,0)] (accel) 
+      {$\mathbf{a}(\mathbf{x}, \mathbf{v})$};
+
+% Decomposition
+\node[rectangle, draw=darkgray, thick, fill=darkgray!15, rounded corners,
+      minimum width=3cm, minimum height=2.5cm,
+      at (3.5,0)] (decomp)
+      {\begin{tabular}{c}
+        \textbf{Force Decomposition} \\ 
+        $\mathbf{a}(\mathbf{x}, \mathbf{v}) \approx$ \\ 
+        $\underbrace{\mathbf{a}(\mathbf{x}, \mathbf{0})}_{\text{Kick}}$ \\ 
+        $+ \underbrace{\Gamma_{\text{eff}}(\mathbf{v})}_{\text{Neural}}$
+       \end{tabular}};
+
+% Kick phase
+\node[rectangle, draw=warning, fill=warning!20, rounded corners,
+      minimum width=2cm, minimum height=1.5cm,
+      at (7,0.8)] (kick-phase)
+      {\begin{tabular}{c}
+        \textbf{Kick Phase} \\ 
+        $\mathbf{v} \leftarrow \mathbf{v} + \frac{\Delta t}{2}\mathbf{a}(\mathbf{x}, \mathbf{0})$
+       \end{tabular}};
+
+% Neural phase
+\node[rectangle, draw=accent, fill=accent!20, rounded corners,
+      minimum width=2cm, minimum height=1.5cm,
+      at (7, -1.2)] (neural-phase)
+      {\begin{tabular}{c}
+        \textbf{Neural Drift} \\ 
+        $\mathbf{x} \leftarrow \mathbf{x} + \Delta t(\mathbf{v} + \mathcal{G}_\theta(\mathbf{v}))$
+       \end{tabular}};
+
+% Arrows
+\draw[->, thick] (accel) -- (decomp);
+\draw[->, thick] (decomp) -- (kick-phase);
+\draw[->, thick] (decomp) -- (neural-phase);
+
+\end{tikzpicture}
+caption{\textbf{Force Decomposition Strategy:} The Christoffel acceleration 
+         is decomposed into a position-dependent part (computed at $\mathbf{v}=0$) 
+         for the Kick phase and a velocity-dependent part captured by the 
+         Neural Drift, enabling exact coupling.}
+\label{fig:force_decomposition}
+\end{figure}
+
+The separable approximation is particularly effective for semantic manifolds where the position-dependent geometric forces (encoding the curvature of the semantic space) are more important for stable dynamics than the velocity-dependent inertial terms. By separating these components, we can apply the full power of neural network learning to the kinematic structure while maintaining a clean geometric interpretation for the force calculations.
+
+\subsection{Toroidal Topology and Periodic Boundaries}
+
+The coupling flow is designed to respect the topological constraints of the manifold. When operating on a torus $\mathbb{T}^n$, the position update is followed by a modular wrapping operator:
+
+\begin{equation}
+\mathbf{x}_{t+1} = (\mathbf{x}_t + \Delta t \cdot \text{Drift}(\mathbf{v}_{t+1/2})) \pmod L
+\end{equation}
+
+Because the wrapping is a local isometry (except at the boundary which is a null set in measure), it preserves the volume-preserving property of the coupling flow.
+
+The toroidal topology is essential for capturing the cyclic nature of certain semantic structures, such as periodic concepts in language or cyclical patterns in time series. The modular arithmetic ensures that trajectories wrapping around the torus maintain their geometric properties while allowing for infinite periodic traversal of the semantic space.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.2]
+
+% Torus representation (2D projection)
+\node[ellipse, draw=accent, thick, fill=none,
+      minimum width=4cm, minimum height=2.5cm] (torus) {};
+
+% Trajectory on torus
+\draw[green, thick, domain=0:6.28*3, samples=150,
+      decoration={markings, mark=at position 0.03 with {\arrow{stealth}}},
+      postaction={decorate}] 
+      plot ({2*cos(\x r) + 0.3*cos(4*\x r)}, 
+            {1.25*sin(\x r) + 0.2*sin(4*\x r)});
+
+% Modulo wrapping annotation
+\node[draw, rounded corners, fill=lightgray,
+      minimum width=4cm, minimum height=1.2cm,
+      at (5, 0)] (modulo)
+      {\begin{tabular}{c}
+        \textbf{Periodic Boundary} \\ 
+        $\mathbf{x} \leftarrow (\mathbf{x} + \Delta\mathbf{x}) \pmod L$ \\ 
+        Local isometry preserves volume
+       \end{tabular}};
+
+% Wrapping points
+\node[circle, draw=primary, fill=primary!30, minimum size=4mm]
+      at (2.2, 1.4) (wrap1) {};
+\node[circle, draw=primary, fill=primary!30, minimum size=4mm]
+      at (2.2, -1.4) (wrap2) {};
+
+\node[above of=wrap1, font=\small, color=primary] 
+      {\textbf{Wrapping point}};
+\node[below of=wrap2, font=\small, color=primary] 
+      {\textbf{Wrapping point}};
+
+\end{tikzpicture}
+caption{\textbf{Toroidal Topology with Periodic Boundaries:} Trajectories 
+         on the torus wrap around using modular arithmetic. The wrapping 
+         operation is a local isometry, preserving the volume-preserving 
+         property of the coupling flow.}
+\label{fig:toroidal_topology}
+\end{figure}
+
+% =============================================================================
+% SECTION 4: COMPARATIVE ADVANTAGES
+% =============================================================================
+\section{Comparative Advantages}
+
+\begin{table}[htbp]
+\centering
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Feature} & \textbf{Standard Symplectic} & \textbf{Normalizing Flows} & \textbf{Symplectic Coupling Flow} \\
+\midrule
+\textbf{Physics} & Fixed Hamiltonian & None (General) & \textbf{Learnable Hamiltonian} \\
+\textbf{Volume} & Preserved ($O(\Delta t^n)$) & Exact ($\det J = 1$) & \textbf{Exact ($\det J = 1$)} \\
+\textbf{Invertibility} & Semi-analytical & Analytical & \textbf{Analytical} \\
+\textbf{Kinematics} & Linear ($\dot{x}=v$) & N/A & \textbf{Neural ($\dot{x}=v+G(v)$)} \\
+\textbf{Force Learning} & Limited & Full & \textbf{Full} \\
+\bottomrule
+\end{tabular}
+\caption{\textbf{Comparison with Alternative Approaches:} Symplectic Coupling 
+         Flows combine the exact volume preservation of Normalizing Flows 
+         with the physics-based structure of symplectic integrators, while 
+         enabling fully learnable kinematics through the neural drift.}
+\label{tab:comparison}
+\end{table}
+
+The comparison reveals that Symplectic Coupling Flows occupy a unique position in the landscape of volume-preserving transformations. They maintain the exact volume preservation guarantee of Normalizing Flows while incorporating the physical structure of symplectic integrators. More importantly, they extend both approaches by enabling learnable kinematics that can adapt the fundamental relationship between velocity and position.
+
+% =============================================================================
+% SECTION 5: EMPIRICAL OBSERVATIONS
+% =============================================================================
+\section{Empirical Observations: Semantic Inertia}
+
+By training the Drift Network, we observe the emergence of \textbf{Semantic Inertia}: the model learns to ``heavy'' certain regions of the latent space where high-precision reasoning is required, effectively slowing down the flow ($\Delta x \approx 0$) to allow for more integration steps per unit of coordinate shift. Conversely, in ``shallow'' regions, the flow is accelerated, mimicking a form of adaptive time-stepping within a fixed-step integrator framework.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.1]
+
+% Manifold with varying inertia
+\node[draw, ellipse, draw=darkgray, thick, fill=lightgray,
+      minimum width=6cm, minimum height=4cm] (manifold) {};
+
+% High inertia region (heavy)
+\node[circle, draw=warning, thick, fill=warning!20,
+      minimum width=2cm, minimum height=1.5cm,
+      at (1.5, 0.8)] (heavy) 
+      {\begin{tabular}{c}
+        \textbf{High Inertia} \\ 
+        Slow flow \\ 
+        $\mathcal{G}_\theta(\mathbf{v}) \approx -k\mathbf{v}$
+       \end{tabular}};
+
+% Low inertia region (light)
+\node[circle, draw=secondary, thick, fill=secondary!20,
+      minimum width=1.5cm, minimum height=1.2cm,
+      at (4.5, -0.5)] (light) 
+      {\begin{tabular}{c}
+        \textbf{Low Inertia} \\ 
+        Fast flow \\ 
+        $\mathcal{G}_\theta(\mathbf{v}) \approx 0$
+       \end{tabular}};
+
+% Flow arrows
+\draw[->, thick, draw=warning, opacity=0.6] 
+      ($(heavy)+(-1.2,0)$) -- ($(heavy)+(1.2,0)$);
+\draw[->, thick, draw=secondary, opacity=0.8] 
+      ($(light)+(-1,0)$) -- ($(light)+(1,0)$);
+
+% Adaptive timestep visualization
+\node[draw, rounded corners, fill=lightgray,
+      minimum width=5cm, minimum height=1.5cm,
+      at (3, -2.5)] (adaptive)
+      {\begin{tabular}{c}
+        \textbf{Emergent Adaptive Time-Stepping} \\ 
+        Regions requiring precision $\rightarrow$ Effective $\Delta t \downarrow$ \\ 
+        Shallow regions $\rightarrow$ Effective $\Delta t \uparrow$ \\ 
+        Learned through semantic inertia during training
+       \end{tabular}};
+
+\end{tikzpicture}
+caption{\textbf{Semantic Inertia Emergence:} The trained drift network 
+         learns to modulate the effective time-step based on the region 
+         of semantic space. High-precision regions develop high inertia, 
+         slowing the flow to allow more detailed integration.}
+\label{fig:semantic_inertia}
+\end{figure}
+
+The emergence of semantic inertia during training is a remarkable phenomenon that demonstrates the ability of the architecture to adapt its dynamics to the requirements of the task. Without explicit instruction, the model discovers that certain regions of the semantic space require more careful exploration and adjusts the effective timestep accordingly.
+
+This adaptive behavior has important implications for model efficiency. By spending more computational resources (in the form of integration steps) on challenging regions of the semantic space, the model achieves better representation quality without uniformly increasing computational cost across all regions.
+
+% =============================================================================
+% SECTION 6: CONCLUSION
+% =============================================================================
+\section{Conclusion}
+
+Symplectic Coupling Flows provide a mathematically rigorous way to inject learnable neural components into the heart of a geometric integrator. By framing the update as a series of shear transformations, we gain the flexibility of deep neural networks while retaining the exact conservation laws required for stable, long-horizon sequence modeling in Geodesic Flow Networks.
+
+The key contributions of this framework include:
+
+\begin{itemize}[leftmargin=1cm]
+\item \textbf{Exact Volume Preservation}: The triangular coupling structure guarantees $\det J = 1$ regardless of the complexity of the learned drift network.
+
+\item \textbf{Learnable Kinematics}: The neural drift $\mathcal{G}_\theta$ enables the model to learn intrinsic kinematic properties that adapt to the structure of the semantic manifold.
+
+\item \textbf{Adaptive Dynamics}: The emergence of semantic inertia provides an implicit form of adaptive time-stepping without explicit timestep scheduling.
+
+\item \textbf{Topological Awareness}: The modular arithmetic for toroidal topology ensures that periodic semantic structures are properly handled.
+
+\item \textbf{Unified Framework}: By combining Normalizing Flows and symplectic integration, we bridge two powerful paradigms in machine learning and physics-inspired modeling.
+\end{itemize}
+
+Future work will explore the combination of multiple coupling flows for more complex transformations, the extension to higher-order symplectic structures, and the integration of learned metrics for adaptive curvature in the semantic manifold.
+
+\vfill
+
+% =============================================================================
+% REFERENCES
+% =============================================================================
+\section*{References}
+
+\begin{enumerate}[leftmargin=1.5cm, label={[\arabic*]}]
+\item Dinh, L., Krueger, D., \& Bengio, Y. (2014). \textit{NICE: Non-linear Independent Components Estimation}. arXiv:1410.8516.
+
+\item Dinh, L., Sohl-Dickstein, J., \& Samy, B. (2017). \textit{Density estimation using Real NVP}. ICLR.
+
+\item Hairer, E., et al. (2006). \textit{Geometric Numerical Integration: Structure-Preserving Algorithms for Ordinary Differential Equations}. Springer.
+
+\item Rezende, D. J., \& Mohamed, S. (2015). \textit{Variational Inference with Normalizing Flows}. ICML.
+
+\item Clemente, A. V., et al. (2021). \textit{Symplectic Hamiltonian Neural Networks}. arXiv.
+
+\item Marsden, J. E., \& West, M. (2001). \textit{Discrete Mechanics and Variational Integrators}. Acta Numerica.
+\end{enumerate}
+
+\end{document}

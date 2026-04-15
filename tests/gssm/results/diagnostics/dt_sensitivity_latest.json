@@ -1,0 +1,117 @@
+{
+  "test_name": "dt_sensitivity",
+  "category": "diagnostics",
+  "timestamp": "2026-04-15T17:39:00.602995",
+  "elapsed_seconds": 0.2781946659088135,
+  "passed": true,
+  "metrics": {
+    "dt_0.01_x_norm": 16.42580795288086,
+    "dt_0.01_v_norm": 4.193999290466309,
+    "dt_0.01_has_nan": 0,
+    "dt_0.05_x_norm": 16.430692672729492,
+    "dt_0.05_v_norm": 20.59661293029785,
+    "dt_0.05_has_nan": 0,
+    "dt_0.1_x_norm": 16.325153350830078,
+    "dt_0.1_v_norm": 40.288970947265625,
+    "dt_0.1_has_nan": 0,
+    "dt_0.2_x_norm": 15.842126846313477,
+    "dt_0.2_v_norm": 65.0064926147461,
+    "dt_0.2_has_nan": 0,
+    "dt_0.5_x_norm": 16.695940017700195,
+    "dt_0.5_v_norm": 94.62313842773438,
+    "dt_0.5_has_nan": 0
+  },
+  "history": [
+    {
+      "name": "dt_0.01_x_norm",
+      "value": 16.42580795288086,
+      "timestamp": 1776285540.3799663,
+      "step": null
+    },
+    {
+      "name": "dt_0.01_v_norm",
+      "value": 4.193999290466309,
+      "timestamp": 1776285540.3799691,
+      "step": null
+    },
+    {
+      "name": "dt_0.01_has_nan",
+      "value": 0,
+      "timestamp": 1776285540.3799706,
+      "step": null
+    },
+    {
+      "name": "dt_0.05_x_norm",
+      "value": 16.430692672729492,
+      "timestamp": 1776285540.4362187,
+      "step": null
+    },
+    {
+      "name": "dt_0.05_v_norm",
+      "value": 20.59661293029785,
+      "timestamp": 1776285540.4362214,
+      "step": null
+    },
+    {
+      "name": "dt_0.05_has_nan",
+      "value": 0,
+      "timestamp": 1776285540.4362235,
+      "step": null
+    },
+    {
+      "name": "dt_0.1_x_norm",
+      "value": 16.325153350830078,
+      "timestamp": 1776285540.4940388,
+      "step": null
+    },
+    {
+      "name": "dt_0.1_v_norm",
+      "value": 40.288970947265625,
+      "timestamp": 1776285540.4940417,
+      "step": null
+    },
+    {
+      "name": "dt_0.1_has_nan",
+      "value": 0,
+      "timestamp": 1776285540.4940436,
+      "step": null
+    },
+    {
+      "name": "dt_0.2_x_norm",
+      "value": 15.842126846313477,
+      "timestamp": 1776285540.5506618,
+      "step": null
+    },
+    {
+      "name": "dt_0.2_v_norm",
+      "value": 65.0064926147461,
+      "timestamp": 1776285540.5506651,
+      "step": null
+    },
+    {
+      "name": "dt_0.2_has_nan",
+      "value": 0,
+      "timestamp": 1776285540.550671,
+      "step": null
+    },
+    {
+      "name": "dt_0.5_x_norm",
+      "value": 16.695940017700195,
+      "timestamp": 1776285540.6029873,
+      "step": null
+    },
+    {
+      "name": "dt_0.5_v_norm",
+      "value": 94.62313842773438,
+      "timestamp": 1776285540.60299,
+      "step": null
+    },
+    {
+      "name": "dt_0.5_has_nan",
+      "value": 0,
+      "timestamp": 1776285540.6029913,
+      "step": null
+    }
+  ],
+  "errors": []
+}

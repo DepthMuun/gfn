@@ -1,0 +1,33 @@
+{
+  "test_name": "momentum_conservation",
+  "category": "energy_hamiltonian",
+  "timestamp": "2026-04-02T01:09:09.628122",
+  "elapsed_seconds": 0.12845683097839355,
+  "passed": true,
+  "metrics": {
+    "initial_total_momentum": 1.4440428018569946,
+    "final_total_momentum": 2.298567771911621,
+    "momentum_change": 0.8545249700546265
+  },
+  "history": [
+    {
+      "name": "initial_total_momentum",
+      "value": 1.4440428018569946,
+      "timestamp": 1775102949.6281135,
+      "step": null
+    },
+    {
+      "name": "final_total_momentum",
+      "value": 2.298567771911621,
+      "timestamp": 1775102949.6281161,
+      "step": null
+    },
+    {
+      "name": "momentum_change",
+      "value": 0.8545249700546265,
+      "timestamp": 1775102949.6281176,
+      "step": null
+    }
+  ],
+  "errors": []
+}

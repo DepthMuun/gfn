@@ -1,0 +1,33 @@
+{
+  "test_name": "hamiltonian_stability",
+  "category": "energy_hamiltonian",
+  "timestamp": "2026-04-15T17:39:01.546213",
+  "elapsed_seconds": 0.10164308547973633,
+  "passed": true,
+  "metrics": {
+    "initial_distance": 0.05650610476732254,
+    "final_distance": 0.3959699869155884,
+    "lyapunov_exponent_approx": 1.9469895594983277
+  },
+  "history": [
+    {
+      "name": "initial_distance",
+      "value": 0.05650610476732254,
+      "timestamp": 1776285541.5462072,
+      "step": null
+    },
+    {
+      "name": "final_distance",
+      "value": 0.3959699869155884,
+      "timestamp": 1776285541.546209,
+      "step": null
+    },
+    {
+      "name": "lyapunov_exponent_approx",
+      "value": 1.9469895594983277,
+      "timestamp": 1776285541.54621,
+      "step": null
+    }
+  ],
+  "errors": []
+}

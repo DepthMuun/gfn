@@ -1,0 +1,33 @@
+{
+  "test_name": "leapfrog_reversibility",
+  "category": "health",
+  "timestamp": "2026-04-15T17:38:54.156930",
+  "elapsed_seconds": 0.027665138244628906,
+  "passed": true,
+  "metrics": {
+    "position_diff": 4.920363426208496e-05,
+    "velocity_diff": 0.000961989164352417,
+    "reversible": true
+  },
+  "history": [
+    {
+      "name": "position_diff",
+      "value": 4.920363426208496e-05,
+      "timestamp": 1776285534.1569223,
+      "step": null
+    },
+    {
+      "name": "velocity_diff",
+      "value": 0.000961989164352417,
+      "timestamp": 1776285534.1569245,
+      "step": null
+    },
+    {
+      "name": "reversible",
+      "value": true,
+      "timestamp": 1776285534.156926,
+      "step": null
+    }
+  ],
+  "errors": []
+}

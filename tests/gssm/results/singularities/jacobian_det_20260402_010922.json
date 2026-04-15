@@ -1,0 +1,26 @@
+{
+  "test_name": "jacobian_det",
+  "category": "singularities",
+  "timestamp": "2026-04-02T01:09:22.617712",
+  "elapsed_seconds": 0.07146263122558594,
+  "passed": true,
+  "metrics": {
+    "output_variance": 0.004313391633331776,
+    "output_mean": -0.2434290498495102
+  },
+  "history": [
+    {
+      "name": "output_variance",
+      "value": 0.004313391633331776,
+      "timestamp": 1775102962.6176944,
+      "step": null
+    },
+    {
+      "name": "output_mean",
+      "value": -0.2434290498495102,
+      "timestamp": 1775102962.6177084,
+      "step": null
+    }
+  ],
+  "errors": []
+}

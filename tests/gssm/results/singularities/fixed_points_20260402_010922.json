@@ -1,0 +1,26 @@
+{
+  "test_name": "fixed_points",
+  "category": "singularities",
+  "timestamp": "2026-04-02T01:09:22.754625",
+  "elapsed_seconds": 0.13221383094787598,
+  "passed": true,
+  "metrics": {
+    "v_final_norm": 83.9759750366211,
+    "v_final_mean": 3.0220580101013184
+  },
+  "history": [
+    {
+      "name": "v_final_norm",
+      "value": 83.9759750366211,
+      "timestamp": 1775102962.7546194,
+      "step": null
+    },
+    {
+      "name": "v_final_mean",
+      "value": 3.0220580101013184,
+      "timestamp": 1775102962.7546217,
+      "step": null
+    }
+  ],
+  "errors": []
+}

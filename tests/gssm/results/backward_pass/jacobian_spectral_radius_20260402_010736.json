@@ -1,0 +1,12 @@
+{
+  "test_name": "jacobian_spectral_radius",
+  "category": "backward_pass",
+  "timestamp": "2026-04-02T01:07:36.887554",
+  "elapsed_seconds": 0.07708477973937988,
+  "passed": false,
+  "metrics": {},
+  "history": [],
+  "errors": [
+    "result type Float can't be cast to the desired output type Long"
+  ]
+}

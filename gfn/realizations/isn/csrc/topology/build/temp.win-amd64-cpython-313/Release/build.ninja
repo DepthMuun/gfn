@@ -1,0 +1,23 @@
+ninja_required_version = 1.3
+cxx = cl
+
+cflags = /nologo /O2 /W3 /GL /DNDEBUG /MD /MD /wd4819 /wd4251 /wd4244 /wd4267 /wd4275 /wd4018 /wd4190 /wd4624 /wd4067 /wd4068 /EHsc -IC:\Users\joaqu\AppData\Roaming\Python\Python313\site-packages\torch\include -IC:\Users\joaqu\AppData\Roaming\Python\Python313\site-packages\torch\include\torch\csrc\api\include -IC:\Users\joaqu\AppData\Roaming\Python\Python313\site-packages\torch\include\TH -IC:\Users\joaqu\AppData\Roaming\Python\Python313\site-packages\torch\include\THC "-IC:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9\include" -IC:\Python313\include -IC:\Python313\Include "-IC:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include" "-IC:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8\include\um"
+post_cflags = -O3 -DTORCH_API_INCLUDE_EXTENSION_H -DTORCH_EXTENSION_NAME=gfn_topology -D_GLIBCXX_USE_CXX11_ABI=0 /std:c++17
+cuda_dlink_post_cflags = 
+ldflags = 
+
+rule compile
+  command = cl /showIncludes $cflags -c $in /Fo$out $post_cflags
+  deps = msvc
+
+
+
+
+
+build D$:\ASAS\manifold_mini\gfn_2.6.6\gfn\gfn\csrc\topology\build\temp.win-amd64-cpython-313\Release\topology.obj: compile D$:\ASAS\manifold_mini\gfn_2.6.6\gfn\gfn\csrc\topology\topology.cpp
+
+
+
+
+
+

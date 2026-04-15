@@ -1,0 +1,40 @@
+{
+  "test_name": "channel_capacity",
+  "category": "information_theory",
+  "timestamp": "2026-04-15T17:39:02.456656",
+  "elapsed_seconds": 0.07743954658508301,
+  "passed": true,
+  "metrics": {
+    "avg_information_flow": 0.5354184593473162,
+    "min_information_flow": 0.5220112204551697,
+    "max_information_flow": 0.5529556274414062,
+    "flow_variance": 0.0001409538455401598
+  },
+  "history": [
+    {
+      "name": "avg_information_flow",
+      "value": 0.5354184593473162,
+      "timestamp": 1776285542.4565794,
+      "step": null
+    },
+    {
+      "name": "min_information_flow",
+      "value": 0.5220112204551697,
+      "timestamp": 1776285542.4565818,
+      "step": null
+    },
+    {
+      "name": "max_information_flow",
+      "value": 0.5529556274414062,
+      "timestamp": 1776285542.4565942,
+      "step": null
+    },
+    {
+      "name": "flow_variance",
+      "value": 0.0001409538455401598,
+      "timestamp": 1776285542.4566514,
+      "step": null
+    }
+  ],
+  "errors": []
+}

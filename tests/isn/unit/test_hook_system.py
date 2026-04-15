@@ -5,7 +5,7 @@ from pathlib import Path
 # Add project root
 sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 
-from gfn.realizations.isn.hooks import ISNHook, HookManager
+from gfn.realizations.isn.telemetry.hooks import ISNHook, HookManager
 
 class MockHook(ISNHook):
     def __init__(self):

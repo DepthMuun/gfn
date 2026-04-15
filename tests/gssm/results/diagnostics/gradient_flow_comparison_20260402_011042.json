@@ -1,0 +1,40 @@
+{
+  "test_name": "gradient_flow_comparison",
+  "category": "diagnostics",
+  "timestamp": "2026-04-02T01:10:42.577484",
+  "elapsed_seconds": 0.6445999145507812,
+  "passed": true,
+  "metrics": {
+    "first_layer_grad_std": 0,
+    "last_layer_grad_std": 0,
+    "first_layer_grad_spread": 0,
+    "last_layer_grad_spread": 0
+  },
+  "history": [
+    {
+      "name": "first_layer_grad_std",
+      "value": 0,
+      "timestamp": 1775103042.2148743,
+      "step": null
+    },
+    {
+      "name": "last_layer_grad_std",
+      "value": 0,
+      "timestamp": 1775103042.2148788,
+      "step": null
+    },
+    {
+      "name": "first_layer_grad_spread",
+      "value": 0,
+      "timestamp": 1775103042.5774722,
+      "step": null
+    },
+    {
+      "name": "last_layer_grad_spread",
+      "value": 0,
+      "timestamp": 1775103042.5774775,
+      "step": null
+    }
+  ],
+  "errors": []
+}
