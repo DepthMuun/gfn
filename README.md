@@ -1,8 +1,8 @@
 <div align="center">
 
-# 🌊 GFN: Geometric Flow Networks
+# GFN: Geometric Flow Networks
 
-### *A Physics-Informed Paradigm for Sequential Intelligence*
+### A Physics-Informed Paradigm for Sequential Intelligence
 
 [![Framework: GFN](https://img.shields.io/badge/Paradigm-GFN_2.7.2-blue.svg?style=for-the-badge)](https://github.com/DepthMuun/gfn)
 [![Models: Hugging Face](https://img.shields.io/badge/Models-Hugging%20Face-orange.svg?style=for-the-badge)](https://huggingface.co/DepthMuun)
@@ -12,17 +12,13 @@
 
 </div>
 
-> 💡 **"Intelligence is not statistical correlation; it is the continuous evolution of a persistent world-state governed by physical invariants."**
-> 
-> — *The GFN Paradigm*
-
 ---
 
-## 🎯 What is GFN?
+## What is GFN?
 
-**Geometric Flow Networks (GFN)** represent a fundamental paradigm shift in neural architecture. Instead of treating computation as token-to-token correlation (Attention), **GFN treats intelligence as a trajectory** within a high-integrity dynamical system.
+**Geometric Flow Networks (GFN)** represent a fundamental shift in how neural architectures process sequential information. Instead of relying on token-to-token correlation mechanisms (Attention), GFN treats intelligence as a trajectory through a high-integrity dynamical system.
 
-### The Core Insight
+### Core Concept
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -39,68 +35,66 @@
 
 ---
 
-## 🏛️ The Five Pillars of GFN
+## The Five Pillars
 
-For an architecture to be a valid **GFN realization**, it must satisfy **all five pillars**:
+A valid GFN implementation must satisfy all five requirements:
 
-### 🧠 Pillar 1: Persistent Internal World
-The system maintains a **simulator**, not a memory buffer. The state evolves through geometric space.
+### 1. Persistent Internal World
+
+The system maintains a simulator rather than a memory buffer. State evolves through geometric space rather than being stored in a cache.
 
 ```
-❌ Transformer KV-cache: "Cut the cache → instant amnesia"
-✅ GFN World-State: "The geometry itself IS the memory"
+Transformer KV-cache: "Remove the cache → instant amnesia"
+GFN World-State: "The geometry itself IS the memory"
 ```
 
-### ⚖️ Pillar 2: At Least One Invariant
-Physical/mathematical invariants act as the "gravity" preventing latent hallucinations.
+### 2. At Least One Invariant
+
+Physical or mathematical invariants provide constraints that prevent state collapse or divergence, similar to how conservation laws operate in physics.
 
 | Invariant Type | Description |
 |:--------------|:------------|
-| **🔷 Casimir Operators** | Commute with all generators of a Lie algebra |
-| **⚡ Hamiltonian Conservation** | Total energy preserved through symplectic integration |
-| **📐 Norm Preservation** | State norm remains bounded |
-| **🔄 Group Symmetries** | Topological constraints make invalid states impossible |
-| **📊 Phase Space Volume** | Liouville's theorem preservation |
+| **Casimir Operators** | Commute with all generators of a Lie algebra |
+| **Hamiltonian Conservation** | Total energy preserved through symplectic integration |
+| **Norm Preservation** | State norm remains bounded |
+| **Group Symmetries** | Topological constraints make invalid states impossible |
+| **Phase Space Volume** | Liouville's theorem preservation |
 
-### 🛡️ Pillar 3: Structural Integrity
-The state cannot collapse to zero or explode to infinity.
+### 3. Structural Integrity
 
-**Gradient stability by geometry:**
-- ✅ No gradient vanishing (singular values ≈ 1)
-- ✅ No gradient explosion (volume preserved)
-- ✅ Stable by design, not by patching
+The state cannot collapse to zero or explode to infinity. Gradient stability emerges from geometric properties rather than architectural patches:
 
-### ⏱️ Pillar 4: Temporal Locality (True $O(1)$)
-Computational cost is **independent** of sequence length.
+- No gradient vanishing (singular values ≈ 1)
+- No gradient explosion (volume preserved)
+- Stable by design, not by intervention
+
+### 4. Temporal Locality (True O(1))
+
+Computational cost per step is independent of sequence length.
 
 ```python
-# ✅ VALID GFN: O(1) per step
+# Valid GFN: O(1) per step
 state_update = f(current_state, present_input)
 
-# ❌ INVALID: O(N) - breaks the promise
+# Invalid: O(N) - violates temporal locality
 state_update = f(current_state, all_previous_tokens)
 ```
 
-> 📝 **"The flow is calculated over the current state and present input, nothing more."**
+> "The flow is calculated over the current state and present input, nothing more."
 
-### 📏 Pillar 5: Geometric Differentiability
-All states exist in a manifold where "distance" is physically coherent.
+### 5. Geometric Differentiability
 
-> 💭 *"For there to be 'forces' and 'flows', you need to know how far one concept is from another in that curved space."*
+All states exist in a manifold where distance is physically coherent. This enables meaningful gradients and coherent state evolution.
+
+> "For there to be forces and flows, you need to know how far one concept is from another in that curved space."
 
 ---
 
-## The GFN Definition
+## Formal Definition
 
-A **Geometric Flow Network (GFN)** is a neural architecture satisfying all five pillars above:
+A Geometric Flow Network is a neural architecture satisfying all five pillars above.
 
-1. Persistent Internal World (Simulator, not buffer)
-2. At Least One Physical/Mathematical Invariant
-3. Structural Integrity (gradient stability by geometry)
-4. Temporal Locality ($O(1)$ state update)
-5. Geometric Differentiability (metric coherence)
-
-### Formal Definition
+Mathematically:
 
 $$
 W_{t+1} = \mathcal{T}(W_t, f_{ext}; \theta)
@@ -111,73 +105,67 @@ Where:
 - $f_{ext}$ is the external input (perturbation)
 - $\mathcal{T}$ is a transfer operator that:
   - Preserves at least one invariant
-  - Operates on $W_t$ and $f_{ext}$ ONLY (no history)
+  - Operates on $W_t$ and $f_{ext}$ ONLY (no history access)
   - Is differentiable with respect to a coherent metric
 
 ---
 
-## Why Geometric Flow Networks?
+## Comparison to Related Approaches
 
-### Comparison to Related Approaches
+| Architecture | Persistent World | Invariant | Integrity | O(1) Update | Metric |
+|:-------------|:----------------:|:---------:|:---------:|:-----------:|:------:|
+| **Transformer + KV-cache** | No (buffer) | No | No | No | No |
+| **Mamba / SSM** | Yes | No | No | Yes | No |
+| **World-State Networks** | Yes | No | No | Yes | No |
+| **GFN** | Yes | Yes | Yes | Yes | Yes |
 
-| Architecture | 🌍 Persistent World | ⚖️ Invariant | 🛡️ Integrity | ⏱️ $O(1)$ Update | 📏 Metric |
-|:-------------|:------------------:|:----------:|:-----------:|:---------------:|:---------:|
-| **Transformer + KV-cache** | ❌ (buffer) | ❌ | ❌ | ❌ | ❌ |
-| **Mamba / SSM** | ✅ | ❌ | ❌ | ✅ | ❌ |
-| **World-State Networks** | ✅ | ❌ | ❌ | ✅ | ❌ |
-| **🌊 GFN** | ✅ | ✅ | ✅ | ✅ | ✅ |
-
-### Key Distinctions Explained
+### Key Distinctions
 
 **GFN vs Transformer:**
-- 🤖 Transformer: "Guesses" by statistics → *Correlation-based*
-- 🌊 GFN: "Orbits" solutions → *Physics-constrained trajectories*
+- Transformer: Relies on statistical correlation → Pattern matching
+- GFN: Follows physical trajectories → Physics-constrained evolution
 
 **GFN vs SSM:**
-- 📡 SSM: "Radio signal" → State can collapse or explode
-- 🌊 GFN: "River flow" → State orbits around physically coherent solutions
+- SSM: State can collapse or explode without constraints
+- GFN: State orbits around physically coherent solutions
 
 **GFN vs World-State Networks:**
-- 🖼️ World-state without invariants: "Photo on a post-it" — blurry, degrades
-- 🌍 GFN: "Full simulator" — The world exists as geometry, not memory
+- World-state without invariants degrades over time
+- GFN maintains coherence through geometric constraints
 
 ---
 
 ## Latent Planning Capability
 
-A critical consequence of the five pillars:
+The five pillars enable a significant emergent property:
 
-> ### ✨ **GFN can "predict" the future without generating token by token, simply by moving the state vector through the geometric flow.**
+> GFN can anticipate future states without token-by-token generation, by moving the state vector through the geometric flow.
 
-**The internal world enables latent planning:**
-- 🔮 Future states computed by flowing through the manifold
-- 🚀 No need to autoregressively generate each token
-- 🗺️ The geometry encodes causal structure
+This allows:
+- Future state computation through manifold flow
+- Non-autoregressive planning
+- Causal structure encoded in geometry
 
 ---
 
 ## Complexity Characteristics
 
-**GFN is a paradigm with five mandatory requirements.** Complexity characteristics depend on implementation:
-
-| Requirement | Complexity Impact |
-|:------------|:----------------|
-| **Temporal Locality** (Pillar 4) | Enables $O(1)$ inference memory |
-| **Structural Integrity** (Pillar 3) | Intrinsic gradient stability |
-| **All Pillars Combined** | No KV-cache, no $O(N^2)$ attention |
+| Requirement | Impact |
+|:------------|:-------|
+| **Temporal Locality** | O(1) inference memory |
+| **Structural Integrity** | Intrinsic gradient stability |
+| **All Pillars** | No KV-cache, no O(N^2) attention |
 
 ---
 
-## Paradigm Documentation
+## Documentation
 
-For detailed theoretical foundations and mathematical formalism, see:
+- [THEORY.md](docs/THEORY.md) - Mathematical foundations
+- [ARCHITECTURES.md](ARCHITECTURES.md) - Available implementations
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Development guidelines
+- [Zenodo Preprint](https://doi.org/10.5281/zenodo.19141133) - Research paper
 
-- [THEORY.md](docs/THEORY.md) - Complete mathematical foundations
-- [ARCHITECTURES.md](ARCHITECTURES.md) - Available realizations
-- [CONTRIBUTING.md](CONTRIBUTING.md) - Adding new realizations
-- [Zenodo Preprint](https://doi.org/10.5281/zenodo.19141133) - Primary research paper (DOI: 10.5281/zenodo.19141133)
-
-### 📖 Citation
+### Citation
 
 ```bibtex
 @article{sturtz2026geometry,
@@ -192,13 +180,15 @@ For detailed theoretical foundations and mathematical formalism, see:
 
 ---
 
-## ⚡ Quick Start
+## Quick Start
 
 ```bash
-# Install from PyPI
 pip install gfn
+```
 
-# Or install from source
+Or from source:
+
+```bash
 git clone https://github.com/DepthMuun/gfn.git
 cd gfn
 pip install -e .
@@ -207,11 +197,8 @@ pip install -e .
 ```python
 from gfn import GFNModel, PhysicsConfig
 
-# Create a GFN model
 config = PhysicsConfig(dim=512, depth=6)
 model = GFNModel(config)
-
-# Forward pass (stateful, O(1) memory)
 output = model(input_tokens)
 ```
 
@@ -219,7 +206,7 @@ output = model(input_tokens)
 
 <div align="center">
 
-## 🌊 *Intelligence flows through geometry*
+*Intelligence flows through geometry*
 
 **Author**: Joaquín Stürtz, DepthMuun Research  
 **Version**: 2.7.2  
