@@ -1,5 +1,8 @@
 <div align="center">
 
+
+*The current project documentation is out of date; in the next version, we will focus more on documentation, usage, testing, etc.*
+
 # GFN: Geometric Flow Networks
 
 ### A Physics-Informed Paradigm for Sequential Intelligence
