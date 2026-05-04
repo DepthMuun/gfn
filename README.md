@@ -161,8 +161,8 @@ This allows:
   author={St{\"u}rtz, Joaqu{\'i}n},
   journal={Zenodo Preprints},
   year={2026},
-  doi={10.5281/zenodo.19141133},
-  url={https://doi.org/10.5281/zenodo.19141133}
+  doi={10.5281/zenodo.19141132},
+  url={https://doi.org/10.5281/zenodo.19141132}
 }
 ```
 
