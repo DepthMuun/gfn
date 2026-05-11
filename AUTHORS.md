@@ -36,7 +36,7 @@ Researchers and users who report bugs, suggest improvements, and provide feedbac
 
 ### Community Supporters
 
-Members of the community who help other users through discussions, answering questions, and providing guidance on using Manifold effectively. Community support is essential for creating a welcoming and productive environment for all users.
+Members of the community who help other users through discussions, answering questions, and providing guidance on using GFN effectively. Community support is essential for creating a welcoming and productive environment for all users.
 
 ## Recognition Framework
 

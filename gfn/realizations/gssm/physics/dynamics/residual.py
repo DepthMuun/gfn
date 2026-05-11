@@ -9,43 +9,43 @@ class ResidualDynamics(BaseDynamics):
     """
     Residual (Skip-Connection) Dynamics.
     
-    Implementa una conexión residual real:
+    Implements a true residual connection:
     state_next = current_state + scale * norm(proposal - current_state)
     
-    Esto permite que el modelo aprenda una corrección sobre el estado actual
-    en lugar de reemplazarlo completamente (como direct) o interpolarlo (como mix).
+    This allows the model to learn a correction over the current state
+    instead of completely replacing it (like direct) or interpolating it (like mix).
     
-    Para POSICIÓN (torus): wrapping a [-π, π] después del residual.
-    Para VELOCIDAD (euclidean): RMSNorm sobre el residual.
+    For POSITION (torus): wrapping to [-π, π] after the residual.
+    For VELOCITY (euclidean): RMSNorm over the residual.
     """
     def __init__(self, dim: int, norm_layer=None, topology: str = TOPOLOGY_EUCLIDEAN, 
                  residual_scale: float = 0.1, **kwargs):
         super().__init__(dim, norm_layer, topology, **kwargs)
-        # Escala del residual - parámetro aprendible pero inicialmente pequeño
+        # Residual scale - learnable parameter but initially small
         self.residual_scale = nn.Parameter(torch.tensor(residual_scale))
 
     def forward(self, current_state: torch.Tensor,
                 absolute_proposal: torch.Tensor, 
                 context_x: Optional[torch.Tensor] = None, **kwargs) -> torch.Tensor:
-        # Calcular residual: diferencia entre propuesta y estado actual
+        # Calculate residual: difference between proposal and current state
         if self.topology == TOPOLOGY_TORUS:
-            # Diferencia geodésica en el toro
+            # Geodesic difference on the torus
             residual = torch.atan2(torch.sin(absolute_proposal - current_state),
                                    torch.cos(absolute_proposal - current_state))
         else:
             residual = absolute_proposal - current_state
         
-        # Aplicar normalización al residual
-        # Nota: para velocities, el context_x (posición) permite MetricNormalization
+        # Apply normalization to residual
+        # Note: for velocities, context_x (position) enables MetricNormalization
         residual_normalized = self._apply_norm(residual, context_x=context_x)
         
-        # Escalar el residual con parámetro aprendible
+        # Scale residual with learnable parameter
         scale = torch.sigmoid(self.residual_scale)
         
-        # Aplicar conexión residual: state + scale * residual
+        # Apply residual connection: state + scale * residual
         next_state = current_state + scale * residual_normalized
         
-        # En el toro, asegurar que seguimos en [-π, π]
+        # On the torus, ensure we stay in [-π, π]
         if self.topology == TOPOLOGY_TORUS:
             next_state = torch.atan2(torch.sin(next_state), torch.cos(next_state))
             

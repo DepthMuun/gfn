@@ -5,7 +5,7 @@ from pathlib import Path
 # Add project root
 sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 
-from gfn.realizations.isn.components.emitters.threshold_emitter import ThresholdEmitter
+from gfn.realizations.isn.projections.emitters.threshold import ThresholdEmitter
 
 def test_emitter_output():
     """Verificar que el emitter proyecta correctamente a logits."""
@@ -31,7 +31,7 @@ def test_emitter_output():
     
     # Verificar que el gradiente fluye
     logits.sum().backward()
-    assert emitter.emission.weight.grad is not None, "Gradient flow broken in Emitter"
+    assert emitter.projection.weight.grad is not None, "Gradient flow broken in Emitter"
     
     print("✓ Emitter output and gradient flow tests passed")
 

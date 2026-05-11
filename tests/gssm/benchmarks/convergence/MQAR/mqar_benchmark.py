@@ -27,7 +27,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import gfn
-from gfn.losses import ToroidalDistanceLoss
+from gfn.realizations.gssm.losses import ToroidalDistanceLoss
 
 console = Console()
 

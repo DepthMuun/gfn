@@ -1,4 +1,4 @@
-"""gfn/physics/dynamics/gated.py — GatedDynamics: gate aprendible entre current y proposal."""
+"""gfn/physics/dynamics/gated.py — GatedDynamics: learnable gate between current and proposal."""
 import torch
 import torch.nn as nn
 from typing import Optional
@@ -8,12 +8,12 @@ from .base import BaseDynamics
 
 class GatedDynamics(BaseDynamics):
     """
-    Gated Dynamics: gate aprendible que interpola entre current y proposal.
+    Gated Dynamics: learnable gate that interpolates between current and proposal.
 
     g = sigmoid(W_g * [current; proposal])
     state_next = norm(g * proposal + (1-g) * current)
     
-    Más expresivo que MixDynamics porque el gate depende del estado actual.
+    More expressive than MixDynamics because the gate depends on the current state.
     """
     def __init__(self, dim: int, norm_layer=None, topology: str = TOPOLOGY_EUCLIDEAN, **kwargs):
         super().__init__(dim, norm_layer, topology, **kwargs)

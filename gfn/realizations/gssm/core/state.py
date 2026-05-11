@@ -1,6 +1,6 @@
 """
 core/state.py — GFN V5
-Manejo de estado del manifold (posición + velocidad).
+Manifold state management (position + velocity).
 """
 
 import torch
@@ -10,8 +10,8 @@ from typing import Optional, Tuple
 
 class ManifoldStateManager:
     """
-    Gestiona la inicialización y manipulación del estado (x, v).
-    Compatible con batches y múltiples cabezales.
+    Manages initialization and manipulation of state (x, v).
+    Compatible with batches and multiple heads.
     """
 
     @staticmethod
@@ -19,13 +19,13 @@ class ManifoldStateManager:
                    batch_size: int, n_trajectories: int = 1,
                    initial_spread: float = 1e-3) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        Inicializa el estado (x, v) para un batch dado.
+        Initializes the state (x, v) for a given batch.
 
         Args:
-            x0, v0:         Parámetros iniciales [1, H, HD]
-            batch_size:     Tamaño del batch
-            n_trajectories: Número de trayectorias paralelas
-            initial_spread: Ruido inicial
+            x0, v0:         Initial parameters [1, H, HD]
+            batch_size:     Batch size
+            n_trajectories: Number of parallel trajectories
+            initial_spread: Initial noise
 
         Returns:
             (x, v) — [B, H, HD]
@@ -42,8 +42,8 @@ class ManifoldStateManager:
     def from_tuple(state: Optional[Tuple], x0: nn.Parameter, v0: nn.Parameter,
                    batch_size: int, **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        Construye (x, v) desde un estado previo o desde parámetros iniciales.
-        Compatible con el API de BasicModel.
+        Builds (x, v) from a previous state or from initial parameters.
+        Compatible with BasicModel API.
         """
         if state is not None and isinstance(state, (tuple, list)) and len(state) == 2:
             return state[0], state[1]
@@ -51,10 +51,10 @@ class ManifoldStateManager:
 
     @staticmethod
     def wrap_torus(x: torch.Tensor) -> torch.Tensor:
-        """Proyecta posición al dominio toroidal [-π, π]."""
+        """Projects position to toroidal domain [-π, π]."""
         return torch.atan2(torch.sin(x), torch.cos(x))
 
     @staticmethod
     def energy(v: torch.Tensor) -> torch.Tensor:
-        """Energía cinética H = 0.5 * ||v||² por muestra."""
+        """Kinetic energy H = 0.5 * ||v||² per sample."""
         return 0.5 * (v ** 2).sum(dim=-1)

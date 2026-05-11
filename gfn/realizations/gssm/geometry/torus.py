@@ -52,24 +52,24 @@ class ToroidalRiemannianGeometry(BaseGeometry):
 
         topo = self.config.topology
         
-        # CORRECCIÓN: Hacer R y r aprendibles según GFN_Paper_Complete.md Sección 5.1
+        # FIX: Make R and r learnable according to GFN_Paper_Complete.md Section 5.1
         # "where R_i are the (learnable) radii"
-        # Y 01_HYPER_TORUS.md Sección 2.2: R es radio mayor, r es radio menor
+        # AND 01_HYPER_TORUS.md Section 2.2: R is major radius, r is minor radius
         learnable_R = getattr(topo, 'learnable_R', True)
         learnable_r = getattr(topo, 'learnable_r', True)
         
         if learnable_R:
-            # R como parámetro aprendible
+            # R as learnable parameter
             self.R = nn.Parameter(torch.tensor(topo.R, dtype=torch.float32))
         else:
-            # R como buffer no-entrenable
+            # R as non-trainable buffer
             self.register_buffer('R', torch.tensor(topo.R, dtype=torch.float32))
             
         if learnable_r:
-            # r como parámetro aprendible
+            # r as learnable parameter
             self.r = nn.Parameter(torch.tensor(topo.r, dtype=torch.float32))
         else:
-            # r como buffer no-entrenable
+            # r as non-trainable buffer
             self.register_buffer('r', torch.tensor(topo.r, dtype=torch.float32))
         
         self.topology = topo.type.lower()
@@ -216,7 +216,7 @@ class FlatToroidalRiemannianGeometry(BaseGeometry):
         self.num_heads = num_heads
         topo = self.config.topology
         
-        # CORRECCIÓN: Hacer R y r aprendibles también en FlatTorus
+        # FIX: Make R and r learnable also in FlatTorus
         learnable_R = getattr(topo, 'learnable_R', True)
         learnable_r = getattr(topo, 'learnable_r', True)
         

@@ -5,7 +5,7 @@ from pathlib import Path
 # Add project root
 sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 
-from gfn.realizations.isn.components.scanners.transformer_scanner import TransformerScanner
+from gfn.realizations.isn.projections.scanners.transformer import TransformerScanner
 
 def test_transformer_scanner_output_shape():
     """Verificar que el scanner devuelve las dimensiones correctas."""
@@ -24,7 +24,7 @@ def test_transformer_scanner_output_shape():
     )
     
     input_ids = torch.randint(0, vocab_size, (batch_size, seq_len))
-    impulses = scanner(input_ids)
+    impulses, _ = scanner(input_ids)
     
     print(f"Input shape: {input_ids.shape}")
     print(f"Output shape: {impulses.shape}")
@@ -48,14 +48,14 @@ def test_transformer_scanner_causality():
     input_ids = torch.randint(0, vocab_size, (batch_size, seq_len))
     
     # Run once
-    out1 = scanner(input_ids)
+    out1, _ = scanner(input_ids)
     
     # Change last token
     input_ids2 = input_ids.clone()
     input_ids2[0, -1] = (input_ids[0, -1] + 1) % vocab_size
     
     # Run again
-    out2 = scanner(input_ids2)
+    out2, _ = scanner(input_ids2)
     
     # Everything before the last token should be IDENTICAL
     diff = torch.abs(out1[:, :-1, :] - out2[:, :-1, :]).max().item()

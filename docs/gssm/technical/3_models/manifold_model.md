@@ -1,6 +1,6 @@
 # Manifold Model Architecture
 
-The `gfn/models` module implements the neural architecture that lives on the manifold. Unlike traditional Transformers, GFN models are stateful evolution engines.
+The `gfn/realizations/gssm/models` module implements the neural architecture that lives on the manifold. Unlike traditional Transformers, GFN models are stateful evolution engines.
 
 ## 1. Manifold Model (`manifold.py`)
 The top-level orchestrator. It manages the sequence of evolution steps and the persistence of the $(x, v)$ state.
@@ -21,7 +21,7 @@ The fundamental unit of GFN. It represents a single "step" in the manifold's tim
 
 ---
 
-## 3. Mixers (`gfn/models/components/mixer.py`)
+## 3. Mixers (`gfn/realizations/gssm/models/components/mixer.py`)
 Mixers are the "Attention" of GFN. They define how particles interact.
 
 - **FlowMixer**: A high-speed geometric mixing layer. Uses low-rank projections to exchange momentum between heads.
@@ -29,7 +29,7 @@ Mixers are the "Attention" of GFN. They define how particles interact.
 
 ---
 
-## 4. Readouts & Embeddings (`gfn/models/components/`)
+## 4. Readouts & Embeddings (`gfn/realizations/gssm/models/components/`)
 Interface between the discrete vocab and the continuous manifold.
 
 ### Functional Embedding
@@ -39,7 +39,7 @@ Maps token IDs to "Impulses" (Forces).
 
 ### Categorical Readout
 A projection layer that converts the final manifold state into logits for classification.
-- **Toroidal Readout**: Projects angulares $x$ into $[\sin(x), \cos(x)]$ before the linear layer.
+- **Toroidal Readout**: Projects angular $x$ into $[\sin(x), \cos(x)]$ before the linear layer.
 
 ---
 

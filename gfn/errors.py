@@ -1,23 +1,32 @@
-# gfn/errors.py
-# Proxy for G-SSM errors to maintain backward compatibility in tests.
+"""
+GFN Framework Base Errors
+=========================
+Agnostic exception hierarchy to ensure consistency across all realizations.
+"""
 
-try:
-    from .realizations.gssm.errors import (
-        GFNError,
-        ConfigurationError,
-        GeometryError,
-        PhysicsError,
-        IntegrationError,
-        TrainingError
-    )
-except ImportError:
-    # Minimal fallbacks if gssm is not available
-    class GFNError(Exception): pass
-    class ConfigurationError(GFNError): pass
-    class GeometryError(GFNError): pass
-    class PhysicsError(GFNError): pass
-    class IntegrationError(GFNError): pass
-    class TrainingError(GFNError): pass
+class GFNError(Exception):
+    """Base exception for all GFN errors."""
+    pass
+
+class ConfigurationError(GFNError):
+    """Raised when a configuration is invalid or inconsistent."""
+    pass
+
+class GeometryError(GFNError):
+    """Raised when a geometric operation fails (e.g., out of manifold)."""
+    pass
+
+class PhysicsError(GFNError):
+    """Raised during physics engine failures (e.g., NaN detected)."""
+    pass
+
+class IntegrationError(GFNError):
+    """Raised during numerical integration failures."""
+    pass
+
+class TrainingError(GFNError):
+    """Raised during model training or optimization failures."""
+    pass
 
 __all__ = [
     "GFNError",

@@ -9,8 +9,8 @@ class StochasticDynamics(BaseDynamics):
     """
     Stochastic Dynamics: state_next = norm(proposal + sigma * epsilon).
     
-    Agrega ruido aprendible para exploración en GFNs geométricos.
-    Ideal para evitar colapso en geodésicas locales durante entrenamiento.
+    Adds learnable noise for exploration in geometric GFNs.
+    Ideal for preventing collapse into local geodesics during training.
     """
     def __init__(self, dim: int, norm_layer=None, topology: str = TOPOLOGY_EUCLIDEAN,
                  sigma_init: float = 0.01, mode: str = 'residual', **kwargs):
@@ -26,7 +26,7 @@ class StochasticDynamics(BaseDynamics):
         else:
             base = absolute_proposal
 
-        # sigma siempre positivo; ruido en escala aprendida
+        # sigma always positive; noise at learnable scale
         sigma = torch.nn.functional.softplus(self.sigma) + 1e-6
         noise = torch.randn_like(base) * sigma
         return self._apply_norm(base + noise, context_x=context_x)

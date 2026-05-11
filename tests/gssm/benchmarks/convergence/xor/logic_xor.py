@@ -54,7 +54,7 @@ PRODUCTION_PHYSICS_CONFIG = {
     'fractal': {'enabled': False, 'threshold': 0.5, 'alpha': 0.2},
     'stability': {
         'enable_trace_normalization': True,
-        'base_dt': 0.4,
+        'base_dt': 0.05,
         'velocity_saturation': 15.0,
         'friction': 2.0,
         'toroidal_curvature_scale': 0.01
@@ -175,6 +175,7 @@ def train_xor_benchmark(max_steps: int = 1000, batch_size: int = 128):
 
     # 1. Create Model with MTGF Ensemble
     model = gfn.create(
+        'gssm',
         vocab_size=2,
         dim=8,
         depth=1,
@@ -204,7 +205,7 @@ def train_xor_benchmark(max_steps: int = 1000, batch_size: int = 128):
     scheduler = optim.lr_scheduler.OneCycleLR(
         optimizer, max_lr=2e-3, total_steps=max_steps, pct_start=0.2
     )
-    criterion = gfn.loss('toroidal')
+    criterion = gfn.gssm.loss('toroidal')
 
     acc_threshold = 0.98
     patience, hits = 60, 0
