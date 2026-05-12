@@ -46,6 +46,7 @@ memory/
 *.png
 *.json
 *.pyc
+__pycache__/
 
 # Checkpoints (Exclude all model weights everywhere)
 checkpoints/
