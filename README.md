@@ -3,6 +3,8 @@
 
 *The current project documentation is out of date; in the next version, we will focus more on documentation, usage, testing, etc.*
 
+*Attention!! Although the “inertial state network” variant has produced good results, its invariant has not yet been implemented (it's just a stub for now); we're currently investigating which invariant might work best with it :)* 
+
 # GFN: Geometric Flow Networks
 
 ### A Physics-Informed Paradigm for Sequential Intelligence
