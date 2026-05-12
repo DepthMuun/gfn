@@ -1,10 +1,19 @@
 """
-GFN Pure Flow Training Script for Tiny Shakespeare.
-Uses GFNScanner, GFNWorld, and GFNEmitter.
+GFN Pure Flow Training Script para Tiny Shakespeare (árbol `test copy/gfn`).
+ISN V5: `create()` usa nombres de registro (strings), no clases.
+Ruta del script: .../language/shakespeare/ → 6× .parent hasta la raíz del proyecto gfn.
 """
 
 import os
 import json
+import sys
+from pathlib import Path
+
+_GFN_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent.parent
+_gfn_root_str = str(_GFN_PROJECT_ROOT)
+if _gfn_root_str not in sys.path:
+    sys.path.insert(0, _gfn_root_str)
+
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
@@ -31,7 +40,6 @@ class ShakespeareDataset(Dataset):
         chunk = self.data[idx : idx + self.seq_len + 1]
         x = torch.tensor(chunk[:-1], dtype=torch.long)
         y = torch.tensor(chunk, dtype=torch.long)
-        # Wrap for isn.Trainer expected format
         return {
             'input_ids': x,
             'output_ids': y
@@ -50,10 +58,9 @@ def save_checkpoint(model, optimizer, epoch, loss, path):
 def run_shakespeare_training():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
-    # Paths (dynamic resolution for portability)
-    base_dir = Path(__file__).resolve().parent.parent.parent.parent
-    data_path = base_dir / "tests" / "isn. / "benchmarks" / "language" / "data" / "tinyshakespeare.txt"
-    config_path = base_dir / "configs" / "shakespeare_config.json"
+    base_dir = _GFN_PROJECT_ROOT
+    data_path = base_dir / "tests" / "isn" / "benchmarks" / "language" / "data" / "tinyshakespeare.txt"
+    config_path = base_dir / "configs" / "isn" / "shakespeare_config.json"
     checkpoint_dir = base_dir / "checkpoints" / "shakespeare"
     
     os.makedirs(checkpoint_dir, exist_ok=True)
@@ -66,27 +73,15 @@ def run_shakespeare_training():
     
     print(f"Vocab size: {dataset.vocab_size} | Device: {device}")
     
-    scanner_map = {
-        'gfn': isn.GFNScanner,
-        'linear': isn.LinearScanner
-    }
-    world_map = {
-        'gfn': isn.GFNWorld,
-        'topological': isn.TopologicalWorld
-    }
-    emitter_map = {
-        'gfn': isn.GFNEmitter,
-        'threshold': isn.ThresholdEmitter
-    }
-
+    m = config['model']
     model = isn.create(
         vocab_size=dataset.vocab_size,
-        d_model=config['model']['d_model'],
-        d_embedding=config['model']['d_embedding'],
-        d_properties=config['model']['d_properties'],
-        scanner_cls=scanner_map.get(config['model'].get('scanner', 'gfn')),
-        world_cls=world_map.get(config['model'].get('world', 'gfn')),
-        emitter_cls=emitter_map.get(config['model'].get('emitter', 'gfn'))
+        d_model=m['d_model'],
+        d_embedding=m['d_embedding'],
+        d_properties=m['d_properties'],
+        scanner=m.get('scanner', 'gfn'),
+        world=m.get('world', 'gfn'),
+        emitter=m.get('emitter', 'gfn'),
     ).to(device)
     
     criterion = isn.training.losses.coherence.MultiDimensionalLoss(
@@ -112,19 +107,15 @@ def run_shakespeare_training():
             
             optimizer.zero_grad()
             
-            # Forward
             outputs = model(input_ids, return_world_state=True)
             
-            # Inject vocab_basis for semantic loss
             if hasattr(model.emitter, 'emission'):
                 outputs['vocab_basis'] = model.emitter.emission.weight
             
-            # Loss
             targets = output_ids[:, 1:]
             loss_dict = criterion(targets=targets, **outputs)
             loss = loss_dict['loss']
             
-            # Backward
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), config['training']['gradient_clip'])
             optimizer.step()
@@ -135,10 +126,8 @@ def run_shakespeare_training():
         avg_loss = total_loss / len(dataloader)
         print(f"\nEpoch {epoch+1} Complete. Avg Loss: {avg_loss:.4f}")
         
-        # Save Last
         save_checkpoint(model, optimizer, epoch, avg_loss, os.path.join(checkpoint_dir, "last_model.pt"))
         
-        # Save Best
         if avg_loss < best_loss:
             best_loss = avg_loss
             save_checkpoint(model, optimizer, epoch, avg_loss, os.path.join(checkpoint_dir, "best_model.pt"))
