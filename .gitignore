@@ -41,6 +41,13 @@ _eval_out
 *.ckpt
 memory/
 *.csv
+.agents/
+*.json
+*.png
+*.json
+*.pyc
+__pycache__/
+*bin
 
 # Checkpoints (Exclude all model weights everywhere)
 checkpoints/
