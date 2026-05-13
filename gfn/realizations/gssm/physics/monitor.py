@@ -1,18 +1,18 @@
 """
 gfn/physics/monitor.py — GFN V5
-PhysicsMonitorPlugin: Hamiltonian energy diagnostic during training.
+PhysicsMonitorPlugin: diagnóstico de energía hamiltoniana durante training.
 
-Connects to HookManager and tracks H(t) = T + V per batch,
-calculating relative energy_drift to detect instability.
+Conecta al HookManager y trackea H(t) = T + V por batch,
+calculando energy_drift relativo para detectar inestabilidad.
 
-Usage:
+Uso:
     monitor = PhysicsMonitorPlugin(geometry, integrator, enabled=True)
     monitor.register_hooks(model.hooks)
     model.add_module('physics_monitor', monitor)
 
-    # After forward pass, read metrics:
-    print(monitor.energy_drift)   # float — relative drift H(t)/H(0) - 1
-    print(monitor.mean_KE)        # float — mean kinetic energy
+    # Después del forward pass, leer métricas:
+    print(monitor.energy_drift)   # float — drift relativo H(t)/H(0) - 1
+    print(monitor.mean_KE)        # float — energía cinética media
 """
 import torch
 import torch.nn as nn
@@ -22,40 +22,40 @@ from ..models.hooks import Plugin, HookManager
 
 class PhysicsMonitorPlugin(Plugin):
     """
-    Diagnostic plugin for Hamiltonian energy conservation.
+    Plugin de diagnóstico para conservación de energía hamiltoniana.
 
-    Hooks into `on_timestep_end` to collect (x, v) from each step,
-    and calculates at the end of the batch:
-      - energy_drift: |H(T) - H(0)| / |H(0)|  (should be ~0 for symplectic integrators)
-      - mean_KE: mean batch kinetic energy T = (1/2) g_ij v^i v^j
-      - mean_speed: mean norm of v
+    Se engacha en `on_timestep_end` para recolectar (x, v) de cada step,
+    y calcula al final del batch:
+      - energy_drift: |H(T) - H(0)| / |H(0)|  (debería ser ~0 para integradores simplécticos)
+      - mean_KE: energía cinética media del batch  T = (1/2) g_ij v^i v^j
+      - mean_speed: norma media de v
     
-    If geometry implements `compute_kinetic_energy(x, v)`, it uses it.
-    Otherwise, falls back to T = 0.5 * ||v||² (euclidean).
+    Si la geometría implementa `compute_kinetic_energy(x, v)`, lo usa.
+    De lo contrario, fallback a T = 0.5 * ||v||² (euclídeo).
     
-    Does NOT impact gradients: all monitoring logic runs under torch.no_grad().
+    NO impacta el gradiente: toda la lógica de monitoreo corre bajo torch.no_grad().
     """
 
     def __init__(self, geometry: Optional[nn.Module] = None, enabled: bool = True,
                  window: int = 64):
         """
         Args:
-            geometry: GFN geometry object (for Riemannian T). Can be None.
-            enabled:  If False, plugin is a no-op (no overhead).
-            window:   Maximum steps stored per batch for drift calculation.
+            geometry: Objeto de geometría GFN (para T Riemanniana). Puede ser None.
+            enabled:  Si False, el plugin es un no-op (sin overhead).
+            window:   Máximo de steps almacenados por batch para el drift.
         """
         super().__init__()
         self.geometry = geometry
         self.enabled = enabled
         self.window = window
 
-        # Results — accessible after forward pass
+        # Resultados — accesibles después del forward pass
         self.energy_drift: float = 0.0
         self.mean_KE: float = 0.0
         self.mean_speed: float = 0.0
         self.H_history: List[float] = []
 
-        # Internal buffer per batch
+        # Buffer interno por batch
         self._x_buf: List[torch.Tensor] = []
         self._v_buf: List[torch.Tensor] = []
 

@@ -52,7 +52,6 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import torch
-import torch.nn as nn
 import torch.optim as optim
 from tqdm import tqdm
 
@@ -63,7 +62,8 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import gfn
-
+from gfn import Model, create, loss
+from gfn.realizations.gssm.losses.toroidal import ToroidalDistanceLoss
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -126,7 +126,6 @@ class BenchmarkConfig:
 
     # Convergence
     acc_threshold: float = 0.995
-    fp_threshold: float = 0.05  # Max false positive rate for convergence
     patience: int = 100
     min_steps: int = 200
 
@@ -354,53 +353,11 @@ class ResultsWriter:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TRAINING HELPERS
-# ══════════════════════════════════════════════════════════════════════════════
-
-def compute_fp_loss(x_pred: torch.Tensor, y_class: torch.Tensor, 
-                    all_positions: List[List[int]], last_positions: List[int]) -> torch.Tensor:
-    """
-    Compute loss penalty for false positives (predicting 1 between needles).
-    """
-    if x_pred.ndim == 4:
-        x_pred = x_pred.mean(dim=2)
-    
-    TWO_PI = 2.0 * math.pi
-    half_pi = math.pi * 0.5
-    
-    # Get predictions
-    dist_pos = torch.min(
-        torch.abs(x_pred - half_pi) % TWO_PI,
-        TWO_PI - (torch.abs(x_pred - half_pi) % TWO_PI),
-    )
-    dist_neg = torch.min(
-        torch.abs(x_pred + half_pi) % TWO_PI,
-        TWO_PI - (torch.abs(x_pred + half_pi) % TWO_PI),
-    )
-    preds_prob = torch.sigmoid(dist_neg.mean(dim=-1) - dist_pos.mean(dim=-1))  # P(class=1)
-    
-    # Create mask for between-needle regions (where target should be 0)
-    B, L = y_class.shape
-    between_mask = torch.zeros_like(y_class, dtype=torch.float32)
-    
-    for i in range(B):
-        first_pos = all_positions[i][0]
-        last_pos = last_positions[i]
-        if last_pos > first_pos + 1:
-            between_mask[i, first_pos + 1:last_pos] = 1.0
-    
-    # Penalize predictions near +1 (class 1) in between regions
-    fp_penalty = (between_mask * preds_prob).sum() / (between_mask.sum() + 1e-8)
-    
-    return fp_penalty
-
-
-# ══════════════════════════════════════════════════════════════════════════════
 # TRAINING
 # ══════════════════════════════════════════════════════════════════════════════
 
 def train(
-    model: nn.Module,
+    model: Model,
     cfg: BenchmarkConfig,
     device: torch.device,
     ckpt_dir: Path,
@@ -421,19 +378,18 @@ def train(
     scheduler = optim.lr_scheduler.OneCycleLR(
         optimizer, max_lr=cfg.max_lr, total_steps=cfg.train_steps, pct_start=0.2
     )
-    criterion = gfn.gssm.loss('toroidal')
+    criterion = ToroidalDistanceLoss()
     model.train()
 
     best_acc = 0.0
-    best_fp = 1.0
     hits = 0
     converged_at = None
-    history = {'loss': [], 'acc': [], 'fp_rate': [], 'acc_after_last': []}
+    history = {'loss': [], 'acc': []}
 
     pbar = tqdm(range(cfg.train_steps), desc=f'Training MNIAH (K={cfg.num_needles})')
 
     for step in pbar:
-        x, y_angle, y_class, all_pos, last_pos = make_mniah_batch(
+        x, y_angle, y_class, _, _ = make_mniah_batch(
             cfg.train_batch_size, cfg.train_seq_len, cfg.num_needles, device, rng=rng
         )
 
@@ -442,16 +398,11 @@ def train(
         x_pred = out[0]  # [B, L, D] or [B, L, H, D]
         
         # Ensure target matches prediction shape
+        # y_angle starts at [B, L]
         y_exp = y_angle.view(y_angle.shape + (1,) * (x_pred.ndim - y_angle.ndim))
         y_exp = y_exp.expand_as(x_pred)
 
-        # Base toroidal loss
         loss = criterion(x_pred, y_exp)
-        
-        # Add false positive penalty
-        fp_penalty = compute_fp_loss(x_pred, y_class, all_pos, last_pos)
-        loss = loss + 2.0 * fp_penalty  # Weight the FP penalty
-        
         if torch.isnan(loss):
             print(f"[WARN] NaN loss at step {step}, skipping")
             continue
@@ -461,43 +412,30 @@ def train(
         optimizer.step()
         scheduler.step()
 
-        # Compute detailed metrics for monitoring
         with torch.no_grad():
-            metrics = detailed_accuracy(x_pred, y_class, all_pos, last_pos)
-            acc = metrics['acc_overall']
-            fp_rate = metrics['false_positive_rate']
-            acc_after = metrics['acc_after_last']
+            acc = toroidal_accuracy(x_pred, y_class)
 
         history['loss'].append(loss.item())
         history['acc'].append(acc)
-        history['fp_rate'].append(fp_rate)
-        history['acc_after_last'].append(acc_after)
 
         if step % 5 == 0:
-            pbar.set_postfix(
-                loss=f'{loss.item():.4f}', 
-                acc=f'{acc*100:.1f}%',
-                fp=f'{fp_rate*100:.1f}%'
-            )
+            pbar.set_postfix(loss=f'{loss.item():.4f}', acc=f'{acc*100:.1f}%')
 
         best_acc = max(best_acc, acc)
-        best_fp = min(best_fp, fp_rate)
 
-        # Convergence: requires both high accuracy AND low false positive rate
-        if step >= cfg.min_steps and acc >= cfg.acc_threshold and fp_rate <= cfg.fp_threshold:
+        if step >= cfg.min_steps and acc >= cfg.acc_threshold:
             hits += 1
         else:
             hits = 0
-            
         if hits >= cfg.patience and converged_at is None:
             converged_at = step
-            print(f'\n[Train] Converged at step {step} | acc={acc*100:.1f}% | fp={fp_rate*100:.1f}%')
+            print(f'\n[Train] Converged at step {step} | acc={acc*100:.1f}%')
             break
 
         if (step + 1) % cfg.checkpoint_every == 0:
             ckpt_path = ckpt_dir / f'mniah_model_step{step+1:05d}.pt'
             torch.save({'step': step + 1, 'model': model.state_dict(),
-                        'loss': loss.item(), 'acc': acc, 'fp_rate': fp_rate}, ckpt_path)
+                        'loss': loss.item(), 'acc': acc}, ckpt_path)
             print(f'[Checkpoint] Step {step+1} -> {ckpt_path.name}')
 
     final_path = ckpt_dir / 'mniah_model_final.pt'
@@ -508,7 +446,6 @@ def train(
         'history': history,
         'converged_at': converged_at,
         'best_acc': best_acc,
-        'best_fp': best_fp,
     }, final_path)
     print(f'[Train] Final model saved -> {final_path.name}')
 
@@ -518,7 +455,6 @@ def train(
         'final_loss': history['loss'][-1] if history['loss'] else None,
         'final_acc': history['acc'][-1] if history['acc'] else None,
         'best_acc': best_acc,
-        'best_fp': best_fp,
         'checkpoint': str(final_path),
     }
 
@@ -528,7 +464,7 @@ def train(
 # ══════════════════════════════════════════════════════════════════════════════
 
 def evaluate_length(
-    model: nn.Module,
+    model: Model,
     length: int,
     num_needles: int,
     eval_batch_size: int,
@@ -600,7 +536,6 @@ def print_summary(results: ResultsWriter, num_needles: int):
     print('=' * 76)
     print(f' Converged at step : {train.get("converged_at", "N/A")}')
     print(f' Best training acc : {train.get("best_acc", 0)*100:.1f}%')
-    print(f' Best FP rate      : {train.get("best_fp", 1.0)*100:.1f}%')
     print()
     print(f' {"Length":>10}  {"Acc After":>10}  {"Acc Between":>12}  {"FP Rate":>8}  {"Overall":>8}')
     print(' ' + '-' * 60)
@@ -637,7 +572,6 @@ def run_benchmark(cfg: BenchmarkConfig, quicktest: bool, seed: int):
     print('=' * 68)
 
     model = gfn.create(
-        'gssm',
         vocab_size=2,
         dim=cfg.dim,
         depth=cfg.depth,

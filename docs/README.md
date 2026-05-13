@@ -94,5 +94,5 @@ GFN Framework
 ---
 
 **GFN Framework**  
-*Version 2.7.2 | March 2026*  
+*Version 2.6.6 | March 2026*  
 *DepthMuun Research*

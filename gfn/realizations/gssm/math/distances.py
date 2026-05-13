@@ -1,18 +1,18 @@
 """
 gfn/math/geometry.py — GFN V5
-Base functions for Riemannian geometry and distances.
+Funciones base de geometría Riemanniana y distancias.
 """
 import torch
 
 def geodesic_distance_torus(x1: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
-    """Geodesic distance on torus — angular wrapping."""
+    """Distancia geodésica en el toro — wrapping angular."""
     diff = x1 - x2
     return torch.norm(torch.atan2(torch.sin(diff), torch.cos(diff)), dim=-1)
 
 def geodesic_distance_euclidean(x1: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
-    """Standard L2 distance."""
+    """Distancia L2 estándar."""
     return torch.norm(x1 - x2, dim=-1)
 
 def wrap_to_pi(x: torch.Tensor) -> torch.Tensor:
-    """Wrap angles to [-π, π]."""
+    """Wrap ángulos a [-π, π]."""
     return torch.atan2(torch.sin(x), torch.cos(x))

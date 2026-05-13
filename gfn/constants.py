@@ -1,10 +1,10 @@
 # gfn/constants.py
 # Universal constants for the GFN framework.
+# This file re-exports constants from the G-SSM and ISN realizations for top-level access.
 
-import torch
+try:
+    from .realizations.gssm.constants import *
+except ImportError:
+    pass
 
-# Default precision for the framework
-DTYPE = torch.float32
-
-# Common constants can be added here as the framework matures.
-# Specific realization constants should stay within their own subpackages.
+# Add ISN specific constants if any are added in the future

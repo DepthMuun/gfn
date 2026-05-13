@@ -24,7 +24,7 @@ The loss functions combine standard likelihood terms with physical regularizers 
 
 ## Current Development Status
 
-This development version represents a significant rewrite of the original codebase (v2.6.5) moving towards v2.7.2 under the DepthMuun branding. The main changes include a more modular architecture, better GPU support via custom CUDA kernels, and a more expressive configuration system.
+This development version represents a significant rewrite of the original codebase (v2.6.5) moving towards v2.7.0 under the DepthMuun branding. The main changes include a more modular architecture, better GPU support via custom CUDA kernels, and a more expressive configuration system.
 
 These changes also imply greater configuration complexity. The original version converged consistently because it had fewer hyperparameters and more restrictive default values. The current version requires careful tuning of multiple parameters to reproduce those results.
 

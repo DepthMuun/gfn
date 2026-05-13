@@ -1,6 +1,6 @@
 # Physics Engine & Dynamics
 
-The `gfn/realizations/gssm/physics` module handles the temporal evolution of the manifold state. It defines how particles (data) move through the space under the influence of neural "forces".
+The `gfn/physics` module handles the temporal evolution of the manifold state. It defines how particles (data) move through the space under the influence of neural "forces".
 
 ## 1. Physics Engine (`engine.py`)
 The `ManifoldPhysicsEngine` is the central orchestrator. It bridges Geometry and Integrators.
@@ -10,7 +10,7 @@ The `ManifoldPhysicsEngine` is the central orchestrator. It bridges Geometry and
 
 ---
 
-## 2. Integrators (`gfn/realizations/gssm/physics/integrators/`)
+## 2. Integrators (`gfn/physics/integrators/`)
 Solvers that compute the next state $(x_{t+1}, v_{t+1})$ given $(x_t, v_t)$ and $Force_t$.
 
 ### Symplectic Integrators (Conservation Focused)
@@ -23,7 +23,7 @@ Solvers that compute the next state $(x_{t+1}, v_{t+1})$ given $(x_t, v_t)$ and 
 
 ---
 
-## 3. Dynamics Framework (`gfn/realizations/gssm/physics/dynamics/`)
+## 3. Dynamics Framework (`gfn/physics/dynamics/`)
 Defines the "Update Law" for the manifold state.
 
 - **Direct**: $x_{next} = \text{Integrator}(x, v, f)$.

@@ -29,8 +29,8 @@ pyenv install 3.10.x
 pyenv local 3.10.x
 
 # Using conda
-conda create -n gfn python=3.10
-conda activate gfn
+conda create -n manifold python=3.10
+conda activate manifold
 ```
 
 ### 1.2 PyTorch Installation Issues
@@ -94,7 +94,7 @@ For systems without CUDA compiler, use the pure PyTorch implementation which doe
 
 ### 1.4 Import Errors
 
-**Problem:** Importing GFN fails with ModuleNotFoundError.
+**Problem:** Importing DepthMuun fails with ModuleNotFoundError.
 
 **Symptoms:** Error message: "ModuleNotFoundError: No module named 'gfn'"
 
@@ -111,7 +111,7 @@ import sys
 print(sys.path)
 ```
 
-Ensure the `gfn` package directory is in your Python path, or use a virtual environment.
+Ensure the `gfn` core directory is in your Python path, or use a virtual environment.
 
 ---
 
@@ -768,7 +768,7 @@ assert not torch.isnan(logits).any(), "NaN in output"
 ### Installation Best Practices
 
 - Use virtual environments to isolate dependencies
-- Verify PyTorch installation before installing GFN
+- Verify PyTorch installation before installing Manifold
 - Compile CUDA kernels for production deployments
 - Test installation with a minimal example before training
 
@@ -796,5 +796,5 @@ assert not torch.isnan(logits).any(), "NaN in output"
 
 ---
 
-**Document Version:** 2.7.2  
-**For additional resources, see:** [ARCHITECTURE.md](../../ARCHITECTURE.md)
+**Document Version:** 2.6.4  
+**For additional resources, see:** [API.md](API.md), [ARCHITECTURE.md](ARCHITECTURE.md), [BENCHMARKS.md](BENCHMARKS.md)

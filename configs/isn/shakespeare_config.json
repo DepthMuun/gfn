@@ -3,13 +3,9 @@
         "d_model": 256,
         "d_embedding": 256,
         "d_properties": 128,
-        "n_layers": 8,
-        "scanner": "gfn",
-        "world": "gfn",
-        "emitter": "gfn"
+        "n_layers": 8
     },
     "training": {
-        "backprop_strategy": "ste",
         "batch_size": 512,
         "learning_rate": 5e-4,
         "num_epochs": 50,

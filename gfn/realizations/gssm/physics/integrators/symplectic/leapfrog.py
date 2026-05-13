@@ -99,12 +99,12 @@ class LeapfrogIntegrator(BaseIntegrator):
             curr_x = self._resolve_topology(curr_x + eff_dt * v_half)
 
             # Re-evaluate acceleration at new position with velocity average
-            # We use v_half which is the average velocity over the interval
+            # Usamos v_half que es la velocidad promedio en el intervalo
             mu2 = self._resolve_friction_mu(curr_x, v_half, force=force, **kwargs)
             a2 = self._get_acceleration(curr_x, v_half, force, dt=eff_dt, **kwargs)
             a2_nf = a2 + mu2 * v_half
 
-            # Final half-kick with averaged acceleration (more stable)
+            # Final half-kick con aceleración promediada (más estable)
             a_avg = (a1_nf + a2_nf) / 2
             mu_avg = (mu1 + mu2) / 2
             curr_v = (curr_v + eff_dt * a_avg) / (1.0 + eff_dt * mu_avg + EPSILON_STANDARD)

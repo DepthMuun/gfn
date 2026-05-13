@@ -1,7 +1,7 @@
 """
 gfn/api.py — GFN V5
-Simplified public interface and high-level orchestration.
-Centralizes model creation, loading and evaluation.
+Interfaz pública simplificada y orquestación de alto nivel.
+Centraliza la creación, carga y evaluación de modelos.
 """
 
 import torch
@@ -14,48 +14,43 @@ from .losses.factory import LossFactory
 from .training.trainer import GFNTrainer
 from .training.evaluation import ManifoldMetricEvaluator
 
-# -- Main aliases
+# -- Alias principales
 Model = ManifoldModel
 Manifold = ManifoldModel
 Trainer = GFNTrainer
 
 def create(*args, **kwargs):
-    """Factory for Manifold models (V5)."""
+    """Factory para modelos Manifold (V5)."""
     return ModelFactory.create(*args, **kwargs)
 
 def loss(config, **kwargs):
-    """Factory for loss functions (V5)."""
+    """Factory para funciones de pérdida (V5)."""
     return LossFactory.create(config, **kwargs)
 
 def save(model: nn.Module, path: str):
     """
-    Saves the model and its configuration (HuggingFace Style).
+    Guarda el modelo y su configuración (HuggingFace Style).
     """
     if hasattr(model, 'save_pretrained'):
         model.save_pretrained(path)
     else:
-        # Fallback for models that don't inherit from BaseModel
+        # Fallback para modelos que no heredan de BaseModel
         torch.save({'state_dict': model.state_dict()}, path)
 
-def load(path: str, **kwargs) -> nn.Module:
+def load(path: str, device: Optional[str] = None):
     """
-    Loads a saved model along with its configuration.
-    Supports directories (HF Style) or legacy .pth/.bin files.
-    
-    Args:
-        path: Path to model directory (HF format) or checkpoint file
-        **kwargs: Additional arguments (e.g., device for loading)
+    Carga un modelo guardado junto con su configuración.
+    Soporta directorios (HF Style) o archivos .pth/.bin legados.
     """
-    device: Optional[str] = kwargs.get('device')
     import os
     if os.path.isdir(path):
         return ModelFactory.from_pretrained(path)
     
-    # Fallback for isolated legacy files
+    # Fallback para archivos aislados legados
     checkpoint = torch.load(path, map_location=device or 'cpu', weights_only=True)
     config = checkpoint.get('config')
     if config is None:
-        raise ValueError(f"Configuration not found in checkpoint {path}. Use HF directories for full loading.")
+        raise ValueError(f"No se encontró configuración en el checkpoint {path}. Use directorios HF para carga completa.")
         
     model = create(config=config)
     
@@ -77,16 +72,10 @@ def load(path: str, **kwargs) -> nn.Module:
     return model
 
 def benchmark(model: nn.Module, dataloader: torch.utils.data.DataLoader, 
-              **kwargs) -> Dict[str, float]:
+              device: Optional[str] = None) -> Dict[str, float]:
     """
-    Runs a quick evaluation of geometric and task metrics.
-    
-    Args:
-        model: The model to evaluate
-        dataloader: DataLoader with evaluation data
-        **kwargs: Additional arguments (e.g., device)
+    Ejecuta una evaluación rápida de métricas geométricas y de tarea.
     """
-    device: Optional[str] = kwargs.get('device')
     device = device or ('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
     model.eval()

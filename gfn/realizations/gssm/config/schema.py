@@ -1,11 +1,11 @@
 # schema.py — GFN V5
-# Configuration class definitions (Schema)
-# SEPARATION: Default values go to defaults.py, physical constants to constants.py
+# Definiciones de clases de configuración (Schema)
+# SEPARACIÓN: Los valores por defecto van a defaults.py, las constantes físicas a constants.py
 
 from dataclasses import dataclass, field, asdict
 from typing import Dict, Any, Optional, List
 
-# Import correct physical constants
+# Importar constantes físicas正确adas
 from ..constants import (
     EPSILON_STANDARD,
     TOPOLOGY_TORUS,
@@ -23,23 +23,23 @@ from ..constants import (
 
 @dataclass
 class TopologyConfig:
-    """Manifold topology configuration."""
+    """Configuración de topología del manifold."""
     type: str = TOPOLOGY_TORUS 
-    R: float = 2.0           # Major radius of torus (default)
-    r: float = 1.0           # Minor radius of torus (default)
+    R: float = 2.0           # Radio mayor del toro (default)
+    r: float = 1.0           # Radio menor del toro (default)
     curvature: float = 0.0
     riemannian_type: str = 'reactive' 
     riemannian_rank: int = 16
     riemannian_class: Optional[str] = None
     geometry_scope: str = 'local'  # 'local' (dim/heads) or 'global' (full dim)
-    # NEW: Learnable parameters
-    learnable_R: bool = True   # Make R learnable (as per paper)
-    learnable_r: bool = True   # Make r learnable (as per paper)
+    # NUEVO: Parámetros aprendibles
+    learnable_R: bool = True   # Hacer R aprendible (como dice el paper)
+    learnable_r: bool = True   # Hacer r aprendible (como dice el paper)
 
 
 @dataclass
 class StabilityConfig:
-    """Numerical stability configuration."""
+    """Configuración de estabilidad numérica."""
     base_dt: float = DEFAULT_DT 
     adaptive: bool = True
     dt_min: float = MIN_DT
@@ -112,8 +112,6 @@ class EmbeddingConfig:
 @dataclass
 class ReadoutConfig:
     type: str = 'standard'
-    out_dim: Optional[int] = None  # For implicit/identity readout output dimension
-    hidden_dim: Optional[int] = None  # For implicit readout hidden layer
 
 
 @dataclass
@@ -143,7 +141,7 @@ class SingularityConfig:
 
 @dataclass
 class PhysicsConfig:
-    """Complete physics configuration."""
+    """Configuración completa de física."""
     topology: TopologyConfig = field(default_factory=TopologyConfig)
     stability: StabilityConfig = field(default_factory=StabilityConfig)
     dynamics: DynamicsConfig = field(default_factory=DynamicsConfig)
@@ -177,7 +175,7 @@ class TrainerConfig:
 
 @dataclass
 class ManifoldConfig:
-    """Main Manifold model configuration."""
+    """Configuración principal del modelo Manifold."""
     vocab_size: int
     dim: int = 512
     depth: int = 4
@@ -195,10 +193,7 @@ class ManifoldConfig:
     mixer_type: str = 'low_rank'
     trajectory_mode: str = 'partition'
     coupler_mode: str = 'mean_field'
-    initial_spread: float = 0.1  # 0.1 recommended for better gradient flow
-    store_full_sequence: bool = True  # Store full sequence for backward/losses
-    # BUG FIX: Added missing continuous_input_dim for continuous embedding mode
-    continuous_input_dim: Optional[int] = None  # Input dimension for continuous mode (e.g., 900 for 30x30 grid)
+    initial_spread: float = 1e-3
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

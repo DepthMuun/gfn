@@ -5,7 +5,6 @@ from ..data.dataset import SequenceDataset
 from ..data.loader import create_dataloaders
 from ..data.transforms import shift_targets, add_bos_token, pad_sequences
 from ..data.replay import TrajectoryReplayBuffer
-from ..data.factory import DataComponentFactory, create_data_components
 
 __all__ = [
     'SequenceDataset', 
@@ -13,7 +12,5 @@ __all__ = [
     'shift_targets', 
     'add_bos_token', 
     'pad_sequences',
-    'TrajectoryReplayBuffer',
-    'DataComponentFactory',
-    'create_data_components',
+    'TrajectoryReplayBuffer'
 ]

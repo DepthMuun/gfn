@@ -1,16 +1,16 @@
 """
 gfn/losses/detection.py
 =======================
-Losses for object detection — generic, not coupled to any domain.
+Losses para detección de objetos — genéricas, no acopladas a ningún dominio.
 
-Design: GIoU and IoU work on boxes [cx, cy, w, h] in coordinates [0,1].
-They are manifold-independent losses — used together with ToroidalDistanceLoss
-for bounding box regression from toroidal space.
+Diseño: GIoU y IoU trabajan sobre cajas [cx, cy, w, h] en coordenadas [0,1].
+Son pérdidas independientes del manifold — se usan junto a ToroidalDistanceLoss
+para la regresión de bounding boxes desde espacio toroidal.
 
-Typical usage:
+Uso típico:
     from ..losses import GIoULoss
     criterion = GIoULoss()
-    loss = criterion(pred_01, target_01)    # [B, 4] in [cx, cy, w, h] ∈ [0,1]
+    loss = criterion(pred_01, target_01)    # [B, 4] en [cx, cy, w, h] ∈ [0,1]
 """
 
 import torch
@@ -20,7 +20,7 @@ __all__ = ['GIoULoss', 'IoULoss', 'giou_loss', 'iou_loss']
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PURE FUNCTIONS
+# FUNCIONES PURAS
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _cxcywh_to_xyxy(boxes: torch.Tensor) -> torch.Tensor:
@@ -32,36 +32,36 @@ def _cxcywh_to_xyxy(boxes: torch.Tensor) -> torch.Tensor:
 
 def giou_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """
-    Generalized IoU Loss for boxes [cx, cy, w, h] ∈ [0, 1].
+    Generalized IoU Loss para cajas [cx, cy, w, h] ∈ [0, 1].
 
     GIoU = IoU - |C \\ (A∪B)| / |C|
     Loss = 1 - GIoU  ∈ [0, 2]
 
     Args:
-        pred:   [B, 4]  — predicted boxes  [cx, cy, w, h] in [0,1]
-        target: [B, 4]  — target boxes   [cx, cy, w, h] in [0,1]
+        pred:   [B, 4]  — cajas predichas  [cx, cy, w, h] en [0,1]
+        target: [B, 4]  — cajas objetivo   [cx, cy, w, h] en [0,1]
 
     Returns:
-        Scalar — mean GIoU loss over the batch.
+        Scalar — media del GIoU loss sobre el batch.
     """
     pred_xyxy   = _cxcywh_to_xyxy(pred)
     target_xyxy = _cxcywh_to_xyxy(target.clamp(0, 1))
 
-    # ── Intersection ──────────────────────────────────────────────────────────
+    # ── Intersección ──────────────────────────────────────────────────────────
     inter_x1 = torch.max(pred_xyxy[:, 0], target_xyxy[:, 0])
     inter_y1 = torch.max(pred_xyxy[:, 1], target_xyxy[:, 1])
     inter_x2 = torch.min(pred_xyxy[:, 2], target_xyxy[:, 2])
     inter_y2 = torch.min(pred_xyxy[:, 3], target_xyxy[:, 3])
     inter_area = (inter_x2 - inter_x1).clamp(0) * (inter_y2 - inter_y1).clamp(0)
 
-    # ── Union ─────────────────────────────────────────────────────────────────
+    # ── Unión ─────────────────────────────────────────────────────────────────
     pred_area   = pred[:, 2].clamp(0)   * pred[:, 3].clamp(0)
     target_area = target[:, 2].clamp(0) * target[:, 3].clamp(0)
     union_area  = pred_area + target_area - inter_area + 1e-7
 
     iou = inter_area / union_area
 
-    # ── Enclosing box (for GIoU additional term) ──────────────────────────────
+    # ── Caja envolvente (para el término adicional de GIoU) ───────────────────
     enc_x1 = torch.min(pred_xyxy[:, 0], target_xyxy[:, 0])
     enc_y1 = torch.min(pred_xyxy[:, 1], target_xyxy[:, 1])
     enc_x2 = torch.max(pred_xyxy[:, 2], target_xyxy[:, 2])
@@ -74,12 +74,12 @@ def giou_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
 
 def iou_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """
-    Standard IoU Loss (without GIoU enclosing box term).
+    Standard IoU Loss (sin el término de caja envolvente de GIoU).
     Loss = 1 - IoU  ∈ [0, 1]
 
     Args:
-        pred:   [B, 4]  — predicted boxes  [cx, cy, w, h] in [0,1]
-        target: [B, 4]  — target boxes   [cx, cy, w, h] in [0,1]
+        pred:   [B, 4]  — cajas predichas  [cx, cy, w, h] en [0,1]
+        target: [B, 4]  — cajas objetivo   [cx, cy, w, h] en [0,1]
     """
     pred_xyxy   = _cxcywh_to_xyxy(pred)
     target_xyxy = _cxcywh_to_xyxy(target.clamp(0, 1))
@@ -99,14 +99,14 @@ def iou_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# nn.Module CLASSES — for use inside standard training loops
+# CLASES nn.Module — para usar dentro de loops de training estándar
 # ══════════════════════════════════════════════════════════════════════════════
 
 class GIoULoss(nn.Module):
     """
-    Generalized IoU Loss as nn.Module.
+    Generalized IoU Loss como nn.Module.
 
-    Usage:
+    Uso:
         criterion = GIoULoss(weight=2.0)
         loss = criterion(pred_boxes_01, target_boxes_01)
     """
@@ -125,9 +125,9 @@ class GIoULoss(nn.Module):
 
 class IoULoss(nn.Module):
     """
-    Standard IoU Loss as nn.Module.
+    Standard IoU Loss como nn.Module.
 
-    Usage:
+    Uso:
         criterion = IoULoss()
         loss = criterion(pred_boxes_01, target_boxes_01)
     """

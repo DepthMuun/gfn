@@ -13,7 +13,7 @@ import time
 sys.path.append(str(Path(__file__).parent.parent.parent.parent.parent))
 
 from gfn.realizations.isn.models.model import Model as RealityModel
-from gfn.realizations.isn.training.losses.coherence import MultiDimensionalLoss
+from gfn.realizations.isn.training.coherence_loss import MultiDimensionalLoss
 from gfn.realizations.isn.utils.data_generator import ArithmeticDataGenerator
 from gfn.realizations.isn.training.trainer import GenericISNDataset
 from torch.utils.data import DataLoader

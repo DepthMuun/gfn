@@ -1,6 +1,6 @@
 # GFN Framework - Ultra-Complete Research Requirements
-# Version: 2.7.2
-# Date: 2026-04-15
+# Version: 2.7.0
+# Date: 2026-03-21
 
 # --- Core Deep Learning & Analytics ---
 torch>=2.0.0

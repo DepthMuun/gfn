@@ -1,8 +1,8 @@
 """
 gfn/physics/dynamics/__init__.py — GFN V5
-Ported from: gfn_old/nn/layers/flow/dynamics/
+Portado desde: gfn_old/nn/layers/flow/dynamics/
 
-Dynamics System: 5 state update modes on the manifold.
+Sistema de Dynamics: 5 modos de actualización de estado en el manifold.
 """
 from .base import BaseDynamics
 from .direct import DirectDynamics
@@ -27,17 +27,17 @@ def get_dynamics(dynamics_type: str, dim: int,
                  norm_layer: Optional[nn.Module] = None,
                  topology: str = TOPOLOGY_EUCLIDEAN, **kwargs) -> BaseDynamics:
     """
-    Dynamics Factory.
+    Factory de Dynamics.
 
-    For POSITION tensors: pass topology=self.topology
-    For VELOCITY tensors: always pass topology=TOPOLOGY_EUCLIDEAN (tangent space)
+    Para tensores de POSICIÓN: pasar topology=self.topology
+    Para tensores de VELOCIDAD: pasar topology=TOPOLOGY_EUCLIDEAN siempre (espacio tangente)
     """
     dynamics_type = dynamics_type.lower()
     dynamics_cls = DYNAMICS_REGISTRY.get(dynamics_type)
     if dynamics_cls is None:
         raise ValueError(
-            f"Unknown dynamics type: '{dynamics_type}'. "
-            f"Available: {list(DYNAMICS_REGISTRY.keys())}"
+            f"Tipo de dynamics desconocido: '{dynamics_type}'. "
+            f"Disponibles: {list(DYNAMICS_REGISTRY.keys())}"
         )
     return dynamics_cls(dim, norm_layer, topology=topology, **kwargs)
 

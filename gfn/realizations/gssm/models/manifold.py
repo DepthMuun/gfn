@@ -17,9 +17,8 @@ class ManifoldModel(BaseModel):
                  x0: nn.Parameter, 
                  v0: nn.Parameter, 
                  holographic: bool = False,
-                 config: Optional[Any] = None,
-                 store_full_sequence: bool = True):
-        super().__init__(layers, embedding, x0, v0, holographic, config=config, store_full_sequence=store_full_sequence)
+                 config: Optional[Any] = None):
+        super().__init__(layers, embedding, x0, v0, holographic, config=config)
         
     def forward(self, input_ids: Optional[torch.Tensor] = None, 
                 attention_mask: Optional[torch.Tensor] = None,

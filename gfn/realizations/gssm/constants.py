@@ -1,16 +1,16 @@
 # constants.py — GFN V5
-# Universal physical and mathematical constants.
-# Does NOT contain training hyperparameters or configurable values.
+# Constantes físicas y matemáticas universales.
+# NO contiene hiperparámetros de entrenamiento ni valores configurables.
 
 import torch
 
-# ─── Mathematical Constants ─────────────────────────────────────────────────
+# ─── Constantes Matemáticas ─────────────────────────────────────────────────
 PI = 3.14159265358979
 E = 2.718281828459045
 SQRT_2 = 1.4142135623730951
 LOG_2 = 0.6931471805599453
 
-# ─── Numerical Stability ─────────────────────────────────────────────────
+# ─── Estabilidad Numérica ─────────────────────────────────────────────────
 EPS = 1e-8
 INF = 1e12
 EPSILON_STANDARD = 1e-7
@@ -18,11 +18,11 @@ EPSILON_SMOOTH = 1e-9
 EPSILON_STRONG = 1e-6
 CLAMP_MIN_STRONG = 1e-4
 
-# ─── Physical Limits ───────────────────────────────────────────────────────
+# ─── Límites Físicos ───────────────────────────────────────────────────────
 MIN_DT = 0.001
 MAX_DT = 1.0
 
-# ─── Geometry / Curvature ─────────────────────────────────────────────────
+# ─── Geometría / Curvatura ─────────────────────────────────────────────────
 CURVATURE_CLAMP = 5.0  # Maximum absolute value of Christoffel output
 FRICTION_SCALE = 0.1   # Global friction scaling factor
 VELOCITY_FRICTION_SCALE = 0.01
@@ -42,7 +42,7 @@ TOROIDAL_MINOR_RADIUS   = 0.3
 TOROIDAL_PERIOD         = 2.0 * PI
 TOROIDAL_CURVATURE_SCALE = 0.1
 
-# ─── Default data type ─────────────────────────────────────────────
+# ─── Tipo de dato por defecto ─────────────────────────────────────────────
 DTYPE = torch.float32
 
 # ─── Topology Names ───────────────────────────────────────────────────────

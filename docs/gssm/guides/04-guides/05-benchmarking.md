@@ -11,12 +11,12 @@ The benchmarks are specifically designed to test the O(1) continuous state-space
 The benchmark suite is fundamentally split into four functional pillars:
 
 ```text
-tests/gssm/benchmarks/
+tests/benchmarks/
 ├── baselines/               # Baseline model implementations (e.g., micro_gpt.py)
 ├── convergence/             # Generalization and logical deduction proofs
 │   ├── xor/
 │   ├── language/
-│   ├── math/
+│   ├── needle_haystack_real/
 │   └── ...
 ├── matrix/                  # Hyperparameter permutation and stability validation
 └── stress/                  # Computational overhead, latency, and hardware constraints
@@ -30,20 +30,23 @@ Convergence testing ensures the model can empirically solve mathematically rigor
 
 ### Current Test Scenarios
 
-1. **XOR Parity Bounds (`convergence/xor/`)**  
-   Evaluates pure combinatorial logic. Models are assessed on their ability to solve parity arrays of arbitrary bounds using `ToroidalGeometry`, proving the model can isolate and recall alternating state sequences over deep step counts.
+1. **XOR Parity Bounds (`convergence/xor/logic_xor.py`)**  
+   Evaluates pure combinatorial logic. Models are assessed on their ability to solve parity arrays of arbitrary bounds using `ToroidalRiemannianGeometry`, proving the model can isolate and recall alternating state sequences over deep step counts.
 
-2. **Language Context (`convergence/language/`)**  
+2. **Language Context (`convergence/language/lang_context.py`)**  
    Validates standard autoregressive perplexity parameters using synthetic dictionaries. Ensures the internal geometric representation translates cleanly to sequence prediction and language modeling.
 
-3. **Mathematical Reasoning (`convergence/math/`)**  
-   Tests the model's ability to learn and execute mathematical operations. Evaluates symbolic reasoning capabilities through geometric state evolution.
+3. **Needle In A Haystack (`convergence/needle_haystack_real/`)**  
+   Measures memory capacity retrieval within large document chunks. Evaluates if the geometric system can correctly preserve and isolate singular signal spikes over massive contextual noise thresholds.
+
+4. **SHA256 Mapping (`convergence/sha256/`)**  
+   A brutal cryptographic hashing simulation designed to test collision boundaries. Evaluates the pure continuous capacity of the state space by forcing chaotic input resolution.
 
 ---
 
 ## Matrix Testing
 
-The `tests/gssm/benchmarks/matrix/` module systematically validates the interaction between different system settings by permuting over wide hyperparameter domains (Integrator types, geometries, physics variables).
+The `tests/benchmarks/matrix/` module systematically validates the interaction between different system settings by permuting over wide hyperparameter domains (Integrator types, geometries, physics variables). 
 
 ### The Run Suite (`run_suite.py`)
 
@@ -55,7 +58,7 @@ The matrix suite uses a unified generator -> runner -> analyser pipeline:
 
 **Execution:**
 ```bash
-python tests/gssm/benchmarks/matrix/run_suite.py --limit 10
+python tests/benchmarks/matrix/run_suite.py --limit 10
 ```
 
 *Tip: Use `--filter-integrator leapfrog` to restrict the search space during iterative debugging.*
@@ -64,7 +67,7 @@ python tests/gssm/benchmarks/matrix/run_suite.py --limit 10
 
 ## Stress & Hardware Profiling
 
-The `tests/gssm/benchmarks/stress/` suite evaluates the underlying hardware overhead and scaling characteristics. 
+The `tests/benchmarks/stress/` suite evaluates the underlying hardware overhead and scaling characteristics. 
 
 ### Latency & Performance Suites
 

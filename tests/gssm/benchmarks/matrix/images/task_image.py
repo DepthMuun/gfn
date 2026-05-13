@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import math
 from pathlib import Path
-from gfn.realizations.gssm.losses import ToroidalDistanceLoss
+from gfn.losses import ToroidalDistanceLoss
 from tests.benchmarks.convergence.drone_detection.data import download_and_extract, get_pure_dataloader
 
 def box_to_torus(boxes):
@@ -100,7 +100,7 @@ def train_image(model, steps=100, dataset_dir="D:/ASAS/datasets/seraphim", img_s
     toroidal_loss_fn = ToroidalDistanceLoss({'mode': loss_mode})
     
     # Optional Physics Loss
-    from gfn.realizations.gssm.losses.physics import PhysicsLoss
+    from gfn.losses.physics import PhysicsLoss
     physics_loss_fn = PhysicsLoss({'lambda_geo': lambda_geo}) if lambda_geo > 0 else None
     
     adapter.train()

@@ -1,7 +1,7 @@
 """
 GFNTrainer — GFN V5
-Complete trainer with callback, scheduler, and metrics support.
-Replaces/enriches the existing basic trainer.
+Trainer completo con soporte de callbacks, scheduler, y métricas.
+Reemplaza/enriquece el trainer básico existente.
 """
 
 import torch
@@ -17,14 +17,14 @@ from .metrics import compute_metrics
 
 class GFNTrainer:
     """
-    Standard trainer for GFN.
+    Trainer estándar para GFN V5.
 
-    Supports:
+    Soporta:
     - Callbacks: checkpoint, early stopping, logger
-    - Scheduler: automatic step per epoch
-    - Metrics: accuracy, perplexity, last-token for XOR/NIAH tasks
-    - Configurable gradient clipping
-    - State info passthrough for physics losses
+    - Scheduler: paso automático por época
+    - Métricas: accuracy, perplexity, last-token para tareas XOR/NIAH
+    - Gradient clipping configurable
+    - State info passthrough para pérdidas físicas
     """
 
     def __init__(self,
@@ -46,7 +46,7 @@ class GFNTrainer:
         self.task = task
         self._stop_training = False
 
-    # ─── Lifecycle hooks ─────────────────────────────────────────────────────
+    # ─── Hooks de ciclo de vida ──────────────────────────────────────────────
 
     def _call(self, event: str, **kwargs):
         for cb in self.callbacks:
@@ -54,7 +54,7 @@ class GFNTrainer:
             if fn:
                 fn(trainer=self, **kwargs)
 
-    # ─── Training step ───────────────────────────────────────────────────────
+    # ─── Paso de entrenamiento ───────────────────────────────────────────────
 
     def train_step(self, x: torch.Tensor, y: torch.Tensor) -> float:
         self.model.train()
@@ -62,12 +62,13 @@ class GFNTrainer:
 
         logits, states, info = self.model(x)
         
-        # Ensure info contains all state information for physics and toroidal losses
+        # Asegurar que info contenga toda la información del estado
+        # para pérdidas físicas y toroidales
         state_info = info if info is not None else {}
         
-        # If the loss needs state_info, ensure it has x_seq and v_seq
+        # Si la pérdida necesita state_info, aseguramos que tenga x_seq y v_seq
         if 'x_seq' not in state_info and hasattr(states, '__iter__'):
-            # states is (x_final, v_final) - try to get sequences
+            # states es (x_final, v_final) - intentar obtener secuencias
             pass
         
         loss = self.loss_fn(logits, y, state_info=state_info)
@@ -80,7 +81,7 @@ class GFNTrainer:
         self.optimizer.step()
         return loss.item()
 
-    # ─── Training epoch ───────────────────────────────────────────────────────
+    # ─── Loop de entrenamiento ───────────────────────────────────────────────
 
     def fit(self, train_loader, epochs: int = 1,
             val_loader=None) -> Dict[str, List[float]]:
@@ -127,15 +128,15 @@ class GFNTrainer:
         self._call('on_train_end')
         return history
 
-    # ─── Evaluation ─────────────────────────────────────────────────────────
+    # ─── Evaluación ─────────────────────────────────────────────────────────
 
     def evaluate(self, val_loader) -> float:
-        """Returns accuracy (token-level or last-token depending on task)."""
+        """Retorna accuracy (token-level o last-token según task)."""
         metrics = self.evaluate_metrics(val_loader)
         return metrics.get('acc', 0.0)
 
     def evaluate_metrics(self, val_loader) -> Dict[str, float]:
-        """Returns complete metrics dictionary."""
+        """Retorna dict completo de métricas."""
         self.model.eval()
         all_logits, all_targets = [], []
 

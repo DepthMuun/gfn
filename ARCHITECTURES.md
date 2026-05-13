@@ -147,4 +147,4 @@ Choose a realization based on your requirements:
 This registry is maintained by the DepthMuun team. To update information or add new realizations, submit a pull request following the contribution guidelines.
 
 **Last Updated**: March 2026  
-**Framework Version**: 2.7.2
+**Framework Version**: 2.6.6

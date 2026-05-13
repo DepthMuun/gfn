@@ -1,6 +1,6 @@
 """
 Stochastic Forces — GFN V5
-Unified module for random physical forces (Langevin dynamics).
+Módulo unificado para fuerzas físicas aleatorias (Langevin dynamics).
 """
 
 import torch
@@ -10,8 +10,8 @@ from ...interfaces.physics import PhysicsEngine
 
 class BrownianForce(nn.Module):
     """
-    Injects isotropic Brownian force (white noise).
-    Simulates the stochastic term in the Langevin equation.
+    Inyecta una fuerza browniana isótropa (ruido blanco).
+    Simula el término estocástico en la ecuación de Langevin.
     """
     def __init__(self, sigma: float = 0.01):
         super().__init__()
@@ -19,12 +19,12 @@ class BrownianForce(nn.Module):
 
     def forward(self, x: torch.Tensor, v: torch.Tensor, dt: float) -> torch.Tensor:
         """
-        Computes the stochastic perturbation.
+        Calcula la perturbación estocástica.
         Args:
-            x, v: [Batch, (Heads), Dim] state tensors
-            dt: integration step
+            x, v: [Batch, (Heads), Dim] tensores de estado
+            dt: paso de integración
         Returns:
-            Random force [Batch, (Heads), Dim]
+            Fuerza aleatoria [Batch, (Heads), Dim]
         """
         is_valid_dt = (dt > 0)
         if isinstance(dt, torch.Tensor):
@@ -32,8 +32,8 @@ class BrownianForce(nn.Module):
         else:
             safe_dt = max(float(dt), 1e-8)
         
-        # Stochastic acceleration scales with 1/sqrt(dt) so that when integrating (a*dt)
-        # the resulting displacement scales with sqrt(dt).
+        # La aceleración estocástica escala con 1/sqrt(dt) para que al integrar (a*dt)
+        # el desplazamiento resultante escale con sqrt(dt).
         noise = torch.randn_like(v) * (self.sigma * (safe_dt ** -0.5))
         
         if isinstance(is_valid_dt, torch.Tensor):
@@ -43,7 +43,7 @@ class BrownianForce(nn.Module):
 class OUDynamicsForce(nn.Module):
     """
     Ornstein-Uhlenbeck process force.
-    Adds mean reversion to noise, useful for smooth local exploration.
+    Añade reversión a la media al ruido, útil para exploración local suave.
     """
     def __init__(self, sigma: float = 0.01, theta: float = 0.15, mu: float = 0.0):
         super().__init__()

@@ -1,6 +1,6 @@
 """
 Schedulers — GFN V5
-Learning rate schedulers for GFN training.
+Learning rate schedulers para entrenamiento de GFN.
 """
 
 import torch
@@ -11,8 +11,8 @@ import math
 
 class WarmupCosineScheduler(torch.optim.lr_scheduler._LRScheduler):
     """
-    Linear warmup + cosine decay.
-    Standard for training transformers and sequence models.
+    Warmup lineal + decaída coseno.
+    Estándar para entrenar transformers y modelos de secuencia.
     """
 
     def __init__(self, optimizer: optim.Optimizer, warmup_steps: int, total_steps: int,
@@ -34,19 +34,25 @@ class WarmupCosineScheduler(torch.optim.lr_scheduler._LRScheduler):
 
 
 class StepScheduler(torch.optim.lr_scheduler.StepLR):
-    """Semantic wrapper over standard StepLR."""
+    """Wrapper semántico sobre StepLR estándar."""
     pass
 
 
 class ReduceOnPlateauScheduler(torch.optim.lr_scheduler.ReduceLROnPlateau):
-    """Reduce LR when validation loss plateaus."""
+    """Reduce LR cuando la pérdida de validación se estanca."""
     pass
 
 
 def create_scheduler(optimizer: optim.Optimizer, config: Dict[str, Any],
                      steps_per_epoch: int = 1) -> Optional[object]:
     """
-    Factory to create schedulers from configuration.
+    Factory para crear schedulers desde configuración.
+
+    config keys:
+    - 'type':         'cosine_warmup' | 'step' | 'plateau' | 'none'
+    - 'warmup_steps': pasos de calentamiento (si aplica)
+    - 'total_steps':  pasos totales (si aplica)
+    - 'min_lr':       lr mínimo
     """
     sched_type = config.get('type', 'none').lower()
     if sched_type == 'none':

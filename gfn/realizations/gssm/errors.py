@@ -1,32 +1,23 @@
-from gfn.errors import (
-    GFNError as BaseGFNError,
-    ConfigurationError as BaseConfigurationError,
-    GeometryError as BaseGeometryError,
-    PhysicsError as BasePhysicsError,
-    IntegrationError as BaseIntegrationError,
-    TrainingError as BaseTrainingError
-)
-
-class GFNError(BaseGFNError):
-    """Base exception for G-SSM specific errors."""
+class GFNError(Exception):
+    """Base exception for all GFN errors."""
     pass
 
-class ConfigurationError(BaseConfigurationError, GFNError):
-    """Raised when a G-SSM configuration is invalid."""
+class ConfigurationError(GFNError):
+    """Raised when a configuration is invalid or inconsistent."""
     pass
 
-class GeometryError(BaseGeometryError, GFNError):
-    """Raised when a G-SSM geometric operation fails."""
+class GeometryError(GFNError):
+    """Raised when a geometric operation fails (e.g., out of manifold)."""
     pass
 
-class PhysicsError(BasePhysicsError, GFNError):
-    """Raised during G-SSM physics engine failures."""
+class PhysicsError(GFNError):
+    """Raised during physics engine failures (e.g., NaN detected)."""
     pass
 
-class IntegrationError(BaseIntegrationError, GFNError):
-    """Raised during G-SSM integration failures."""
+class IntegrationError(GFNError):
+    """Raised during numerical integration failures."""
     pass
 
-class TrainingError(BaseTrainingError, GFNError):
-    """Raised during G-SSM training failures."""
+class TrainingError(GFNError):
+    """Raised during model training or optimization failures."""
     pass

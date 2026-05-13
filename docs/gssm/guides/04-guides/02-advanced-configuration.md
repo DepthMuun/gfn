@@ -392,7 +392,7 @@ If the loss does not decrease, reduce lambda_g to 0.
 
 ## Version Notes
 
-This documentation assumes GFN Framework v2.7.2.
+This documentation assumes the current development version. Some options may not be available in earlier versions (v2.6.5 or earlier).
 
 ---
 

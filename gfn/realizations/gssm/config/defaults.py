@@ -15,7 +15,7 @@ from ..constants import (
 # ─── Física ─────────────────────────────────────────────────────────────────
 PHYSICS_DEFAULTS: Dict[str, Any] = {
     # Topología
-    'topology_type': TOPOLOGY_TORUS,  # torus is more stable than euclidean
+    'topology_type': TOPOLOGY_EUCLIDEAN,
     'riemannian_type': 'low_rank',
     'major_radius_R': 2.0,
     'minor_radius_r': 1.0,
@@ -64,7 +64,7 @@ MODEL_DEFAULTS: Dict[str, Any] = {
     'vocab_size': 256,
     'holographic': False,
     'pooling_type': None,
-    'initial_spread': 0.1,  # 0.1 recommended for better gradient flow
+    'initial_spread': 1e-3,
     'n_trajectories': 1,
 }
 

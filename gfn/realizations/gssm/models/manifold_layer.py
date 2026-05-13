@@ -6,10 +6,6 @@ from ..interfaces.integrator import Integrator
 from ..interfaces.physics import PhysicsEngine
 from ..config.schema import PhysicsConfig
 from ..constants import TOPOLOGY_TORUS, TOPOLOGY_EUCLIDEAN
-from .components.mixer import FlowMixer
-from .plugins import LAYER_PLUGIN_REGISTRY
-# Import plugins to trigger registration
-from .plugins import dynamic_time, fractal
 import logging
 
 logger = logging.getLogger(__name__)
@@ -17,17 +13,17 @@ logger = logging.getLogger(__name__)
 
 class ManifoldLayer(nn.Module):
     """
-    GFN Manifold Layer with full feature parity with V4.
+    Capa de Manifold GFN V5 con feature parity completo respecto a V4.
 
-    Configuration via `PhysicsConfig`:
+    Configuración via `PhysicsConfig`:
       topology.type             — TOPOLOGY_TORUS | TOPOLOGY_EUCLIDEAN
-      stability.base_dt         — base time step
-      stability.enable_trace_normalization — activates Riemannian norm
-      dynamics.type (or kwargs)  — 'direct' | 'residual' | 'mix' | 'gated' | 'stochastic'
-      active_inference.dynamic_time.enabled  — adaptive gating per head
+      stability.base_dt         — step de tiempo base
+      stability.enable_trace_normalization — activa norm Riemanniana
+      dynamics.type (o kwargs)  — 'direct' | 'residual' | 'mix' | 'gated' | 'stochastic'
+      active_inference.dynamic_time.enabled  — gating adaptativo por cabeza
       active_inference.dynamic_time.type     — 'riemannian' | 'thermo'
-      fractal.enabled           — tunneling for high curvature
-      fractal.threshold / alpha — fractal parameters
+      fractal.enabled           — tunneling por curvatura alta
+      fractal.threshold / alpha — parámetros del fractal
     """
 
     def __init__(
@@ -91,32 +87,43 @@ class ManifoldLayer(nn.Module):
         )
         self.dynamics_type = resolved_dyn_type
 
-        # ── Mixer (obligatorio, NO es plugin) ──────────────────────────────────
-        # BUG FIX: Removed duplicate mixer creation. The mixer parameter is already set in __init__.
-        # Original code incorrectly created a new FlowMixer here, overwriting the passed mixer.
-        self.mixer_dim = self.heads * self.head_dim
-        # self.mixer = FlowMixer(self.mixer_dim, topology=self.topology)  # REMOVED: This was a duplicate
+        # ── Time-step dinámico por cabeza ─────────────────────────────────────
+        dt_cfg = self.config.active_inference.dynamic_time
+        self.use_dynamic_time = dt_cfg.enabled
+        self.dynamic_time_type = dt_cfg.type.lower()
 
-        # ── Fractal Sub-Manifold (optional, now handled by fractal plugin) ─────
-        # Keep config reference for backward compatibility
-        self.fractal_enabled = getattr(self.config.fractal, 'enabled', False)
+        from ..physics.gating import RiemannianGating, ThermodynamicLayer
+        if self.dynamic_time_type == 'thermo':
+            self.gatings = nn.ModuleList([
+                ThermodynamicLayer(self.head_dim) for _ in range(heads)
+            ])
+        else:
+            self.gatings = nn.ModuleList([
+                RiemannianGating(self.head_dim, topology=self.topology)
+                for _ in range(heads)
+            ])
 
-        # ── Plugin System ──────────────────────────────────────────────────────
-        self.plugins = nn.ModuleDict()
-        self._init_plugins()
+        # dt por cabeza: parámetros trainables con softplus scaling
+        self.base_dt = self.config.stability.base_dt
+        scale_vals: List[torch.Tensor] = []
+        for i in range(heads):
+            target_dt = self.base_dt / 0.9
+            val_init = torch.log(torch.exp(torch.tensor(target_dt)) - 1.0)
+            self.dt_increment = 0.05
+            scale_vals.append(val_init + i * self.dt_increment)
+        self.dt_params = nn.Parameter(torch.stack(scale_vals))
 
-    def _init_plugins(self) -> None:
-        """Initialize plugins from registry based on config."""
-        # Plugins already imported at module level to trigger registration
-        # Create enabled plugins
-        for plugin_name in LAYER_PLUGIN_REGISTRY.list_plugins():
-            plugin = LAYER_PLUGIN_REGISTRY.create_plugin(
-                plugin_name, self, self.config
-            )
-            if plugin is not None:
-                self.plugins[plugin_name] = plugin
-                plugin.setup()
-                logger.debug(f"Layer {self.layer_idx}: Enabled plugin '{plugin_name}'")
+        # ── Fractal Sub-Manifold (opcional) ───────────────────────────────────
+        fract_cfg = self.config.fractal
+        self.fractal_enabled = fract_cfg.enabled
+        self.fractal_threshold = fract_cfg.threshold
+        self.fractal_alpha = fract_cfg.alpha
+        self.micro_manifold: Optional[nn.Module] = None  # Explicit type
+
+        self.fractal_slope = 1.0
+        self.dt_increment = 0.05
+
+    # ── Forward ───────────────────────────────────────────────────────────────
 
     def forward(
         self,
@@ -127,12 +134,12 @@ class ManifoldLayer(nn.Module):
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Args:
-            x, v: [B, S, H, D] (sequence with heads)
-                  or [B, H, D]  (batch without sequence)
-            force: [B, S, D] or [B, D] — external force
+            x, v: [B, S, H, D] (secuencia con cabezas)
+                  o [B, H, D]  (batch sin secuencia)
+            force: [B, S, D] o [B, D] — fuerza externa
 
         Returns:
-            (x_next, v_next) — same shape as input
+            (x_next, v_next) — misma forma que entrada
         """
         original_shape = x.shape
 
@@ -151,7 +158,7 @@ class ManifoldLayer(nn.Module):
                         (self.geometry_scope == 'global' and force.dim() == 2 and force.shape == (B, self.head_dim))):
                     raise ValueError(f"Force shape {force.shape} incompatible with x shape {x.shape} for 3D x")
 
-        # 1. Reshape: homogenize to [B_eff, H, D]
+        # 1. Reshape: homogeneizar a [B_eff, H, D]
         if x.dim() == 4:
             B, S = x.shape[:2]
             x_3d = x.reshape(B * S, self.heads, self.head_dim)
@@ -167,7 +174,7 @@ class ManifoldLayer(nn.Module):
             else:
                 f_3d = None
         elif x.dim() == 3:
-            x_3d = x  # already is [B, H, D]
+            x_3d = x  # ya es [B, H, D]
             v_3d = v
             if force is not None:
                 if force.dim() == 2:
@@ -184,57 +191,72 @@ class ManifoldLayer(nn.Module):
             else:
                 f_3d = None
         else:
-            raise ValueError(f"ManifoldLayer: unsupported x shape: {x.shape}")
+            raise ValueError(f"ManifoldLayer: forma de x no soportada: {x.shape}")
 
         B_eff = x_3d.shape[0]
 
-        # 2. Plugin: Pre-integrate hooks (e.g., dynamic_time)
-        dt_base = getattr(self.config.stability, 'base_dt', 0.1)
-        dt_eff = dt_base
-        for plugin in self.plugins.values():
-            x_3d, v_3d, dt_eff = plugin.pre_integrate(x_3d, v_3d, dt_eff, f_3d)
+        # 2. Gating del dt por cabeza
+        # Pre-convert to avoid repeated softplus if dynamic time is disabled
+        dt_base = torch.nn.functional.softplus(self.dt_params).view(1, self.heads, 1)
+        dt_base = torch.clamp(dt_base, self.config.stability.dt_min, self.config.stability.dt_max)
 
-        # 3. Integration step (vectorized over heads [B, H, D])
-        x_prev, v_prev = x_3d, v_3d
+        if self.use_dynamic_time:
+            if self.dynamic_time_type == 'thermo':
+                gates_list = [
+                    self.gatings[i](x_3d[:, i], v_3d[:, i])
+                    for i in range(self.heads)
+                ]
+            else:
+                gates_list = [
+                    self.gatings[i](x_3d[:, i])
+                    for i in range(self.heads)
+                ]
+            gates = torch.stack(gates_list, dim=1)   # [B_eff, H, 1]
+            dt_eff = dt_base * gates
+        else:
+            dt_eff = dt_base  # escalar broadcast sobre [B, H, 1]
+
+        # 3. Paso de integración (vectorizado sobre cabezas [B, H, D])
+        x_stepped, v_stepped = x_3d, v_3d
+        
+        # Validar si el integrador soporta dt como tensor [B, H, 1]
         res = self.integrator.step(x_3d, v_3d, force=f_3d, dt=dt_eff)
-        x_stepped, v_stepped = res["x"], res["v"]
+        x_stepped = res["x"]
+        v_stepped = res["v"]
 
-        # 4. Plugin: Post-integrate hooks
-        for plugin in self.plugins.values():
-            x_stepped, v_stepped = plugin.post_integrate(
-                x_stepped, v_stepped, x_prev, v_prev
-            )
-
-        # 5. Head mixing (required, not a plugin)
+        # 4. Mixing de cabezas
+        x_ref_2d = x_3d.reshape(B_eff, -1)
+        v_ref_2d = v_3d.reshape(B_eff, -1)
+        # No longer storing _last_x as attribute to avoid gradient corruption in shared layers
         x_mix, v_mix = self.mixer(x_stepped, v_stepped)
 
-        # 6. Dynamics routing (applies mixing proposal)
-        # x_mix can be [B, D] (partition) or [B, H, D] (ensemble)
+        # 5. Dynamics routing (actualiza estado con la propuesta del mixing)
+        # x_mix puede ser [B, D] (partición) o [B, H, D] (ensemble)
         if x_mix.dim() == 2:
-            # Partition mode: apply dynamics in flat space and redistribute
+            # Modo partición: aplicar dynamics en espacio aplanado y redistribuir
             x_ref_h = x_3d.reshape(B_eff, -1)
             v_ref_h = v_3d.reshape(B_eff, -1)
             x_next_flat = self.dynamics_x(x_ref_h, x_mix, context_x=x_ref_h)
-            v_next_flat = self.dynamics_v(v_ref_h, v_mix, context_x=v_ref_h)
+            v_next_flat = self.dynamics_v(v_ref_h, v_mix, context_x=x_ref_h)
             x_next = x_next_flat.view(B_eff, self.heads, self.head_dim)
             v_next = v_next_flat.view(B_eff, self.heads, self.head_dim)
         else:
-            # Ensemble mode: apply per head
+            # Modo ensemble: aplicar por cabeza
             x_next = self.dynamics_x(x_3d.reshape(B_eff, -1),
                                      x_mix.reshape(B_eff, -1),
                                      context_x=x_3d.reshape(B_eff, -1)).view(B_eff, self.heads, self.head_dim)
             v_next = self.dynamics_v(v_3d.reshape(B_eff, -1),
                                      v_mix.reshape(B_eff, -1),
-                                     context_x=v_3d.reshape(B_eff, -1)).view(B_eff, self.heads, self.head_dim)
+                                     context_x=x_3d.reshape(B_eff, -1)).view(B_eff, self.heads, self.head_dim)
 
         # Apply topology boundary wrapping to maintain manifold constraints
         x_next = self.integrator._resolve_topology(x_next)
 
-        # 6. Plugin: Finalize hooks (e.g., fractal step)
-        for plugin in self.plugins.values():
-            x_next, v_next = plugin.finalize(x_next, v_next)
+        # 6. Fractal step opcional
+        if self.fractal_enabled and self.micro_manifold is not None:
+            x_next, v_next = self._fractal_step(x_next, v_next, f_3d, B_eff)
 
-        # 7. Restore original shape
+        # 7. Restaurar forma original
         if len(original_shape) == 4:
             B, S = original_shape[:2]
             x_next = x_next.view(B, S, self.heads, self.head_dim)
@@ -245,10 +267,22 @@ class ManifoldLayer(nn.Module):
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     # Removed _apply_dynamics_x/v as they were using stateful _last_x
-    # Removed _fractal_step as it's now handled by fractal plugin
+
+    def _fractal_step(self, x: torch.Tensor, v: torch.Tensor,
+                      force, B_eff: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Aplica el micro-manifold si la curvatura supera el threshold."""
+        # Estimación simple de curvatura: norma del estado de velocidad
+        curvature_est = v.norm(dim=-1).mean(dim=-1, keepdim=True).unsqueeze(-1)  # [B, 1, 1]
+        # Simple proxy for curvature: average norm of velocity vectors
+        tunnel_gate = torch.sigmoid((curvature_est - self.fractal_threshold) * self.fractal_slope)
+
+        x_f, v_f = self.micro_manifold(x, v, force=force)
+        x_out = x + tunnel_gate * (x_f - x) * self.fractal_alpha
+        v_out = v + tunnel_gate * (v_f - v) * self.fractal_alpha
+        return x_out, v_out
 
     def debug_state(self, x: torch.Tensor, v: torch.Tensor, label: str = "") -> None:
-        """Utility for numerical health monitoring of layer state."""
+        """Utilidad de monitoreo de salud numérica del estado de la capa."""
         with torch.no_grad():
             x_mag = x.abs().mean().item()
             v_mag = v.abs().mean().item()
@@ -258,5 +292,5 @@ class ManifoldLayer(nn.Module):
                 logger.warning(f"NaN detected in Layer {self.layer_idx}")
 
 
-# Compatibility alias
+# Alias de compatibilidad
 MLayer = ManifoldLayer

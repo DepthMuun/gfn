@@ -1,8 +1,8 @@
 """
 ToroidalLoss — GFN V5
-Loss specific for toroidal geometries.
-Toroidal loss works with angular distances in the manifold.
-Improved version for compatibility with training pipeline.
+Pérdida específica para geometrías toroidales.
+La pérdida toroidal trabaja con distancias angulares en el manifold.
+Versión mejorada para совместимость con el pipeline de entrenamiento.
 """
 
 import torch
@@ -38,12 +38,18 @@ class ToroidalDistanceLossFunction(torch.autograd.Function):
 @register_loss('toroidal_distance')
 class ToroidalLoss(BaseLoss):
     """
-    Angular MSE loss for toroidal geometries.
-    Uses CUDA-accelerated implementation when available.
-    Available modes:
-    - 'circular': Circular distance with wrapping (default)
-    - 'mse': Standard MSE on angular coordinates
-    - 'hybrid': Combines circular distance with vector consistency
+    Pérdida geodésica para manifolds toroidales.
+
+    PRINCIPIO: Mide distancia angular en [-π, π] usando atan2(sin(d), cos(d)).
+    
+    Esta pérdida funciona cuando:
+    - x_pred y x_target son coordenadas angulares en el toro
+    - El modelo produce representaciones en el espacio angular (no logits categóricos)
+    
+    Modos disponibles:
+    - 'circular': Distancia circular con wrapping (default)
+    - 'mse': MSE estándar sobre coordenadas angulares
+    - 'hybrid': Combina distancia circular con consistencia de vectores
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
@@ -52,7 +58,7 @@ class ToroidalLoss(BaseLoss):
         self.scale = self.config.get('scale', 1.0)
         self.power = self.config.get('power', 2.0)
         self.mode = self.config.get('mode', 'circular')
-        # Parameters for Riemannian metric
+        # Parámetros para métrica Riemanniana
         self.R = self.config.get('R', 2.0)
         self.r = self.config.get('r', 1.0)
 
@@ -64,13 +70,13 @@ class ToroidalLoss(BaseLoss):
         Returns:
             Scalar loss — mean geodesic angular deviation.
         """
-        # Ensure target is float for calculations
+        # Asegurar que target sea float para cálculos
         if x_target.dtype in (torch.long, torch.int):
-            # If target is token IDs, convert to angular coordinates
-            # Use a simple transformation: token_id -> angle
+            # Si target es token IDs, convertir a coordenadas angulares
+            # Usar una transformación simple: token_id -> ángulo
             x_target = x_target.float()
         
-        # Compute difference
+        # Calcular diferencia
         diff = x_pred - x_target
         
         if self.mode == 'circular':
@@ -78,25 +84,25 @@ class ToroidalLoss(BaseLoss):
             if CUDA_AVAILABLE and x_pred.is_cuda and toroidal_loss_fwd is not None and self.power == 2.0:
                 dist = ToroidalDistanceLossFunction.apply(x_pred, x_target)
             else:
-                # Wrap to [-π, π] using atan2(sin, cos)
+                # Wrap a [-π, π] usando atan2(sin, cos)
                 diff_wrapped = torch.atan2(torch.sin(diff), torch.cos(diff))
                 dist = diff_wrapped.pow(self.power)
         elif self.mode == 'mse':
-            # Simple MSE without wrapping
+            # MSE simple sin wrapping
             dist = diff.pow(self.power)
         elif self.mode == 'riemannian':
             # Métrica del toro: ds² = r² dθ² + (R + r cos θ)² dφ²
             # diff = x_pred - x_target
             diff_wrapped = torch.atan2(torch.sin(diff), torch.cos(diff))
             
-            # We assume dimensions come in pairs (θ, φ)
+            # Asumimos que las dimensiones vienen en pares (θ, φ)
             # x_pred shape: [..., D]
             D = diff_wrapped.shape[-1]
             if D % 2 != 0:
                 # Fallback to circular if not even
                 dist = diff_wrapped.pow(self.power)
             else:
-                # θ: even indices (0, 2, ...), φ: odd indices (1, 3, ...)
+                # θ: índices pares (0, 2, ...), φ: índices impares (1, 3, ...)
                 d_theta = diff_wrapped[..., 0::2]
                 d_phi = diff_wrapped[..., 1::2]
                 theta_pred = x_pred[..., 0::2]
@@ -105,34 +111,34 @@ class ToroidalLoss(BaseLoss):
                 g_phi = (self.R + self.r * torch.cos(theta_pred))**2
                 dist_sq = (self.r**2) * d_theta.pow(2) + g_phi * d_phi.pow(2)
                 
-                # Re-assemble or apply power
+                # Re-ensamblar o aplicar potencia
                 if self.power == 2.0:
                     dist = dist_sq
                 else:
                     dist = dist_sq.pow(self.power / 2.0)
         elif self.mode == 'hybrid':
-            # Combine circular distance with vector penalty
+            # Combinar distancia circular con penalización de vectores
             diff_wrapped = torch.atan2(torch.sin(diff), torch.cos(diff))
             
-            # Circular component
+            # Componente circular
             circ_dist = diff_wrapped.pow(self.power)
             
-            # Vector component (direction consistency)
+            # Componente de vectores (consistencia de dirección)
             pred_sin = torch.sin(x_pred)
             pred_cos = torch.cos(x_pred)
             tgt_sin = torch.sin(x_target)
             tgt_cos = torch.cos(x_target)
             
-            # Cosine distance between unit vectors
+            # Distancia coseno entre vectores unitarios
             dot_product = pred_sin * tgt_sin + pred_cos * tgt_cos
             vec_dist = 1.0 - dot_product
             
-            # Combine components
+            # Combinar componentes
             dist = 0.7 * circ_dist + 0.3 * vec_dist
         elif self.mode == 'phase':
-            # FIX: Add 'phase' mode per 01_HYPER_TORUS.md Section 3.2
+            # CORRECCIÓN: Añadir modo 'phase' según 01_HYPER_TORUS.md Sección 3.2
             # L_phase = 1 - cos(x_pred - x_target)
-            # Provides smooth gradients for periodic objectives
+            # Proporciona gradientes suaves para objetivos periódicos
             diff_cos = torch.cos(diff)
             dist = 1.0 - diff_cos  # [0, 2] range, 0 = perfect match
         else:
@@ -150,59 +156,59 @@ class ToroidalLoss(BaseLoss):
 @register_loss('toroidal_categorical')
 class ToroidalCategoricalLoss(BaseLoss):
     """
-    Loss for when the model produces categorical logits but works on a toroidal manifold.
+    Pérdida para cuando el modelo produce logits categóricos pero trabaja en manifold toroidal.
     
-    This loss:
-    1. Converts logits to angular coordinates
-    2. Converts token targets to angular coordinates
-    3. Calculates geodesic distance between both
+    Esta pérdida:
+    1. Convierte logits a coordenadas angulares
+    2. Convierte token targets a coordenadas angulares
+    3. Calcula distancia geodésica entre ambas
     
-    Useful when the readout produces logits but the latent space is toroidal.
+    Útil cuando el readout produce logits pero el espacio latente es toroidal.
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__(config)
         self.scale = self.config.get('scale', 1.0)
-        # Map tokens to angles - learnable or fixed
+        # Mapa de tokens a ángulos - aprendeable o fijo
         self.learnable_tokens = self.config.get('learnable_tokens', True)
         self.vocab_size = self.config.get('vocab_size', 100)
         
         if self.learnable_tokens:
-            # Tokens as angular embeddings evenly spaced
-            # Use register_parameter to make it learnable
-            angles = torch.linspace(0, 2 * torch.pi, self.vocab_size + 1)[:-1]  # Avoid duplicate at 2π
+            # Tokens como embeddings angulares evenly spaced
+            # Usar register_parameter para que sea aprendible
+            angles = torch.linspace(0, 2 * torch.pi, self.vocab_size + 1)[:-1]  # Evitar duplicado en 2π
             self.register_parameter('token_angles', nn.Parameter(angles.unsqueeze(0)))
 
     def forward(self, x_pred: torch.Tensor, x_target: torch.Tensor, **kwargs) -> torch.Tensor:
         """
         Args:
-            x_pred: Model logits [B, S, V] or coordinates [B, S, D]
-            x_target: Target token IDs [B, S]
+            x_pred: Logits del modelo [B, S, V] o coordenadas [B, S, D]
+            x_target: Token IDs objetivo [B, S]
         Returns:
             Scalar loss
         """
         B, S = x_target.shape
         
-        # Get target angles
+        # Obtener ángulos objetivo
         if hasattr(self, 'token_angles') and self.learnable_tokens:
-            # Use learnable angles
+            # Usar ángulos aprendebles
             tgt_angles = self.token_angles.to(x_target.device)
-            # Map tokens to angles: [B, S] -> [B, S]
+            # Mapear tokens a ángulos: [B, S] -> [B, S]
             x_target_rad = tgt_angles[0:1, :self.vocab_size].expand(B, -1)
-            # Select angle for each token
+            # Seleccionar ángulo para cada token
             x_target_rad = torch.gather(
                 x_target_rad.expand(B, -1), 
                 1, 
                 x_target.unsqueeze(-1)
             ).squeeze(-1)
         else:
-            # Use fixed mapping: token_id -> 2*pi * token_id / vocab_size
+            # Usar mapeo fijo: token_id -> 2*pi * token_id / vocab_size
             x_target_rad = 2 * torch.pi * x_target.float() / self.vocab_size
         
-        # Get prediction angles
+        # Obtener ángulos de predicción
         if x_pred.dim() == 3 and x_pred.shape[-1] > 1:
-            # x_pred are logits -> convert to angular coordinates
-            # Use weighted average of angles using softmax
+            # x_pred son logits -> convertir a coordenadas angulares
+            # Usar weighted average de ángulos usando softmax
             probs = F.softmax(x_pred, dim=-1)  # [B, S, V]
             
             if hasattr(self, 'token_angles') and self.learnable_tokens:
@@ -211,19 +217,19 @@ class ToroidalCategoricalLoss(BaseLoss):
                 token_angles = torch.linspace(0, 2 * torch.pi, x_pred.shape[-1], 
                                               device=x_pred.device).unsqueeze(0)
             
-            # Weighted average of angles
+            # Promedio ponderado de ángulos
             x_pred_rad = torch.sum(probs * token_angles.unsqueeze(0), dim=-1)  # [B, S]
         else:
-            # x_pred are already coordinates
+            # x_pred ya son coordenadas
             x_pred_rad = x_pred.squeeze(-1) if x_pred.dim() > 2 else x_pred
         
-        # Ensure same shape
+        # Asegurar misma forma
         if x_pred_rad.dim() == 1:
             x_pred_rad = x_pred_rad.unsqueeze(0)
         if x_target_rad.dim() == 1:
             x_target_rad = x_target_rad.unsqueeze(0)
         
-        # Compute angular distance
+        # Calcular distancia angular
         diff = x_pred_rad - x_target_rad
         diff_wrapped = torch.atan2(torch.sin(diff), torch.cos(diff))
         dist = diff_wrapped.pow(2)
@@ -234,8 +240,8 @@ class ToroidalCategoricalLoss(BaseLoss):
 @register_loss('toroidal_velocity')
 class ToroidalVelocityLoss(BaseLoss):
     """
-    Loss that penalizes excessive angular velocities in toroidal geometry.
-    Regularization to prevent uncontrolled acceleration in toroidal space.
+    Pérdida que penaliza velocidades angulares excesivas en la geometría toroidal.
+    Regularización para prevenir aceleración no controlada en el espacio toroidal.
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
@@ -250,14 +256,14 @@ class ToroidalVelocityLoss(BaseLoss):
 
         v_seq = state_info['v_seq']  # [B, S, H, D]
         
-        # For toroidal space, normalize velocities to tangent space
-        # Angular velocity should not exceed π per timestep
+        # Para espacio toroidal, normalizar velocidades al espacio tangente
+        # Velocidad angular no debe exceder π por timestep
         v_magnitude = torch.norm(v_seq, dim=-1)
         
-        # Penalize velocities exceeding max_velocity
+        # Penalizar velocidades que exceden max_velocity
         excess = F.relu(v_magnitude - self.max_velocity)
         return self.lambda_v * excess.mean()
 
 
-# Alias for export
+# Alias para export
 ToroidalDistanceLoss = ToroidalLoss
