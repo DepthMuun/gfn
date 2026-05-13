@@ -1,7 +1,7 @@
 <div align="center">
 
 
-*During our investigation, we identified several bugs in the latest 2.7.X versions. We sincerely apologize for these issues, as they hindered the performance of benchmarks and training sessions. Although these errors were identified late in the process, we are currently working on a resolution.*
+
 
 *The current project documentation is out of date; in the next version, we will focus more on documentation, usage, testing, etc.*
 
