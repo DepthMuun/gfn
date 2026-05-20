@@ -54,7 +54,7 @@ PRODUCTION_PHYSICS_CONFIG = {
     'fractal': {'enabled': False, 'threshold': 0.5, 'alpha': 0.2},
     'stability': {
         'enable_trace_normalization': True,
-        'base_dt': 4.0,
+        'base_dt': 0.4,
         'velocity_saturation': 15.0,
         'friction': 2.0,
         'toroidal_curvature_scale': 0.01
