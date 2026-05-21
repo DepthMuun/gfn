@@ -1,7 +1,7 @@
 """
-Validación de configuraciones — GFN V5
-Verifica la compatibilidad de parámetros antes de construir componentes.
-Fusionado de utils/validation.py y config/validator.py original.
+Configuration validation — GFN V5
+Verifies parameter compatibility before building components.
+Merged from utils/validation.py and original config/validator.py.
 """
 
 from typing import Dict, Any, List, Optional
@@ -9,7 +9,7 @@ from .schema import ManifoldConfig, PhysicsConfig
 from ..constants import TOPOLOGY_TORUS, TOPOLOGY_EUCLIDEAN, TOPOLOGY_SPHERE
 
 class ConfigValidationError(Exception):
-    """Error de validación de configuración crítica."""
+    """Critical configuration validation error."""
     pass
 
 class ConfigValidator:
@@ -47,63 +47,64 @@ class ConfigValidator:
 
 def validate_manifold_config(config: ManifoldConfig) -> List[str]:
     """
-    Valida un ManifoldConfig completo y su PhysicsConfig anidado.
-    Retorna lista de warnings (vacía si todo está OK).
-    Lanza ConfigValidationError en errores críticos o de compatibilidad.
+    Validates a complete ManifoldConfig and its nested PhysicsConfig.
+    Returns list of warnings (empty if everything OK).
+    Raises ConfigValidationError on critical errors or compatibility issues.
     """
     warnings = []
 
-    # Validaciones críticas (Raise exceptions)
+    # Critical validations (Raise exceptions)
     if config.dim % config.heads != 0:
         raise ConfigValidationError(
-            f"dim={config.dim} no es divisible por heads={config.heads}. "
-            f"head_dim={config.dim/config.heads:.1f} no es entero."
+            f"dim={config.dim} is not divisible by heads={config.heads}. "
+            f"head_dim={config.dim/config.heads:.1f} is not an integer."
         )
 
     if config.vocab_size <= 0:
-        raise ConfigValidationError(f"vocab_size={config.vocab_size} debe ser > 0.")
+        raise ConfigValidationError(f"vocab_size={config.vocab_size} must be > 0.")
         
     if config.depth <= 0:
-        raise ConfigValidationError(f"depth={config.depth} debe ser > 0.")
+        raise ConfigValidationError(f"depth={config.depth} must be > 0.")
 
     # Validate Physics properties via centralized method
     ConfigValidator.validate_physics(config.physics, config.dim, config.heads)
 
-    # Validaciones suaves (Warnings)
+    # Soft validations (Warnings)
     head_dim = config.dim // config.heads
     topo_type = config.physics.topology.type.lower()
     
     if topo_type == TOPOLOGY_TORUS and head_dim % 2 != 0:
         warnings.append(
-            f"[WARN] Para geometría toroidal, head_dim={head_dim} debería ser par "
-            f"para representaciones sin/cos. Considera usar heads={config.dim // (head_dim + 1)} o similar."
+            f"[WARN] For toroidal geometry, head_dim={head_dim} should be even "
+            f"for sin/cos representations. Consider using heads={config.dim // (head_dim + 1)} or similar."
         )
 
     if config.rank > config.dim:
         warnings.append(
             f"[WARN] rank={config.rank} > dim={config.dim}. "
-            f"La descomposición no es de rango bajo. ¿Intencional?"
+            f"Decomposition is not low-rank. Intentional?"
         )
 
     dt = config.physics.stability.base_dt
     if dt > 1.0:
-        warnings.append(f"[WARN] base_dt={dt} > 1.0 puede causar inestabilidad numérica.")
+        warnings.append(f"[WARN] base_dt={dt} > 1.0 may cause numerical instability.")
     if dt < 1e-5:
-        warnings.append(f"[WARN] base_dt={dt} < 1e-5 puede ralentizar convergencia.")
+        warnings.append(f"[WARN] base_dt={dt} < 1e-5 may slow convergence.")
 
     return warnings
 
 
 def validate_and_print(config: ManifoldConfig) -> bool:
     """
-    Valida la configuración e imprime warnings.
-    Retorna True si es válida, False si hubo errores.
+    Validates the configuration and prints warnings.
+    Returns True if valid, False if there were errors.
     """
     try:
         warnings = validate_manifold_config(config)
         for w in warnings:
             print(w)
+        print(f"[OK] Configuration valid. {len(warnings)} warning(s).")
         return True
     except ConfigValidationError as e:
-        print(f"[CONFIG ERROR] {e}")
+        print(f"[ERROR] Validation failed: {e}")
         return False

@@ -50,7 +50,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import gfn
 from gfn.realizations.gssm.models.g_ssm import GSSM as Model, Trainer
-from gfn.losses import PhysicsInformedLoss
+from gfn.realizations.gssm.losses import PhysicsInformedLoss
 
 # ── Tokenizer (with fallback chain) ──────────────────────────────────────────
 try:

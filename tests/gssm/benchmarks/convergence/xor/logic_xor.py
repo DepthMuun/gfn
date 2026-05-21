@@ -28,7 +28,7 @@ from tqdm import tqdm
 from rich.console import Console
 from rich.table import Table
 
-from gfn import gssm
+import gfn
 
 console = Console()
 
@@ -174,8 +174,8 @@ def train_xor_benchmark(max_steps: int = 1000, batch_size: int = 128):
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # 1. Create Model with MTGF Ensemble
-    model = gssm.create(
-        name='xor_model',
+    model = gfn.create(
+        'gssm',
         vocab_size=2,
         dim=8,
         depth=1,
@@ -205,7 +205,7 @@ def train_xor_benchmark(max_steps: int = 1000, batch_size: int = 128):
     scheduler = optim.lr_scheduler.OneCycleLR(
         optimizer, max_lr=2e-3, total_steps=max_steps, pct_start=0.2
     )
-    criterion = gssm.loss('toroidal')
+    criterion = gfn.gssm.loss('toroidal')
 
     acc_threshold = 0.98
     patience, hits = 60, 0

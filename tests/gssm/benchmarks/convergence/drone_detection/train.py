@@ -4,7 +4,7 @@ Drone Detection — GFN V5 Training
 Post-audit v4 — usa framework imports, sin duplicación de código.
 
 Framework imports:
-    from gfn.losses import GIoULoss, ToroidalDistanceLoss
+    from gfn.realizations.gssm.losses import GIoULoss, ToroidalDistanceLoss
     from gfn.realizations.gssm.utils.coords import box_to_torus, torus_to_box
     from gfn.training.optimizer import make_gfn_optimizer, all_parameters
     from gfn.training.checkpoint import save_checkpoint

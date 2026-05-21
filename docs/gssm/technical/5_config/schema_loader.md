@@ -1,6 +1,6 @@
 # Configuration & Registry System
 
-GFN V5 is designed for maximum configurability. Every aspect of the physics and architecture can be controlled via a unified schema.
+GFN v2.7.2 is designed for maximum configurability. Every aspect of the physics and architecture can be controlled via a unified schema.
 
 ## 1. Schema System (`schema.py`)
 Uses Python Dataclasses to define a hierarchical configuration structure:

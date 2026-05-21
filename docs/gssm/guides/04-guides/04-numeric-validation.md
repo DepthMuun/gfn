@@ -11,7 +11,7 @@ The implementation has two backends: pure Python and custom CUDA kernels. For co
 ### Execution
 
 ```bash
-pytest tests/unit/cuda/
+pytest tests/gssm/unit/cuda/
 ```
 
 This test compares outputs of key operations across backends.
@@ -60,7 +60,7 @@ In the absence of friction and external forces, the Hamiltonian H(q,p) should st
 ### Execution
 
 ```bash
-python tests/diagnostics/check_energy.py
+python tests/gssm/diagnostics/check_energy.py
 ```
 
 ### Metrics
@@ -109,7 +109,7 @@ Geodesics are minimum-length paths. We verify that model trajectories are geodes
 ### Execution
 
 ```bash
-pytest tests/unit/geometry/
+pytest tests/gssm/unit/geometry/
 ```
 
 ### Metrics
@@ -148,7 +148,7 @@ All operations must be differentiable for training.
 ### Execution
 
 ```bash
-pytest tests/unit/core/
+pytest tests/gssm/unit/core/
 ```
 
 ### Checks
@@ -204,7 +204,7 @@ Gradient: dL/dp
 For exhaustive validation:
 
 ```bash
-python tests/orchestrator.py --mode all
+python tests/gssm/orchestrator.py --mode all
 ```
 
 This suite runs all validation tests and generates a report.
@@ -234,10 +234,10 @@ During development, run the suite regularly:
 
 ```bash
 # Before commit
-python tests/orchestrator.py --mode fast
+python tests/gssm/orchestrator.py --mode fast
 
 # Integration
-python tests/orchestrator.py --mode all
+python tests/gssm/orchestrator.py --mode all
 ```
 
 The quick test includes only the most critical tests.

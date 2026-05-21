@@ -1,9 +1,9 @@
 """
 gfn/physics/gating.py — GFN V5
-Portado desde: gfn_old/nn/layers/physics/gating/core.py
+Ported from: gfn_old/nn/layers/physics/gating/core.py
               gfn_old/nn/layers/physics/thermo.py
 
-Módulos de Gating para el tiempo dinámico (dt adaptativo por cabeza).
+Gating modules for dynamic time (adaptive dt per head).
 """
 import torch
 import torch.nn as nn
@@ -13,13 +13,13 @@ from ..constants import TOPOLOGY_TORUS, TOPOLOGY_EUCLIDEAN
 
 class RiemannianGating(nn.Module):
     """
-    Gating de curvatura Riemanniana.
+    Riemannian curvature gating.
     
-    Si la curvatura del manifold es alta → dt pequeño (región compleja).
-    Si la curvatura es baja (flat) → dt grande (comportamiento de skip-connection).
+    If manifold curvature is high → small dt (complex region).
+    If curvature is low (flat) → large dt (skip-connection behavior).
     
-    Para topología toroidal: la entrada se expande a [sin(x), cos(x)]
-    para mantener la invarianza de fase circular.
+    For toroidal topology: input expands to [sin(x), cos(x)]
+    to maintain circular phase invariance.
     """
     def __init__(self, dim: int, topology: str = TOPOLOGY_EUCLIDEAN):
         super().__init__()
@@ -33,7 +33,7 @@ class RiemannianGating(nn.Module):
             nn.Sigmoid()
         )
         
-        # Inicialización: empezar con gate ~0.88 (abierto, bias=2.0)
+        # Initialization: start with gate ~0.88 (open, bias=2.0)
         with torch.no_grad():
             nn.init.constant_(self.curvature_net[2].bias, 2.0)
             nn.init.xavier_uniform_(self.curvature_net[0].weight, gain=0.1)
@@ -42,9 +42,9 @@ class RiemannianGating(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:
-            x: [B, head_dim] — estado de posición para una cabeza
+            x: [B, head_dim] — position state for a head
         Returns:
-            gate: [B, 1] — Factor de escala para dt en [0, 1]
+            gate: [B, 1] — scaling factor for dt in [0, 1]
         """
         if self.topology == TOPOLOGY_TORUS:
             x = torch.cat([torch.sin(x), torch.cos(x)], dim=-1)
@@ -53,11 +53,11 @@ class RiemannianGating(nn.Module):
 
 class ThermodynamicLayer(nn.Module):
     """
-    Gating Termodinámico (Paper 03).
-    Modula dt basándose en la energía Hamiltoniana: H = T + U.
+    Thermodynamic Gating (Paper 03).
+    Modulates dt based on Hamiltonian energy: H = T + U.
     
-    Si la energía está por encima de la referencia → dt pequeño (sistema caliente).
-    Si la energía está por debajo → dt más grande (sistema frío).
+    If energy is above reference → small dt (hot system).
+    If energy is below → larger dt (cold system).
     """
     def __init__(self, dim: int, temperature: float = 1.0,
                  ref_energy: float = 1.0, sensitivity: float = 1.0):
@@ -70,13 +70,13 @@ class ThermodynamicLayer(nn.Module):
     def forward(self, x: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
         """
         Args:
-            x: [B, head_dim] — posición
-            v: [B, head_dim] — velocidad
+            x: [B, head_dim] — position
+            v: [B, head_dim] — velocity
         Returns:
-            gate: [B, 1] — Factor de escala termodinámico
+            gate: [B, 1] — thermodynamic scaling factor
         """
-        K = 0.5 * (v ** 2).sum(dim=-1, keepdim=True)   # Energía cinética
-        U = 0.5 * (x ** 2).sum(dim=-1, keepdim=True)   # Energía potencial (apróx.)
+        K = 0.5 * (v ** 2).sum(dim=-1, keepdim=True)   # Kinetic energy
+        U = 0.5 * (x ** 2).sum(dim=-1, keepdim=True)   # Potential energy (approx.)
         H = K + U
         T = self.log_temp.exp()
         logits = (self.ref_H - H) / (T * self.sensitivity)
@@ -85,11 +85,11 @@ class ThermodynamicLayer(nn.Module):
 
 class FrictionGate(nn.Module):
     """
-    Gate de Fricción con dependencia de posición y fuerza (Paper 25).
+    Friction Gate with position and force dependency (Paper 25).
     
     mu(x, f) = sigmoid(W_f * x + W_i * f + b) * FRICTION_SCALE
     
-    Soporta modo single-head y multi-head.
+    Supports single-head and multi-head modes.
     """
     def __init__(self, dim: int, gate_input_dim: Optional[int] = None, mode: str = 'mlp'):
         super().__init__()
@@ -113,7 +113,7 @@ class FrictionGate(nn.Module):
                 v: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Returns:
-            mu: [B, dim] — Coeficiente de fricción posición-dependiente
+            mu: [B, dim] — position-dependent friction coefficient
         """
         if self.mode != 'mlp' or self.forget_gate is None:
             return torch.zeros(*x.shape[:-1], self.dim, device=x.device, dtype=x.dtype)

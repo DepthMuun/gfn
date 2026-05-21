@@ -6,6 +6,8 @@ from ..registry import LOSS_REGISTRY
 from . import generative
 from . import physics
 from . import toroidal
+from . import detection
+from . import regularization
 
 class LossFactory:
     """Factory for creating GFN loss functions."""

@@ -1,8 +1,8 @@
 """
 gfn/training/evaluation.py — GFN V5
-Portado desde: gfn_old/engine/evaluation/
+Ported from: gfn_old/engine/evaluation/
 
-Evaluadores de métricas geométricas y restricciones físicas para modelos GFN.
+Evaluators for geometric metrics and physical constraints for GFN models.
 """
 import torch
 import torch.nn as nn
@@ -13,13 +13,13 @@ import math
 
 class ManifoldMetricEvaluator:
     """
-    Evalúa métricas geométricas y arquitectónicas del sistema Manifold.
+    Evaluates geometric and architectural metrics of the Manifold system.
 
-    Métricas disponibles:
-      - Cobertura del espacio del manifold (varianza, distancia al centroide)
-      - Estadísticas de velocidad (norma media/max, std)
-      - Perfil de curvatura (si se provee geometría)
-      - Accuracy Toroidal (para benchmarks con clasificación angular)
+    Available metrics:
+      - Manifold space coverage (variance, distance to centroid)
+      - Velocity statistics (mean/max norm, std)
+      - Curvature profile (if geometry is provided)
+      - Toroidal Accuracy (for benchmarks with angular classification)
     """
 
     def __init__(self, model: nn.Module, geometry: Optional[Any] = None):
@@ -28,10 +28,10 @@ class ManifoldMetricEvaluator:
 
     def evaluate_state_coverage(self, x: torch.Tensor) -> Dict[str, float]:
         """
-        Mide cobertura del manifold: varianza y distancia al centroide.
+        Measures manifold coverage: variance and distance to centroid.
         """
         with torch.no_grad():
-            # Aplanar a 2D si x tiene más dimensiones
+            # Flatten to 2D if x has more dimensions
             x_flat = x.reshape(x.shape[0], -1)
             var = torch.var(x_flat, dim=0).mean().item()
             centroid = x_flat.mean(dim=0)
@@ -44,7 +44,7 @@ class ManifoldMetricEvaluator:
 
     def evaluate_velocity_statistics(self, v: torch.Tensor) -> Dict[str, float]:
         """
-        Analiza la distribución de velocidades (momentum).
+        Analyzes velocity (momentum) distribution.
         """
         with torch.no_grad():
             v_flat = v.reshape(v.shape[0], -1)

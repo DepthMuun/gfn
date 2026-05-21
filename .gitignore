@@ -44,10 +44,7 @@ memory/
 .agents/
 *.json
 *.png
-*.json
-*.pyc
-__pycache__/
-*bin
+results/
 
 # Checkpoints (Exclude all model weights everywhere)
 checkpoints/

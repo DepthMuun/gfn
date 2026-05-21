@@ -25,6 +25,9 @@ def _register_all_geometries():
     from . import adaptive
     from . import reactive
     from . import hyperbolic
+    from . import holographic
+    from . import hierarchical
+    from . import spherical
     _GEOMETRIES_REGISTERED = True
 
 class GeometryFactory:
