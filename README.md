@@ -182,6 +182,27 @@ cd gfn
 pip install -e .
 ```
 
+---
+
+## Reproducible Benchmarks
+
+GFN v2.7.2 includes fully reproducible benchmark implementations demonstrating zero-shot length generalization and O(1) memory complexity:
+
+### 🌀 XOR Parity Solver
+- **Repository**: [gssm-xor-extrapolation](https://github.com/DepthMuun/gssm-xor-extrapolation)
+- **Task**: Binary sequence parity (odd/even count of 1s)
+- **Performance**: Trained on length 20, generalizes to 1M+ tokens with 100% accuracy
+- **Key Result**: Constant O(1) VRAM footprint regardless of sequence length
+- **Hugging Face**: [gfn-gssm-xor-parity](https://huggingface.co/DepthMuun/gfn-gssm-xor-parity)
+
+### 📍 Multi-Needle-in-a-Haystack (mNIAH)
+- **Repository**: [gssm-mniah-extrapolation](https://github.com/DepthMuun/gssm-mniah-extrapolation)
+- **Task**: K-needle retrieval with AND semantics (output flips to 1 only after all K needles observed)
+- **Performance**: 100% accuracy on sequences up to 32,000+ tokens
+- **Key Result**: ~100x parameter reduction compared to attention-based architectures
+- **Hugging Face**: [gfn-gssm-mniah-k2](https://huggingface.co/DepthMuun/gfn-gssm-mniah-k2)
+
+Both benchmarks demonstrate the five pillars of GFN: geodesic state flow, persistent internal world, structural invariance, causal locality, and physics-grounded computation.
 
 ---
 
