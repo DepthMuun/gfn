@@ -42,8 +42,13 @@ class ReadoutBuilder(ComponentBuilder):
     
     def _build_implicit_readout(self) -> nn.Module:
         """Build implicit readout with custom output dimensions."""
-        out_dim = getattr(self.config.physics.readout, 'out_dim', self.config.vocab_size)
-        hidden_dim = getattr(self.config.physics.readout, 'hidden_dim', 128)
+        out_dim = getattr(self.config.physics.readout, 'out_dim', None)
+        if out_dim is None:
+            out_dim = self.config.vocab_size
+            
+        hidden_dim = getattr(self.config.physics.readout, 'hidden_dim', None)
+        if hidden_dim is None:
+            hidden_dim = 128
         
         return ImplicitReadout(
             self.dim_total, out_dim,

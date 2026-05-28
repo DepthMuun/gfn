@@ -44,6 +44,7 @@ memory/
 .agents/
 *.json
 *.png
+results/
 
 # Checkpoints (Exclude all model weights everywhere)
 checkpoints/

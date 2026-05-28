@@ -25,9 +25,15 @@ class LayerPlugin(ABC, nn.Module):
     
     def __init__(self, layer: nn.Module, config: Any):
         super().__init__()
-        self.layer = layer
+        # Store the layer without registering it as a sub‑module to avoid recursive `.to()` loops.
+        object.__setattr__(self, "_layer", layer)
         self.config = config
         self.enabled = True
+
+    @property
+    def layer(self) -> nn.Module:
+        """Return the associated ManifoldLayer without registering it as a child module."""
+        return getattr(self, "_layer")
     
     def setup(self) -> None:
         """Called after plugin is attached to layer. Override to initialize parameters."""

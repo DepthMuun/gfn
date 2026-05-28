@@ -25,4 +25,4 @@ try:
 except ImportError:
     pass # Standalone usage
 
-__all__ = ["create", "save", "load", "Model", "registry"]
+__all__ = ["create", "save", "load", "Model", "registry", "training", "physics", "projections"]

@@ -1,12 +1,15 @@
 <div align="center">
 
+
+*The current project documentation is out of date; in the next version, we will focus more on documentation, usage, testing, etc.*
+
 # GFN: Geometric Flow Networks
 
 ### A Physics-Informed Paradigm for Sequential Intelligence
 
 [![Framework: GFN](https://img.shields.io/badge/Paradigm-GFN_2.7.2-blue.svg?style=for-the-badge)](https://github.com/DepthMuun/gfn)
 [![Models: Hugging Face](https://img.shields.io/badge/Models-Hugging%20Face-orange.svg?style=for-the-badge)](https://huggingface.co/DepthMuun)
-[![DOI: 10.5281/zenodo.19141133](https://img.shields.io/badge/DOI-10.5281/zenodo.19141133-blue.svg?style=for-the-badge)](https://doi.org/10.5281/zenodo.19141133)
+[![DOI: 10.5281/zenodo.19141133](https://img.shields.io/badge/DOI-10.5281/zenodo.19141132-blue.svg?style=for-the-badge)](https://doi.org/10.5281/zenodo.19141132)
 [![Status: Active](https://img.shields.io/badge/Status-Active-green.svg?style=for-the-badge)]()
 [![Package: GFN PyPi](https://static.pepy.tech/personalized-badge/gfn?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pypi.org/project/gfn/)
 
@@ -158,8 +161,8 @@ This allows:
   author={St{\"u}rtz, Joaqu{\'i}n},
   journal={Zenodo Preprints},
   year={2026},
-  doi={10.5281/zenodo.19141133},
-  url={https://doi.org/10.5281/zenodo.19141133}
+  doi={10.5281/zenodo.19141132},
+  url={https://doi.org/10.5281/zenodo.19141132}
 }
 ```
 
@@ -179,6 +182,27 @@ cd gfn
 pip install -e .
 ```
 
+---
+
+## Reproducible Benchmarks
+
+GFN v2.7.2 includes fully reproducible benchmark implementations demonstrating zero-shot length generalization and O(1) memory complexity:
+
+### 🌀 XOR Parity Solver
+- **Repository**: [gssm-xor-extrapolation](https://github.com/DepthMuun/gssm-xor-extrapolation)
+- **Task**: Binary sequence parity (odd/even count of 1s)
+- **Performance**: Trained on length 20, generalizes to 1M+ tokens with 100% accuracy
+- **Key Result**: Constant O(1) VRAM footprint regardless of sequence length
+- **Hugging Face**: [gfn-gssm-xor-parity](https://huggingface.co/DepthMuun/gfn-gssm-xor-parity)
+
+### 📍 Multi-Needle-in-a-Haystack (mNIAH)
+- **Repository**: [gssm-mniah-extrapolation](https://github.com/DepthMuun/gssm-mniah-extrapolation)
+- **Task**: K-needle retrieval with AND semantics (output flips to 1 only after all K needles observed)
+- **Performance**: 100% accuracy on sequences up to 32,000+ tokens
+- **Key Result**: ~100x parameter reduction compared to attention-based architectures
+- **Hugging Face**: [gfn-gssm-mniah-k2](https://huggingface.co/DepthMuun/gfn-gssm-mniah-k2)
+
+Both benchmarks demonstrate the five pillars of GFN: geodesic state flow, persistent internal world, structural invariance, causal locality, and physics-grounded computation.
 
 ---
 
