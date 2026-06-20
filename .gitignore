@@ -58,6 +58,7 @@ checkpoints/*.pth
 *.ckpt
 !checkpoints/**/config.yaml
 !checkpoints/**/train.txt
+results/
 
 # Results
 # results/
