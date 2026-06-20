@@ -45,6 +45,7 @@ memory/
 *.json
 *.png
 results/
+tgfn/
 
 # Checkpoints (Exclude all model weights everywhere)
 checkpoints/

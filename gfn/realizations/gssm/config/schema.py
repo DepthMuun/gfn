@@ -42,6 +42,7 @@ class StabilityConfig:
     """Numerical stability configuration."""
     base_dt: float = DEFAULT_DT 
     adaptive: bool = True
+    adaptive_alpha: float = 0.1  # Used by AdaptiveIntegrator (dt scaling sensitivity)
     dt_min: float = MIN_DT
     dt_max: float = MAX_DT
     enable_trace_normalization: bool = True
@@ -52,6 +53,7 @@ class StabilityConfig:
     curvature_clamp: float = CURVATURE_CLAMP
     friction_mode: str = 'static'  # 'static' or 'lif'
     integrator_type: str = 'leapfrog'
+    base_solver: str = 'leapfrog'  # Used by AdaptiveIntegrator (underlying solver)
     toroidal_curvature_scale: float = 0.01  # scale for torus Christoffel contribution
 
 

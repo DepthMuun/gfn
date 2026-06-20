@@ -73,6 +73,9 @@ def _apply_dict_to_physics_config(cfg: PhysicsConfig, d: Dict[str, Any]) -> None
             'integrator_type',
             # P2.3: velocity_saturation uses tanh-based differentiable clamping
             'velocity_saturation',
+            # AdaptiveIntegrator knobs
+            'adaptive_alpha',
+            'base_solver',
         ])
         # Legacy name aliases
         if 'toroidal_curvature_scale' in s_d:
