@@ -61,6 +61,24 @@ class ModelFactory:
         setattr(obj, attrs[-1], value)
 
     @staticmethod
+    def _collect_explicit_keys_from_mapping(mapping: Dict[str, Any], prefix: str = "") -> set:
+        """
+        Flatten nested config dictionaries into explicit dotted paths.
+
+        Example:
+            {"physics": {"topology": {"riemannian_type": "low_rank"}}}
+        becomes:
+            {"physics", "physics.topology", "physics.topology.riemannian_type"}
+        """
+        keys = set()
+        for k, v in mapping.items():
+            full_key = f"{prefix}.{k}" if prefix else k
+            keys.add(full_key)
+            if isinstance(v, dict):
+                keys.update(ModelFactory._collect_explicit_keys_from_mapping(v, prefix=full_key))
+        return keys
+
+    @staticmethod
     def create(
         config: Optional[ManifoldConfig] = None,
         preset_name: Optional[str] = None,
@@ -112,6 +130,7 @@ class ModelFactory:
             
             # Also add any other top-level keys as explicit
             explicit_keys.update(config.keys())
+            explicit_keys.update(ModelFactory._collect_explicit_keys_from_mapping(config))
             
             config = from_dict(ManifoldConfig, config)
 
@@ -126,6 +145,7 @@ class ModelFactory:
         # ── 1. Apply Physics Overrides (Dict/Config) ─────────────────────────
         if physics is not None:
             if isinstance(physics, dict):
+                explicit_keys.update(ModelFactory._collect_explicit_keys_from_mapping({'physics': physics}))
                 apply_physics_overrides(config.physics, physics)
             elif isinstance(physics, PhysicsConfig):
                 config.physics = physics
@@ -140,6 +160,11 @@ class ModelFactory:
         # Remaining kwargs were not mapped (possibly unknown arguments)
         if remaining_kwargs:
             logger.debug(f"Unmapped kwargs: {list(remaining_kwargs.keys())}")
+
+        # Preserve which keys were explicitly requested so downstream builders/factories
+        # can distinguish user intent from schema defaults.
+        config._explicit_keys = explicit_keys
+        config.physics._explicit_keys = explicit_keys
 
         topology_cfg = config.physics.topology
         geometry_scope = getattr(topology_cfg, 'geometry_scope', 'local')

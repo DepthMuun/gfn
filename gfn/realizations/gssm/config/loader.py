@@ -57,7 +57,7 @@ def _apply_dict_to_physics_config(cfg: PhysicsConfig, d: Dict[str, Any]) -> None
         _apply(cfg.topology, t_d, [
             'type', 'R', 'r', 'curvature',
             'riemannian_type', 'riemannian_rank', 'riemannian_class',
-            'geometry_scope'
+            'geometry_scope', 'learnable_R', 'learnable_r'
         ])
         if 'major_radius' in t_d: cfg.topology.R = t_d['major_radius']
         if 'minor_radius' in t_d: cfg.topology.r = t_d['minor_radius']
@@ -76,10 +76,8 @@ def _apply_dict_to_physics_config(cfg: PhysicsConfig, d: Dict[str, Any]) -> None
             # AdaptiveIntegrator knobs
             'adaptive_alpha',
             'base_solver',
+            'toroidal_curvature_scale',
         ])
-        # Legacy name aliases
-        if 'toroidal_curvature_scale' in s_d:
-            cfg.stability.curvature_clamp = s_d['toroidal_curvature_scale']
 
     # ── Dynamics ──────────────────────────────────────────────────────────────
     dyn_d = d.get('dynamics', d.get('dynamics_config', {}))
@@ -136,7 +134,7 @@ def _apply_dict_to_physics_config(cfg: PhysicsConfig, d: Dict[str, Any]) -> None
     # ── Readout ───────────────────────────────────────────────────────────────
     read_d = d.get('readout', d.get('readout_config', {}))
     if isinstance(read_d, dict) and read_d:
-        _apply(cfg.readout, read_d, ['type', 'out_dim', 'coord_dim', 'hidden_dim'])
+        _apply(cfg.readout, read_d, ['type', 'out_dim', 'hidden_dim'])
 
     # ── Mixture ───────────────────────────────────────────────────────────────
     mix_d = d.get('mixture', d.get('mixture_config', {}))

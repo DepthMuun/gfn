@@ -28,6 +28,7 @@ class EmbeddingBuilder(ComponentBuilder):
             'coord_dim': config.physics.embedding.coord_dim,
             'mode': config.physics.embedding.mode,
             'impulse_scale': config.impulse_scale,
+            'omega_0': config.physics.embedding.omega_0,
         }
         
         # Pass continuous_input_dim if available in config

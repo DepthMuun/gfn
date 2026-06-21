@@ -20,7 +20,7 @@ from ..registry import register_geometry
 from ..physics.components.friction import FrictionGate
 
 # Torus-specific constants
-TOROIDAL_CURVATURE_SCALE = 0.1
+DEFAULT_TOROIDAL_CURVATURE_SCALE = 0.1
 CLAMP_MIN_STRONG = 1e-4
 EPSILON_SMOOTH = 1e-9
 
@@ -74,6 +74,9 @@ class ToroidalRiemannianGeometry(BaseGeometry):
         
         self.topology = topo.type.lower()
         self.clamp_val = self.config.stability.curvature_clamp
+        self.toroidal_curvature_scale = getattr(
+            self.config.stability, 'toroidal_curvature_scale', DEFAULT_TOROIDAL_CURVATURE_SCALE
+        )
 
         active_cfg = self.config.active_inference
         self.active_cfg = active_cfg
@@ -126,9 +129,9 @@ class ToroidalRiemannianGeometry(BaseGeometry):
             v_th, v_ph = v[..., i], v[..., i + 1]
             w_th, w_ph = w[..., i], w[..., i + 1]
             denom = torch.clamp(self.R + self.r * torch.cos(th), min=CLAMP_MIN_STRONG)
-            term_th = (denom * torch.sin(th) / (self.r + EPSILON_SMOOTH)) * TOROIDAL_CURVATURE_SCALE
+            term_th = (denom * torch.sin(th) / (self.r + EPSILON_SMOOTH)) * self.toroidal_curvature_scale
             gamma[..., i] = term_th * (v_ph * w_ph)
-            term_ph = (-(self.r * torch.sin(th)) / (denom + EPSILON_SMOOTH)) * TOROIDAL_CURVATURE_SCALE
+            term_ph = (-(self.r * torch.sin(th)) / (denom + EPSILON_SMOOTH)) * self.toroidal_curvature_scale
             gamma[..., i + 1] = term_ph * (v_ph * w_th + v_th * w_ph)
         return gamma
 
@@ -142,7 +145,7 @@ class ToroidalRiemannianGeometry(BaseGeometry):
         if HAS_CUDA_EXT and x.is_cuda and v is not None and v.is_cuda:
             gamma = toroidal_cuda.forward(
                 x, v, self.R, self.r, 
-                TOROIDAL_CURVATURE_SCALE, EPSILON_SMOOTH, CLAMP_MIN_STRONG
+                self.toroidal_curvature_scale, EPSILON_SMOOTH, CLAMP_MIN_STRONG
             )
         else:
             is_odd = (self.dim % 2 != 0)
@@ -157,8 +160,8 @@ class ToroidalRiemannianGeometry(BaseGeometry):
             term_th = (denom * torch.sin(th) / (self.r + EPSILON_SMOOTH))
             term_ph = -(self.r * torch.sin(th)) / (denom + EPSILON_SMOOTH)
     
-            gamma_th = term_th * (v_ph ** 2) * TOROIDAL_CURVATURE_SCALE
-            gamma_ph = 2.0 * term_ph * v_ph * v_th * TOROIDAL_CURVATURE_SCALE
+            gamma_th = term_th * (v_ph ** 2) * self.toroidal_curvature_scale
+            gamma_ph = 2.0 * term_ph * v_ph * v_th * self.toroidal_curvature_scale
     
             half = x.shape[-1] // 2
             gamma = torch.zeros_like(x)
