@@ -46,6 +46,8 @@ memory/
 *.png
 results/
 tgfn/
+paral.md
+paral2.md
 
 # Checkpoints (Exclude all model weights everywhere)
 checkpoints/
