@@ -42,27 +42,27 @@ Formalizes representation as a flow on a learned Riemannian manifold. Evolves ph
 
 **Resources**:
 - [Documentation](docs/gssm/README.md)
-- [Theory](docs/gssm/theory.md)
-- [API Reference](docs/gssm/api.md)
+- [Reference Guide](docs/gssm/guides/03-reference/00-handbook.md)
+- [Architecture Notes](docs/gssm/technical/0_architecture/README.md)
 
 ---
 
 ### 2. ISN (Inertial State Network)
 
 **Type**: Simulative Flow  
-**Classification**: Discrete entity-based dynamics
+**Classification**: Persistent latent world with modular dynamics
 
 **Description**:  
-Maintains a persistent latent world populated by interacting entities. Implements physics-validated state transitions that preserve world coherence metrics.
+Maintains a persistent latent world that evolves under a configurable world engine. The current implementation supports interchangeable Euler, Leapfrog, and Yoshida integrators while preserving backward-compatible Euler behavior.
 
 **Core Mechanism**:
-- Entity-based state representation
-- Conservation-gated dynamics
-- World coherence monitoring
+- Persistent latent world state
+- Modular scanner/world/emitter pipeline
+- Swappable numerical integrators for world evolution
 
 **Complexity Characteristics**:
 
-| **Inference Memory** | O(1) State | 3 KB persistent latent world state |
+| **Inference Memory** | O(1) State | 3 KB persistent latent world state (360k parameters) |
 | **Forward Pass** | O(N) sequential | Token processing |
 | **Training Memory** | O(N) or O(1) | Configuration-dependent |
 | **State Dimension** | Fixed (d) | Latent world vector |
@@ -80,8 +80,9 @@ Maintains a persistent latent world populated by interacting entities. Implement
 
 **Resources**:
 - [Documentation](docs/isn/README.md)
-- [Theory](docs/isn/theory.md)
-- [API Reference](docs/isn/api.md)
+- [Architecture](docs/isn/architecture.md)
+- [Usage Guide](docs/isn/usage.md)
+- [Training Guide](docs/isn/training.md)
 
 ---
 

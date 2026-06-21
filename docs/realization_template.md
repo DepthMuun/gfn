@@ -71,15 +71,11 @@ import gfn
 # Create the model
 model = gfn.create("your_architecture", config=your_config)
 
-# Initialize state
-state = model.init_state(batch_size=32)
+# Run a forward pass
+result = model(input_ids)
 
-# Process sequence
-for token in sequence:
-    logits, state = model(token, state)
-
-# Generate predictions
-output = model.readout(state)
+# Inspect the realization-specific outputs
+# Example: logits = result["logits"] or result[0]
 ```
 
 ### Configuration

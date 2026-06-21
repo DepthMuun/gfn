@@ -37,10 +37,10 @@ pip install gfn
 
 ### 2. High-Level Usage
 ```python
-from gfn.realizations.isn import Model, create_default_isn
+import gfn
 
-# Create a model with default components
-model = create_default_isn(vocab_size=50000, d_model=256)
+# Create an ISN model through the unified GFN factory
+model = gfn.create("isn", vocab_size=50000, d_model=256)
 
 # Forward pass (Full sequence)
 output = model(input_ids)
