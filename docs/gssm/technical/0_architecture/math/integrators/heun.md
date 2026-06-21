@@ -1,95 +1,108 @@
 # Heun Integrator
 
-## What is it?
+This document describes the **current `HeunIntegrator` implementation**.
 
-The Heun method (also called Improved Euler or explicit trapezoidal rule) is a second-order predictor-corrector method. It uses an initial prediction step followed by a correction step that averages the slopes.
+The authoritative code is:
 
-Named after Karl Heun (1859-1929), a German mathematician who contributed to differential equation theory.
+- `gfn/realizations/gssm/physics/integrators/runge_kutta/heun.py`
 
----
+## What It Is In The Current Runtime
 
-## The Algorithm
+`HeunIntegrator` is the second-order explicit trapezoidal or predictor-corrector solver in the current factory.
 
-Heun uses a predictor-corrector approach:
+It is not symplectic, but it is fully integrated with the same runtime helpers used by the other solvers:
 
-### Step 1: Predictor (Euler Step)
+- topology resolution,
+- velocity clamping,
+- physics-engine acceleration evaluation.
 
-Make an initial prediction using standard Euler method:
+## Current Step Pattern
 
-$$\tilde{x} = x_n + \Delta t \cdot v_n$$
-$$\tilde{v} = v_n + \Delta t \cdot a(x_n, v_n)$$
+The implementation performs:
 
-### Step 2: Corrector (Average)
+1. compute `k1` acceleration at the current state,
+2. build an Euler-style predicted state,
+3. resolve topology for the predicted position,
+4. clamp the predicted velocity,
+5. compute `k2` acceleration at the predicted state,
+6. apply the trapezoidal corrector,
+7. resolve topology again for the corrected position,
+8. clamp velocity again for the corrected velocity.
 
-Correct using the average of initial and predicted slopes:
+In code form, the current path is:
 
-$$x_{n+1} = x_n + \frac{\Delta t}{2} \cdot (v_n + \tilde{v})$$
-$$v_{n+1} = v_n + \frac{\Delta t}{2} \cdot (a(x_n, v_n) + a(\tilde{x}, \tilde{v}))$$
+```text
+k1_a = accel(x, v)
+k1_v = v
 
----
+x_pred = resolve_topology(x + dt * k1_v)
+v_pred = clamp_velocity(v + dt * k1_a)
 
-## Geometric Interpretation
+k2_a = accel(x_pred, v_pred)
+k2_v = v_pred
 
-Heun approximates the integral using the trapezoidal rule:
+x' = resolve_topology(x + 0.5 * dt * (k1_v + k2_v))
+v' = clamp_velocity(v + 0.5 * dt * (k1_a + k2_a))
+```
 
-$$\int_{t_n}^{t_{n+1}} f(t) dt \approx \frac{\Delta t}{2} [f(t_n) + f(t_{n+1})]$$
+## Runtime Interpretation
 
-This is more accurate than simple rectangle rule (Euler) because it accounts for the slope change over the interval.
+So the most faithful description is:
 
----
+- second-order predictor-corrector,
+- non-symplectic,
+- topology-aware,
+- velocity-saturation-aware through the shared base helper.
 
-## Properties
+## Relationship To Euler
 
-| Property | Value |
-|----------|-------|
-| **Order** | 2nd order |
-| **Symplectic** | No |
-| **Force evaluations** | 2 per step |
-| **Type** | Predictor-corrector |
-| **Stability** | Better than Euler |
+Heun is the runtime's explicit improvement over a pure Euler-style update:
 
----
+- it predicts once,
+- then corrects with an averaged slope.
 
-## Error Analysis
+That is still true conceptually, but the current implementation also includes:
 
-Local truncation error: $O(\Delta t^3)$
+- torus wrapping at prediction and correction,
+- shared velocity safety behavior.
 
-Global error: $O(\Delta t^2)$
+## Relationship To Leapfrog
 
-Compared to standard Euler:
-- Euler: error $\propto \Delta t$
-- Heun: error $\propto \Delta t^2$
+Compared to leapfrog:
 
-Heun is significantly more accurate than Euler for the same step size.
+- Heun is non-symplectic,
+- leapfrog is the default training path,
+- both are second-order,
+- Heun is structurally simpler but lacks the symplectic bias of the main solver family.
 
----
+So the docs should present Heun as a legitimate alternative, but not as the recommended default for the main runtime.
 
-## Comparison with Leapfrog
+## When To Use It
 
-| Aspect | Leapfrog | Heun |
-|--------|----------|------|
-| Order | 2nd | 2nd |
-| Symplectic | Yes | No |
-| Structure | Kick-drift-kick | Predictor-corrector |
-| Energy | Conserved | Drifts |
-| Accuracy | Similar | Similar |
-| Use case | Hamiltonian | General ODEs |
+Use Heun when:
 
----
+- you want a simple non-symplectic second-order solver,
+- you are comparing RK-style and symplectic behavior,
+- quick experiments matter more than using the default training path.
 
-## When to Use
+It is less attractive when:
 
-**Use Heun for:**
-- General ODEs (not necessarily Hamiltonian)
-- Quick prototyping
-- Educational purposes
-- When symplectic property not needed
+- you want the standard documented path,
+- long-horizon symplectic behavior matters,
+- leapfrog already satisfies the need.
 
-**Don't use for:**
-- Long Hamiltonian simulations (use Leapfrog)
-- Production training (use Leapfrog)
+## What This Document Should Not Claim
 
----
+It would be inaccurate to claim that:
 
-*File: technical/0_architecture/math/integrators/heun.md*
-*Last Updated: 2026-04-02*
+- Heun ignores topology in the current runtime,
+- Heun does not apply shared velocity control,
+- the current implementation is just the abstract trapezoidal rule with no runtime safety helpers.
+
+Those claims do not match the code.
+
+## Runtime Cross-References
+
+- `gfn/realizations/gssm/physics/integrators/runge_kutta/heun.py`
+- `gfn/realizations/gssm/physics/integrators/base.py`
+- `docs/gssm/technical/0_architecture/math/02_integrators.md`

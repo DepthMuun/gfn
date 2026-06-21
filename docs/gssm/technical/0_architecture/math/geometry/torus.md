@@ -1,180 +1,234 @@
 # Torus Geometry
 
-## What is the Torus?
+This document describes the **current analytical torus geometry implementation** used by GSSM.
 
-The torus is a doughnut-shaped manifold: $T^n = S^1 \times S^1 \times ... \times S^1$ (n circles).
+The authoritative code lives in:
 
-In GSSM, we use a 2D torus model where position pairs $(\theta, \phi)$ represent angular coordinates:
-- $\theta$ = angle around the tube (minor circle)
-- $\phi$ = angle around the hole (major circle)
+- `gfn/realizations/gssm/geometry/torus.py`
+- `gfn/realizations/gssm/geometry/factory.py`
 
-Think of it as: "A space where moving far enough brings you back to the start."
+## What The Runtime Means By "Torus"
 
----
+The registered geometry key is:
 
-## Mathematical Definition
+- `torus`
 
-### Embedding in 3D
+and it maps to:
 
-A torus can be embedded in 3D space:
+- `ToroidalRiemannianGeometry`
 
-$$x = (R + r\cos\theta)\cos\phi$$
-$$y = (R + r\cos\theta)\sin\phi$$
-$$z = r\sin\theta$$
+There is also a separate registered geometry:
 
-Where:
-- $R$ = major radius (distance from center to tube center)
-- $r$ = minor radius (radius of the tube)
+- `flat_torus`
 
-### Metric Tensor
+which keeps toroidal wrapping but removes analytical Christoffel curvature.
 
-The intrinsic metric (measuring distances ON the torus):
+## Coordinate Convention
 
-$$g = \begin{pmatrix} r^2 & 0 \\ 0 & (R + r\cos\theta)^2 \end{pmatrix}$$
+The analytical torus implementation assumes the last latent dimension is organized in paired coordinates:
 
-**Properties**:
-- Diagonal (no cross-terms)
-- Position-dependent (second term varies with $\theta$)
-- Always positive definite
+```text
+(theta_0, phi_0), (theta_1, phi_1), ...
+```
 
----
+This is why the implementation requires:
 
-## Christoffel Symbols
+- even feature dimension
 
-### Non-Zero Components
+and raises an error otherwise.
 
-For the 2D torus:
+So the most faithful statement is:
 
-$$\Gamma^\theta_{\phi\phi} = \frac{(R + r\cos\theta)\sin\theta}{r}$$
+- the torus geometry is analytical,
+- pairwise,
+- and generalized across multiple `(theta, phi)` pairs rather than being limited to only one 2D torus.
 
-$$\Gamma^\phi_{\theta\phi} = \Gamma^\phi_{\phi\theta} = -\frac{r\sin\theta}{R + r\cos\theta}$$
+## Metric Used
 
-### Physical Meaning
+For each `(theta, phi)` pair, the implementation follows the standard torus-style metric:
 
-These represent "fictitious forces" due to curvature:
+```text
+g_theta = r^2
+g_phi   = (R + r cos(theta))^2
+```
 
-**$\Gamma^\theta_{\phi\phi}$**: Centrifugal-like force
-- When moving around $\phi$ (major circle)
-- Pushes toward/away from inner tube
+In code, `metric_tensor(x)` fills:
 
-**$\Gamma^\phi_{\theta\phi}$**: Coriolis-like force
-- Couples motion in $\theta$ and $\phi$
-- Deflects trajectory
-
----
-
-## Geodesic Force
-
-### Computation
-
-The geometric acceleration is:
-
-$$a_{geo}^\theta = -\Gamma^\theta_{\phi\phi} \cdot v^\phi \cdot v^\phi$$
-$$a_{geo}^\phi = -\Gamma^\phi_{\theta\phi} \cdot v^\theta \cdot v^\phi - \Gamma^\phi_{\phi\theta} \cdot v^\phi \cdot v^\theta$$
-
-### Intuition
-
-**Geodesics on torus**:
-- "Straight lines" that wrap around
-- Can be closed loops (periodic)
-- Can be dense (never repeating)
-
-**Types of geodesics**:
-1. **Meridians**: Around tube ($\phi$ = constant)
-2. **Parallels**: Around hole ($\theta$ = constant)
-3. **General**: Combinations, winding patterns
-
----
+- even indices with `r^2`
+- odd indices with `(R + r cos(theta))^2`
 
 ## Learnable Radii
 
-### Innovation
+The current implementation supports both:
 
-Unlike standard torus geometry, GSSM makes $R$ and $r$ **learnable parameters**.
+- `learnable_R`
+- `learnable_r`
 
-**Why?**
-- Geometry adapts to data
-- Different heads can have different scales
-- Emergent hierarchical structure
+If enabled, `R` and `r` are `nn.Parameter`s.
 
-### Update Rule
+If disabled, they are stored as non-trainable buffers.
 
-$$R_{new} = R_{old} - \eta \frac{\partial L}{\partial R}$$
-$$r_{new} = r_{old} - \eta \frac{\partial L}{\partial r}$$
+Important current detail:
 
-After update, wrap to positive:
-$$R = |R|, \quad r = |r|$$
+- the implementation does not "wrap radii to positive" after every optimizer step,
+- it simply stores the configured initial values and lets autograd update them.
 
----
+So it would be inaccurate to document a hard absolute-value postprocessing step that the code does not perform.
 
-## Position Wrapping
+## Christoffel / Curvature Contribution
 
-### The Problem
+The geometry computes a curvature term `gamma` from:
 
-Angles are periodic: $\theta \equiv \theta + 2\pi$
+- `x`
+- `v`
+- `R`
+- `r`
+- `toroidal_curvature_scale`
 
-During evolution, positions can drift outside $[-\pi, \pi]$.
+For each `(theta, phi)` pair, the implementation builds:
 
-### Solution
+- a theta component driven by `v_phi^2`
+- a phi component driven by `v_phi * v_theta`
 
-After each update:
-$$\theta = \arctan_2(\sin\theta, \cos\theta)$$
+The exact expressions are consistent with torus-style Christoffel structure, but the runtime also multiplies them by:
 
-**Properties**:
-- Maps any angle to $[-\pi, \pi]$
-- Differentiable
-- Preserves periodicity
+- `toroidal_curvature_scale`
 
----
+This means curvature strength is explicitly tunable in the current code.
 
-## Friction on Torus
+## Return Contract
 
-### Adaptive Friction
+This is a very important runtime detail.
 
-Friction coefficient can vary with position:
+`ToroidalRiemannianGeometry.forward(...)` does **not** return only a single acceleration tensor. Its current contract is:
 
-$$\mu(\theta) = \mu_0 + \alpha \cdot \text{curvature}(\theta)$$
+```text
+return gamma, mu
+```
 
-Higher friction in high-curvature regions (outer tube).
+Where:
 
-### Gate Mechanism
+- `gamma` is the pure curvature contribution
+- `mu` is a friction gate
 
-$$\mu_{eff} = \mu_{base} \cdot \sigma(W \cdot x + b)$$
+The physics engine is responsible for applying the damping term using that returned friction information.
 
-State-dependent friction for stability.
+So the geometry no longer silently mixes curvature and damping into one inseparable tensor.
 
----
+## Friction Gate
 
-## Why Use Torus?
+The torus geometry constructs:
 
-### Advantages
+- `x_in = [sin(x), cos(x)]`
 
-| Property | Benefit |
-|----------|---------|
-| **Bounded** | No state explosion |
-| **Periodic** | Natural for cyclic patterns |
-| **Curved** | Rich geometric structure |
-| **Compact** | Finite volume |
+and feeds it into a `FrictionGate`.
 
-### Use Cases
+The friction mode comes from:
 
-- Language modeling (periodic patterns)
-- Time series (seasonal/cyclic)
-- Any bounded representation task
+- `config.stability.friction_mode`
 
----
+Current supported gate modes come from the friction module, including:
 
-## Comparison with Euclidean
+- `static`
+- `mlp`
 
-| Aspect | Torus | Euclidean |
-|--------|-------|-----------|
-| Bounded | ✓ Yes | ✗ No |
-| Periodic | ✓ Yes | ✗ No |
-| Curvature | ✓ Variable | ✗ Flat |
-| Stability | ✓ Better | ✗ Can explode |
-| Complexity | Higher | Lower |
+The geometry therefore supports state-aware friction gating, but it does so through the shared friction component rather than through a bespoke torus-only formula written inline in the docs.
 
----
+## Active Inference And Singularity Modulation
 
-*File: technical/0_architecture/math/geometry/torus.md*
-*Last Updated: 2026-04-02*
+The current torus implementation also contains optional modifiers for:
+
+- active inference reactive curvature scaling
+- singularity-related potential gating
+
+When enabled through config, these can rescale `gamma` further.
+
+This means the final torus curvature path is not just the classical textbook Christoffel expression; it can be modulated by additional runtime mechanisms.
+
+## Position Projection
+
+The torus projection method is:
+
+```python
+atan2(sin(x), cos(x))
+```
+
+This is used to wrap coordinates back into a periodic angular representation.
+
+The same wrapped-distance idea also appears in:
+
+- `dist(x1, x2)`
+
+which computes the norm of the wrapped angular difference.
+
+## CUDA Path
+
+If the optional CUDA extension is available and tensors are on CUDA, the geometry can use:
+
+- `toroidal_cuda.forward(...)`
+
+Otherwise it falls back to the Python / PyTorch implementation.
+
+So the analytical torus path has both:
+
+- a Python fallback,
+- an optional CUDA fast path.
+
+## Factory Selection
+
+The geometry factory now prefers:
+
+- declared analytical `topology.type="torus"`
+
+unless the user explicitly requested a learned override through:
+
+- `topology.riemannian_type`
+
+This is one of the key runtime fixes in the current version.
+
+So a plain torus config no longer silently becomes `reactive` just because the schema default contains a learned geometry type.
+
+## `flat_torus`
+
+The same file also defines `FlatToroidalRiemannianGeometry`.
+
+Its behavior is different:
+
+- metric is flat,
+- curvature tensor is zero,
+- toroidal projection still exists,
+- a friction gate is still returned.
+
+This is useful when you want periodic wrapping without the full analytical torus curvature.
+
+## Practical Interpretation
+
+Use analytical `torus` when you want:
+
+- periodic bounded coordinates,
+- explicit toroidal curvature,
+- learnable radii,
+- torus-aware readout behavior.
+
+Use `flat_torus` when you want:
+
+- periodic latent coordinates,
+- but not the full analytical curvature term.
+
+## What This Document Should Not Claim
+
+It would be inaccurate to claim that:
+
+- torus geometry is only a single 2D torus with one `(theta, phi)` pair,
+- radii are forcibly projected positive after every update,
+- friction is just a simple scalar formula hardcoded in the torus file,
+- the torus forward path returns only one tensor.
+
+Those claims do not match the current implementation.
+
+## Runtime Cross-References
+
+- `gfn/realizations/gssm/geometry/torus.py`
+- `gfn/realizations/gssm/geometry/factory.py`
+- `gfn/realizations/gssm/physics/components/friction.py`
+- `docs/gssm/technical/runtime/01-hyperparameters.md`

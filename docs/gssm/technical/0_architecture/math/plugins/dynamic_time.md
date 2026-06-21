@@ -1,175 +1,200 @@
 # Plugins - Dynamic Time
 
-## What is Dynamic Time?
+This document describes the **current `DynamicTimePlugin` implementation** used inside `ManifoldLayer`.
 
-Dynamic Time is a plugin that allows each head to have its own adaptive time step. Instead of using a fixed $dt$ for all heads, each head learns its own optimal integration speed based on its current state.
+The authoritative code lives in:
 
-Think of it as: "Different experts (heads) think at different speeds."
+- `gfn/realizations/gssm/models/plugins/dynamic_time.py`
+- `gfn/realizations/gssm/models/manifold_layer.py`
 
----
+## What The Plugin Does
 
-## The Problem with Fixed Time Steps
+`DynamicTimePlugin` is a **layer plugin**, not a `HookManager` plugin.
 
-### Standard Approach
-All heads use the same $dt$:
-$$x_{n+1} = x_n + dt \cdot v_n$$
+Its only active integration point in the current runtime is:
 
-**Issues**:
-- Some regions need small steps (high curvature)
-- Other regions can use large steps (flat areas)
-- Fixed $dt$ is suboptimal for all heads
+- `pre_integrate(...)`
 
-### Dynamic Solution
-Each head $h$ has its own $dt_h$:
-$$x_{n+1}^{(h)} = x_n^{(h)} + dt_h \cdot v_n^{(h)}$$
+There it replaces the scalar layer timestep with a per-head effective timestep tensor.
 
----
+## Current Runtime Path
 
-## How It Works
+Inside `ManifoldLayer.forward()` the plugin is called as:
 
-### Step 1: Learnable Base Time Steps
+```python
+x_3d, v_3d, dt_eff = plugin.pre_integrate(x_3d, v_3d, dt_eff, f_3d)
+```
 
-Each head has a learnable parameter $\theta_h$:
-$$dt_{h,base} = \text{softplus}(\theta_h)$$
+So the dynamic-time path affects the integrator by changing:
 
-Where softplus ensures positivity:
-$$\text{softplus}(x) = \log(1 + e^x)$$
+- the effective `dt`
 
-**Initialization**:
-$$\theta_h \approx \log(\exp(dt_{target}) - 1)$$
+before the integrator step runs.
 
-This gives $dt_{h,base} \approx dt_{target}$ at initialization.
+## How Parameters Are Built
 
-### Step 2: State-Dependent Gating
+During `setup()`, the plugin reads from:
 
-The base $dt$ is modulated by a gating function based on current state:
+- `layer.config.stability.base_dt`
+- `layer.config.stability.dt_min`
+- `layer.config.stability.dt_max`
+- `layer.heads`
+- `layer.head_dim`
+- `layer.topology`
 
-$$gate_h = \sigma(W_{gate} \cdot x_h + b_{gate})$$
+It then creates:
 
-Where:
-- $\sigma$ = sigmoid (outputs 0 to 1)
-- $W_{gate}$ = learnable weights
-- $x_h$ = position of head $h$
+- one learnable scalar `dt_param` per head,
+- one gating module per head.
 
-### Step 3: Effective Time Step
+## Base Timestep Parameterization
 
-$$dt_{h,eff} = dt_{h,base} \cdot gate_h$$
+The learnable base timestep is:
 
-Clamped to safe range:
-$$dt_{h,eff} = \text{clamp}(dt_{h,eff}, dt_{min}, dt_{max})$$
+```text
+dt_base = softplus(dt_params)
+```
 
-**Typical values**:
-- $dt_{min} = 0.0001$ (very small)
-- $dt_{max} = 0.5$ (conservative maximum)
+and is clamped to:
 
----
+```text
+[dt_min, dt_max]
+```
 
-## Gating Types
+Current defaults read from stability config are typically:
 
-### Standard Gating
+- `base_dt = 0.1`
+- `dt_min = 1e-4`
+- `dt_max = 0.5`
 
-**Input**: Position $x_h$ only
+### Initialization detail
 
-$$gate_h = \sigma(W \cdot x_h + b)$$
+The plugin initializes each head around:
 
-**Use case**: Position-dependent adaptation
+```text
+target_dt = base_dt / 0.9
+```
 
-### Thermodynamic Gating
+and adds a small per-head offset of `0.05` in parameter space.
 
-**Input**: Both position $x_h$ and velocity $v_h$
+So the heads do not start identically.
 
-$$gate_h = \sigma(W_x \cdot x_h + W_v \cdot v_h + b)$$
+## Gating Modes
 
-**Use case**: Full state-dependent adaptation (more expressive)
+The plugin supports two gating paths.
 
----
+### Standard gating
 
-## Physical Interpretation
+Uses only position:
 
-### Analogy: Variable Speed Processing
+```python
+gate_h = gating_h(x[:, i])
+```
 
-Think of each head as a processor:
-- **Fast regions** (low curvature): Large $dt$ = quick processing
-- **Complex regions** (high curvature): Small $dt$ = careful processing
+### Thermo gating
 
-### Energy Landscape
+Uses both position and velocity:
 
-$$dt_{eff} \propto \frac{1}{\|\nabla \text{Energy}\|}$$
+```python
+gate_h = gating_h(x[:, i], v[:, i])
+```
 
-In steep regions (high gradient), use small steps.
-In flat regions, use large steps.
+This is controlled by:
 
----
+- `dynamic_time_type == "thermo"`
 
-## Benefits
+Any other value falls back to the standard path.
 
-### 1. Stability
-Heads in difficult regions automatically slow down.
+## Effective Timestep
 
-### 2. Efficiency  
-Heads in easy regions automatically speed up.
+The current implementation computes:
 
-### 3. Specialization
-Each head learns its optimal processing speed.
+```text
+dt_eff = clamp(softplus(dt_params), dt_min, dt_max) * gates
+```
 
-### 4. Adaptation
-Time steps adjust during training as the model learns.
+with shapes:
 
----
+- `dt_base`: `[1, H, 1]`
+- `gates`: `[B_eff, H, 1]`
+- `dt_eff`: `[B_eff, H, 1]`
 
-## Mathematical Formulation
+So the timestep is:
 
-### Complete Dynamic Time Formula
+- learnable per head,
+- state-dependent per batch element,
+- broadcast across the head feature dimension.
 
-For head $h$ at layer $\ell$, timestep $t$:
+## What The Plugin Does Not Do
 
-$$dt_{h,\ell}(t) = \text{clamp}\left(\text{softplus}(\theta_{h,\ell}) \cdot \sigma(W_{h,\ell} \cdot x_{h,\ell}(t) + b_{h,\ell}), dt_{min}, dt_{max}\right)$$
+The current implementation does **not**:
 
-Where:
-- $\theta_{h,\ell}$ = learnable base parameter
-- $W_{h,\ell}, b_{h,\ell}$ = gating parameters
-- $x_{h,\ell}(t)$ = position state
+- change the force directly,
+- modify `x` or `v` in `pre_integrate`,
+- implement a generic curvature-derived adaptive ODE solver,
+- call `post_integrate`, `pre_mix`, `post_mix`, or `finalize` with dynamic-time-specific logic.
 
-### Integration with Dynamic Time
+It is narrower than the old conceptual description: it is specifically a per-head learned timestep gate.
 
-$$v_{n+1/2} = v_n + \frac{dt_{h,eff}}{2} \cdot a(x_n, v_n)$$
-$$x_{n+1} = x_n + dt_{h,eff} \cdot v_{n+1/2}$$
+## Practical Interpretation
 
-Each head uses its own $dt_{h,eff}$ in the integrator.
+The most faithful interpretation of the current code is:
 
----
+- every head gets a learnable baseline speed,
+- the current state gates that speed,
+- the resulting per-head timestep is passed into the integrator.
 
-## When to Use
+This is not the same as the separate `adaptive` integrator in `physics.stability.integrator_type="adaptive"`.
 
-**Use Dynamic Time when:**
-- Different heads process different complexity patterns
-- You want adaptive stability per head
-- Training shows heads need different speeds
+The two systems are different:
 
-**Don't use when:**
-- All heads process similar complexity (overkill)
-- You need deterministic behavior (dynamic makes it state-dependent)
-- Computational budget is tight (adds overhead)
+- `adaptive` integrator changes `dt` from acceleration magnitude at the solver level,
+- `DynamicTimePlugin` changes `dt` through learned per-head gating before the solver step.
 
----
+## When It Is Worth Using
+
+Dynamic time is most plausible when:
+
+- different heads truly specialize into different dynamical regimes,
+- a single scalar timestep feels too restrictive,
+- you want a learned per-head speed control path.
+
+It is less compelling when:
+
+- you need the simplest possible solver path,
+- you want highly transparent timestep behavior,
+- you already rely on the explicit `adaptive` integrator and do not want two timestep adaptation mechanisms interacting.
 
 ## Configuration
 
+The plugin is enabled through the nested dynamic-time config path used by the layer plugin registry.
+
+A representative configuration is:
+
 ```python
 physics = {
-    'active_inference': {
-        'dynamic_time': {
-            'enabled': True,
-            'type': 'standard',  # or 'thermo'
-            'base_dt': 0.1,
-            'dt_min': 0.0001,
-            'dt_max': 0.5
+    "active_inference": {
+        "dynamic_time": {
+            "enabled": True,
+            "type": "thermo",
         }
-    }
+    },
+    "stability": {
+        "base_dt": 0.1,
+        "dt_min": 1e-4,
+        "dt_max": 0.5,
+    },
 }
 ```
 
----
+Important current caveat:
 
-*File: technical/0_architecture/math/plugins/dynamic_time.md*
-*Last Updated: 2026-04-02*
+- the plugin code reads `dynamic_time_type` from the plugin config object,
+- while user-facing configs often describe this simply as `type`,
+- so this path should always be verified against the normalized config if behavior looks inconsistent.
+
+## Runtime Cross-References
+
+- `gfn/realizations/gssm/models/plugins/dynamic_time.py`
+- `gfn/realizations/gssm/models/manifold_layer.py`
+- `docs/gssm/technical/runtime/01-hyperparameters.md`

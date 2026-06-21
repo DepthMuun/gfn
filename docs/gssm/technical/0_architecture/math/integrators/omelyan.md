@@ -1,111 +1,105 @@
 # Omelyan Integrator
 
-## What is it?
+This document describes the **current `OmelyanIntegrator` implementation**.
 
-The Omelyan integrator is a second-order symplectic method with optimized coefficients. Unlike standard leapfrog, it uses a more complex sequence of substeps to minimize the error constant for 2nd order methods.
+The authoritative code is:
 
-Developed by Igor Omelyan in 1997 as an optimized symplectic integrator for molecular dynamics.
+- `gfn/realizations/gssm/physics/integrators/symplectic/omelyan.py`
 
----
+## Important Runtime Correction
 
-## The Algorithm
+The old documentation described Omelyan as a second-order method.
 
-Omelyan uses 6 force evaluations per step to achieve optimized 2nd order accuracy.
+That is **not** what the current code implements.
 
-### Optimized Parameter
+The current runtime explicitly documents and implements:
 
-$$\zeta \approx 0.1932$$
+- **Omelyan PEFRL**
+- **4th-order symplectic integration**
 
-This value is numerically optimized to minimize the truncation error coefficient.
+So any doc that still calls it second-order is outdated.
 
-### Step Sequence
+## What The Current Code Implements
 
-#### First Kick (Partial)
-$$v_{1/2} = v_n + \frac{1-2\zeta}{2} \cdot \Delta t \cdot a(x_n)$$
+The solver uses five drift coefficients and four kick coefficients:
 
-#### First Drift
-$$x_{1/6} = x_n + \zeta \cdot \Delta t \cdot v_{1/2}$$
+```text
+xi  =  0.1786178958448091
+lam = -0.2123418310626054
+chi = -0.06626458266981849
 
-#### Second Kick
-$$v_{1/3} = v_{1/2} + \zeta \cdot \Delta t \cdot a(x_{1/6})$$
+c1 = xi
+c2 = chi
+c3 = 1 - 2*(chi + xi)
+c4 = chi
+c5 = xi
 
-#### Second Drift
-$$x_{2/3} = x_{1/6} + (1-2\zeta) \cdot \Delta t \cdot v_{1/3}$$
+d1 = (1 - 2*lam)/2
+d2 = lam
+d3 = lam
+d4 = (1 - 2*lam)/2
+```
 
-#### Third Kick
-$$v_{2/3} = v_{1/3} + \zeta \cdot \Delta t \cdot a(x_{2/3})$$
+This is the PEFRL-style multi-stage structure used by the current implementation.
 
-#### Third Drift
-$$x_{5/6} = x_{2/3} + \zeta \cdot \Delta t \cdot v_{2/3}$$
+## Current Step Pattern
 
-#### Final Kick
-$$v_{n+1} = v_{2/3} + \frac{1-2\zeta}{2} \cdot \Delta t \cdot a(x_{5/6})$$
+For each step, the code performs:
 
-$$x_{n+1} = x_{5/6}$$
+1. drift with `c1`, evaluate acceleration, kick with `d1`,
+2. drift with `c2`, evaluate acceleration, kick with `d2`,
+3. drift with `c3`, evaluate acceleration, kick with `d3`,
+4. drift with `c4`, evaluate acceleration, kick with `d4`,
+5. final drift with `c5`.
 
----
+At every drift:
 
-## Properties
+- topology is resolved.
 
-| Property | Value |
-|----------|-------|
-| **Order** | 2nd order |
-| **Symplectic** | Yes |
-| **Force evaluations** | 6 per step |
-| **Error constant** | Optimized (smaller than leapfrog) |
-| **Cost** | 6× Leapfrog |
+At every kick:
 
----
+- velocity is clamped through the shared base helper.
 
-## Optimization Principle
+So the current runtime Omelyan path is:
 
-The parameter $\zeta \approx 0.1932$ is chosen to minimize:
+- fourth-order,
+- symplectic,
+- topology-aware,
+- velocity-saturation-aware.
 
-$$C(\zeta) = \sum |\text{error\_coefficients}|$$
+## Relationship To The Older Description
 
-This gives Omelyan a smaller error constant than standard leapfrog for the same order, making it more accurate step-for-step (though much more expensive).
+The old text about a single `zeta ~= 0.1932` optimized second-order scheme does not match the present implementation.
 
----
+That older description refers to a different Omelyan-style formulation than the one currently in the repo.
 
-## Comparison with Leapfrog
+## Practical Interpretation
 
-| Aspect | Leapfrog | Omelyan |
-|--------|----------|---------|
-| Order | 2nd | 2nd |
-| Force evals | 2 | 6 |
-| Accuracy | Good | Better (optimized) |
-| Cost | 1× | 3× |
-| Use case | General | High-precision 2nd order |
+Use Omelyan when:
 
----
+- you want a higher-order symplectic method,
+- you want an alternative to Yoshida or Forest-Ruth,
+- you are willing to pay for a richer multi-stage integrator.
 
-## When to Use
+It is less attractive when:
 
-**Use Omelyan for:**
-- When you need 2nd order accuracy but want smaller error constant
-- High-precision short simulations
-- Validation and testing
+- you want the default path,
+- you want the cheapest robust choice,
+- leapfrog already gives enough quality.
 
-**Don't use for:**
-- Training (too expensive)
-- Long sequences (cost prohibitive)
-- Production (use leapfrog instead)
+## What This Document Should Not Claim
 
----
+It would be inaccurate to claim that:
 
-## Error Analysis
+- the current Omelyan implementation is second-order,
+- it is parameterized only by a single `zeta`,
+- it has the same stage structure as the old doc version,
+- it ignores topology or shared velocity controls.
 
-Both methods are 2nd order:
+Those claims do not match the current code.
 
-$$\text{Error} \propto \Delta t^3$$
+## Runtime Cross-References
 
-But Omelyan has a smaller proportionality constant:
-
-$$\frac{\text{Omelyan\_error}}{\text{Leapfrog\_error}} \approx 0.4$$
-
-So for the same $\Delta t$, Omelyan is ~2.5× more accurate (but 3× more expensive).
-
----
-
-*File: technical/0_architecture/math/integrators/omelyan.md*
-*Last Updated: 2026-04-02*
+- `gfn/realizations/gssm/physics/integrators/symplectic/omelyan.py`
+- `gfn/realizations/gssm/physics/integrators/base.py`
+- `docs/gssm/technical/0_architecture/math/02_integrators.md`

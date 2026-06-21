@@ -1,8 +1,33 @@
 # GSSM Mathematical Foundations
 
-Complete mathematical documentation for the Geodesic State Space Model.
+This folder contains the **mathematical and conceptual layer** of the GSSM documentation.
 
----
+It is meant to complement, not replace, the runtime-derived documentation in:
+
+- `docs/gssm/technical/runtime/00-effective-defaults.md`
+- `docs/gssm/technical/runtime/01-hyperparameters.md`
+- `docs/gssm/technical/0_architecture/00_overview.md`
+
+Use this folder when you want to understand:
+
+- the equations behind the physics engine,
+- the intuition behind each integrator and geometry,
+- how embedding, readout, hooks, and plugins fit together conceptually,
+- how gradients and physics-informed losses are supposed to work at a system level.
+
+Use the `technical/runtime/` folder when you need:
+
+- effective defaults,
+- config precedence,
+- exact factory behavior,
+- current hyperparameter semantics,
+- code-accurate runtime caveats.
+
+## Scope
+
+This folder is intentionally deeper and more mathematical than the user-facing guides.
+
+Some documents here describe the idealized behavior of a component. When a mathematical description and a current runtime detail diverge, prefer the runtime-derived documents and the code.
 
 ## Directory Structure
 
@@ -10,249 +35,172 @@ Complete mathematical documentation for the Geodesic State Space Model.
 
 | File | Topic | What It Explains |
 |------|-------|------------------|
-| `01_physics_engine.md` | Physics Engine | What is acceleration, how forces combine, equations |
-| `03_geometry.md` | Geometries Overview | Christoffel symbols, manifold curvature (general) |
-| `04_hysteresis.md` | Hysteresis | Memory mechanism, ghost forces |
-| `05_singularities.md` | Singularities | Numerical stability, damping |
-| `06_stochasticity.md` | Stochasticity | Random forces, Brownian/OU processes |
-| `07_curiosity.md` | Curiosity | Exploration force |
-| `08_dynamics.md` | Dynamics | State update routing (direct/residual/gated) |
+| `01_physics_engine.md` | Physics Engine | Net acceleration, geometric force, friction, auxiliary forces |
+| `03_geometry.md` | Geometry Overview | Christoffel symbols, curvature, topology families |
+| `04_hysteresis.md` | Hysteresis | Memory mechanism and ghost-force intuition |
+| `05_singularities.md` | Singularities | Damping and numerical protection around singular regions |
+| `06_stochasticity.md` | Stochasticity | Brownian / OU-style perturbations |
+| `07_curiosity.md` | Curiosity | Exploration-oriented auxiliary force |
+| `08_dynamics.md` | Dynamics | Routing modes such as direct, residual, mix, and gated |
 
-### Integrators (Individual Files)
+### Integrators
 
-See `integrators/` subdirectory for detailed explanations of each integrator:
+See `integrators/` for per-integrator notes.
 
-| Integrator | File | Order | Type |
-|------------|------|-------|------|
-| Leapfrog | `integrators/leapfrog.md` | 2nd | **Symplectic (default)** |
-| Yoshida | `integrators/yoshida.md` | 4th | Symplectic |
-| Verlet | `integrators/verlet.md` | 2nd | Symplectic |
-| Forest-Ruth | `integrators/forest_ruth.md` | 4th | Symplectic |
-| Omelyan | `integrators/omelyan.md` | 2nd | Symplectic |
-| RK4 | `integrators/rk4.md` | 4th | Runge-Kutta |
-| Heun | `integrators/heun.md` | 2nd | Runge-Kutta |
+Current runtime-supported integrators include:
+
+- `leapfrog`
+- `yoshida`
+- `verlet`
+- `forest_ruth`
+- `omelyan`
+- `heun`
+- `rk4`
+- `adaptive`
+
+Current effective default:
+
+- `leapfrog`
 
 ### Data Flow
 
 | File | Topic | What It Explains |
 |------|-------|------------------|
-| `forward_pass_conceptual.md` | Forward Pass | How input becomes output (3 phases) |
-| `backward_pass_conceptual.md` | Backward Pass | How gradients flow through all components |
+| `forward_pass_conceptual.md` | Forward Pass | High-level intuition for sequence evolution |
+| `backward_pass_conceptual.md` | Backward Pass | High-level intuition for gradient flow |
+| `09_forward_pass.md` | Forward Pass | Detailed step-by-step runtime walk |
+| `10_backward_pass.md` | Backward Pass | Detailed gradient path through the current architecture |
 
 ### Components
 
-See `components/` subdirectory:
+| Component | File | Purpose |
+|-----------|------|---------|
+| Mixer | `components/mixer.md` | Multi-head mixing and aggregation |
+| Embedding | `components/embedding.md` | Token or continuous input -> force mapping |
+| Readout | `components/readout.md` | Latent state -> logits or latent output |
+| Normalization | `components/normalization.md` | Position / velocity normalization behavior |
+
+### Plugins And System
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| Mixer | `components/mixer.md` | Combines information across heads |
-| Embedding | `components/embedding.md` | Token → force mapping |
-| Readout | `components/readout.md` | State → logits mapping |
-| Normalization | `components/normalization.md` | Position/velocity bounds |
-
-### Plugins
-
-See `plugins/` subdirectory:
-
-| Plugin | File | Purpose |
-|--------|------|---------|
-| Dynamic Time | `plugins/dynamic_time.md` | Per-head adaptive time steps |
-| Fractal | `plugins/fractal.md` | Micro-manifold refinement |
-
-### System Architecture
-
-See `system/` subdirectory:
-
-| Component | File | Purpose |
-|-----------|------|---------|
-| Hooks | `system/hooks.md` | Lifecycle injection points |
-| Factory | `system/factory.md` | Model construction |
+| Dynamic Time | `plugins/dynamic_time.md` | Adaptive timestep intuition |
+| Fractal | `plugins/fractal.md` | Recursive micro-manifold refinement |
+| Hooks | `system/hooks.md` | Lifecycle injection points used by plugins |
+| Factory | `system/factory.md` | How the runtime assembles a complete model |
 
 ### Training
 
-See `training/` subdirectory:
-
 | Component | File | Purpose |
 |-----------|------|---------|
-| Losses | `training/losses.md` | Physics-informed loss functions |
-| Optimizers | `training/optimizers.md` | Riemannian Adam, dual-group optimization |
+| Losses | `training/losses.md` | Physics-informed and toroidal loss concepts |
+| Optimizers | `training/optimizers.md` | Riemannian optimizers and dual-group optimization |
 
-### Geometries
+### Geometry Details
 
-See `geometry/` subdirectory:
-
-| Geometry | File | Curvature | Bounded |
-|----------|------|-----------|---------|
-| Torus | `geometry/torus.md` | Variable | Yes |
-| Euclidean | `geometry/euclidean.md` | Flat | No |
-| Low-Rank | `geometry/low_rank.md` | Approximate | Yes |
-
----
+| Geometry | File | Notes |
+|----------|------|-------|
+| Torus | `geometry/torus.md` | Periodic analytical geometry |
+| Euclidean | `geometry/euclidean.md` | Flat unbounded geometry |
+| Low-Rank | `geometry/low_rank.md` | Learned geometry approximation |
 
 ## Quick Reference
 
-### The Fundamental Equation
+### Fundamental Acceleration Equation
 
-**Acceleration** (Physics Engine):
+At a conceptual level, the physics engine combines:
 
-$$a = -\Gamma(x,v) + F_{ext} - \mu v + F_{ghost} + F_{stochastic} + F_{curiosity}$$
+$$a_{net} = -\Gamma(x,v) - \mu v + F_{ext} + F_{aux}$$
 
-Where:
-- $-\Gamma(x,v)$ = Christoffel force (geometry)
-- $F_{ext}$ = External force (embedding)
-- $-\mu v$ = Friction
-- $F_{ghost}$ = Hysteresis ghost force
-- $F_{stochastic}$ = Brownian/OU noise
-- $F_{curiosity}$ = Repulsion from batch center
+Where `F_aux` may include:
 
-### State Evolution (Leapfrog)
+- hysteresis ghost force,
+- stochastic force,
+- curiosity force,
+- singularity-related damping.
 
-**Kick** (half-step velocity):
-$$v_{n+1/2} = v_n + \frac{\Delta t}{2} \cdot a(x_n, v_n)$$
+The exact runtime composition lives in the physics engine and depends on which components are enabled.
 
-**Drift** (full-step position):
-$$x_{n+1} = x_n + \Delta t \cdot v_{n+1/2}$$
+### State Variables
 
-**Kick** (complete velocity):
-$$v_{n+1} = v_{n+1/2} + \frac{\Delta t}{2} \cdot a(x_{n+1}, v_{n+1/2})$$
+GSSM evolves:
 
-### Dynamics Routing
+- position `x`
+- velocity `v`
 
-**Direct**:
-$$x_{next} = x_{proposal}$$
+The model processes a force sequence token by token and updates `(x, v)` through each layer.
 
-**Residual**:
-$$x_{next} = x + \sigma(s) \cdot (x_{proposal} - x)$$
+### Symplectic Integrators
 
-**Gated**:
-$$x_{next} = g \cdot x_{proposal} + (1-g) \cdot x$$
+Symplectic methods preserve the phase-space structure better than generic explicit ODE solvers.
 
----
+Main symplectic methods documented here:
 
-## Complete File List (27 Files)
+- Leapfrog
+- Yoshida
+- Verlet
+- Forest-Ruth
+- Omelyan
 
-```
-math/
-├── README.md                              # This file
-├── 01_physics_engine.md                   # Acceleration components
-├── 02_integrators.md                        # Integrators overview
-├── 03_geometry.md                           # Geometries overview
-├── 04_hysteresis.md                         # Memory mechanism
-├── 05_singularities.md                      # Singularity handling
-├── 06_stochasticity.md                      # Random forces
-├── 07_curiosity.md                          # Exploration force
-├── 08_dynamics.md                           # State routing
-├── 09_forward_pass.md                       # Detailed forward pass
-├── 10_backward_pass.md                      # Detailed backward pass
-├── 11_integrators_detailed.md               # All integrators code
-├── forward_pass_conceptual.md              # Conceptual forward
-├── backward_pass_conceptual.md             # Conceptual backward
-├── integrators/
-│   ├── README.md                           # Integrator selection
-│   ├── leapfrog.md                         # Default integrator
-│   ├── yoshida.md                          # 4th order symplectic
-│   ├── verlet.md                           # Velocity Verlet
-│   ├── forest_ruth.md                      # Alternative 4th order
-│   ├── omelyan.md                          # Optimized 2nd order
-│   ├── rk4.md                              # Runge-Kutta 4
-│   └── heun.md                             # Improved Euler
-├── components/
-│   ├── mixer.md                            # Head mixing
-│   ├── embedding.md                        # Token → force
-│   ├── readout.md                          # State → logits
-│   └── normalization.md                    # State bounds
-├── plugins/
-│   ├── dynamic_time.md                     # Adaptive dt
-│   └── fractal.md                          # Micro-manifold
-├── system/
-│   ├── hooks.md                            # Lifecycle hooks
-│   └── factory.md                          # Model builder
-├── training/
-│   ├── losses.md                           # Physics losses
-│   └── optimizers.md                       # Riemannian optimizers
-└── geometry/
-    ├── README.md                           # Geometry selection
-    ├── torus.md                            # Default geometry
-    ├── euclidean.md                        # Flat space
-    └── low_rank.md                         # Efficient approx
-```
+Main non-symplectic methods documented here:
 
----
+- Heun
+- RK4
 
 ## Reading Guide
 
-### For Understanding the Model
+### To understand the model from first principles
 
-1. **Start**: `forward_pass_conceptual.md` - What happens during inference
-2. **Then**: `01_physics_engine.md` - How acceleration is computed
-3. **Then**: `integrators/leapfrog.md` - How state evolves
-4. **Then**: `03_geometry.md` - Where curvature comes from
-5. **Finally**: `backward_pass_conceptual.md` - How learning works
+1. `forward_pass_conceptual.md`
+2. `01_physics_engine.md`
+3. `integrators/leapfrog.md`
+4. `03_geometry.md`
+5. `backward_pass_conceptual.md`
 
-### For Component Details
+### To understand the current runtime path
+
+1. `docs/gssm/technical/0_architecture/00_overview.md`
+2. `docs/gssm/technical/runtime/00-effective-defaults.md`
+3. `docs/gssm/technical/runtime/01-hyperparameters.md`
+4. `09_forward_pass.md`
+5. `10_backward_pass.md`
+
+### To understand specific subsystems
 
 | Interest | Read |
 |----------|------|
-| How heads mix | `components/mixer.md` |
-| Token embedding | `components/embedding.md` |
-| Output generation | `components/readout.md` |
-| Adaptive time | `plugins/dynamic_time.md` |
-| Training losses | `training/losses.md` |
-| Optimization | `training/optimizers.md` |
+| Physics forces | `01_physics_engine.md` |
+| Integrator behavior | `02_integrators.md` and `integrators/` |
+| Geometry selection and curvature | `03_geometry.md` and `geometry/` |
+| Hooks and extensibility | `system/hooks.md` |
+| Model assembly | `system/factory.md` |
+| Loss behavior | `training/losses.md` |
+| Optimizer behavior | `training/optimizers.md` |
 
-### For Implementation
+## Important Caveats
 
-- **API Reference**: `../guides/03-reference/02-api-classes.md`
-- **Architecture Overview**: `../02_code_analysis.md`
-- **Troubleshooting**: `../guides/04-guides/03-problem-solving.md`
+### Mathematical truth vs runtime truth
 
----
+This folder emphasizes mathematical structure and conceptual explanation.
 
-## Key Concepts
+The runtime may still differ in details because of:
 
-### What is a Symplectic Integrator?
+- config normalization,
+- explicit-key tracking,
+- factory heuristics,
+- plugin attachment,
+- codepaths that prioritize backward compatibility.
 
-A symplectic integrator preserves the symplectic 2-form in phase space:
+### Continuous embedding
 
-$$\omega = dp \wedge dq$$
+The embedding component supports `mode="continuous"`, but the main runtime path still resolves forces from `input_ids` unless `force_manual` or a custom continuous-input path is used.
 
-**Benefits**:
-- Energy oscillates but doesn't drift
-- Good for long-term stability
-- Required for Hamiltonian systems
-
-**Symplectic methods**: Leapfrog, Yoshida, Verlet, Forest-Ruth, Omelyan
-
-**Non-symplectic**: RK4, Heun (energy drifts over time)
-
-### What is the Manifold?
-
-The manifold is the space where the state $(x, v)$ lives:
-
-- **Torus** ($S^1 \times ... \times S^1$): Periodic, bounded, stable
-- **Euclidean** ($\mathbb{R}^n$): Unbounded, can explode
-
-Position $x$ represents "where" on the manifold.
-Velocity $v$ represents "how fast" along the manifold.
-
-### What is Christoffel?
-
-Christoffel symbols $\Gamma^k_{ij}$ represent manifold curvature:
-
-$$\text{Geodesic force} = -\Gamma(x, v)$$
-
-They push the state along the "straightest possible line" on curved space.
-
----
+That means the mathematical description of continuous embedding is valid, but user-facing examples must still be checked against the actual call path.
 
 ## Cross-References
 
-- **Complete API**: `../guides/03-reference/02-api-classes.md`
-- **Architecture Overview**: `../02_code_analysis.md`
-- **Troubleshooting**: `../guides/04-guides/03-problem-solving.md`
-
----
-
-*Last Updated: 2026-04-02*
-*Version: GSSM v2.7.2*
-*Total Files: 27*
+- `../00_overview.md`
+- `../../runtime/00-effective-defaults.md`
+- `../../runtime/01-hyperparameters.md`
+- `../../guides/03-reference/03-integrators.md`
+- `../../guides/04-guides/02-advanced-configuration.md`

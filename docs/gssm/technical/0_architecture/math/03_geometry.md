@@ -1,325 +1,201 @@
-# Geometry - Mathematical Foundation
+# Geometry
 
-## Overview
+This document describes the **current geometry runtime contract** used by GSSM.
 
-Geometry modules compute the Christoffel symbols and metric tensor that define the manifold's curvature and distance measures.
+The authoritative files are:
 
----
+- `gfn/realizations/gssm/geometry/base.py`
+- `gfn/realizations/gssm/geometry/factory.py`
+- `gfn/realizations/gssm/geometry/torus.py`
+- `gfn/realizations/gssm/geometry/low_rank.py`
 
-## 1. Metric Tensor
+## What Geometry Means In The Current Runtime
 
-### Definition
+In GSSM, a geometry module provides the manifold-specific part of the dynamics:
 
-The metric tensor $g_{ij}$ defines the inner product on the tangent space:
+- metric information,
+- curvature / Christoffel-like contribution,
+- projection back to the manifold,
+- distance function,
+- sometimes a geometry-side friction signal.
 
-$$ds^2 = g_{ij} dx^i dx^j$$
+The geometry does not by itself perform the whole evolution step. It supplies structure that the physics engine and integrator consume.
 
-### Properties
+## Base Contract
 
-- Symmetric: $g_{ij} = g_{ji}$
-- Positive definite (for Riemannian manifolds)
-- Used for: distance, angles, volume measures
+`BaseGeometry` currently defines:
 
-### Inverse Metric
+- `metric_tensor(x)`
+- `compute_kinetic_energy(x, v)`
+- `compute_potential_energy(x)`
+- `forward(x, v, force=None)`
+- `project(x)`
+- `dist(x1, x2)`
 
-$$g^{ij} = (g_{ij})^{-1}$$
+Important current runtime detail:
 
-Used to raise/lower indices:
+`forward(...)` may return either:
 
-$$v^i = g^{ij} v_j$$
+- a tensor,
+- or a tuple `(gamma, mu)`
 
----
+This tuple form is important because many modern geometries separate:
 
-## 2. Christoffel Symbols
+- curvature contribution,
+- friction contribution.
 
-### Definition
+## Base Implementation Caveat
 
-The Christoffel symbols $\Gamma^k_{ij}$ are the Levi-Civita connection coefficients:
+The `BaseGeometry.forward(...)` implementation is only a fallback template. It uses a simplified pointwise `-gamma * v^2` pattern and optional `force / g`.
 
-$$\Gamma^k_{ij} = \frac{1}{2} g^{kl} \left( \frac{\partial g_{jl}}{\partial x^i} + \frac{\partial g_{il}}{\partial x^j} - \frac{\partial g_{ij}}{\partial x^l} \right)$$
+It should not be treated as the definitive mathematical behavior of the specialized geometries.
 
-### Physical Interpretation
+The real runtime behavior comes from the concrete subclasses.
 
-- Not a tensor (doesn't transform covariantly)
-- Represents the "straightest lines" (geodesics) on curved manifolds
-- $\Gamma^k_{ij} = 0$ in flat (Euclidean) space
+## Factory Selection
 
-### Geometric Force
+The geometry factory now follows this logic:
 
-The acceleration due to curvature:
+- prefer the declared analytical or topological `topology.type`,
+- allow learned `riemannian_type` to override only when it was explicitly requested,
+- avoid silently replacing `torus` with a learned geometry just because of schema defaults.
 
-$$a^k = -\Gamma^k_{ij} v^i v^j$$
+This is one of the key current runtime fixes.
 
-This is the geometric component of the physics engine:
+So the docs should no longer imply that `riemannian_type='reactive'` automatically wins in all cases.
 
-$$F_{geometric} = -\Gamma(x, v)$$
+## Geometry Families That Matter Most In The Current Runtime
 
----
+### `torus`
 
-## 3. Toroidal Geometry
+`torus` maps to `ToroidalRiemannianGeometry`.
 
-### Manifold
+It provides:
 
-The torus $T^n = S^1 \times S^1 \times ... \times S^1$ is the product of $n$ circles.
+- analytical torus-style metric,
+- paired-coordinate curvature,
+- optional learnable radii,
+- toroidal projection,
+- optional friction gate,
+- optional CUDA fast path.
 
-### Metric Tensor
+This is the most important analytical topology in the current runtime.
 
-For a 2D torus with major radius $R$ and minor radius $r$:
+### `flat_torus`
 
-$$g = \begin{pmatrix} (R + r\cos\theta)^2 & 0 \\ 0 & r^2 \end{pmatrix}$$
+Defined in the same torus file, but with:
 
-### Christoffel Symbols (2D Torus)
+- periodic wrapping,
+- flat metric,
+- zero analytical curvature,
+- separate friction handling.
 
-Non-zero components:
+This is useful when you want periodic coordinates without full toroidal curvature.
 
-$$\Gamma^\theta_{\theta\phi} = \Gamma^\theta_{\phi\theta} = -\frac{r\sin\theta}{R + r\cos\theta}$$
+### `low_rank`
 
-$$\Gamma^\phi_{\theta\theta} = \frac{(R + r\cos\theta)\sin\theta}{r}$$
+`LowRankRiemannianGeometry` is the main learned geometry path documented in the current code.
 
-All others are zero.
+Its behavior is:
 
-### In Code
+- learn low-rank basis tensors `U` and `W`,
+- produce curvature-like terms from bilinear contractions of velocity,
+- optionally use trace normalization,
+- return `(gamma, mu)` with separate friction gate.
 
-```python
-# From torus.py connection() method
-# For each head dimension pair (θ, φ):
-gamma_theta = (R + r * cos(theta)) * sin(theta) / r * v_phi * w_phi
-gamma_phi = -r * sin(theta) / (R + r * cos(theta)) * (v_phi * w_theta + v_theta * w_phi)
-```
+Important current detail:
 
-### Properties
+- this is an approximation-oriented learned geometry,
+- not an exact closed-form analytical manifold.
 
-- **Bounded**: Position wraps at $2\pi$
-- **Periodic**: $\theta + 2\pi \equiv \theta$
-- **Curved**: Non-zero Christoffel symbols
-- **Recommended**: Default for GSSM training
+### Other registered geometries
 
----
+The factory imports several additional geometries through registration, including learned and analytical variants such as:
 
-## 4. Euclidean Geometry
+- `reactive`
+- `adaptive`
+- `hyperbolic`
+- `holographic`
+- `hierarchical`
+- `spherical`
 
-### Manifold
+This document does not restate their full mathematics unless that behavior has been revalidated line by line. For runtime accuracy, the safest claims should center on the geometries already audited directly.
 
-Flat space $\mathbb{R}^n$.
+## Metric Tensor In Practice
 
-### Metric Tensor
+In the present runtime, `metric_tensor(x)` is used for things such as:
 
-$$g_{ij} = \delta_{ij}$$
+- kinetic-energy computation,
+- metric-aware velocity normalization,
+- topology-dependent geometric reasoning.
 
-### Christoffel Symbols
+The metric may come back as:
 
-All zero:
+- diagonal per-coordinate weights,
+- or a denser matrix form,
 
-$$\Gamma^k_{ij} = 0 \quad \forall i,j,k$$
+depending on the geometry implementation.
 
-### In Code
+So it is safer to document the interface than to overgeneralize one specific tensor shape.
 
-```python
-# From euclidean.py
-return torch.zeros_like(v)  # No geometric force
-```
+## Projection
 
-### Properties
+`project(x)` is the geometry-side way to map coordinates back onto the manifold.
 
-- Unbounded (can explode)
-- No curvature
-- Simple but unstable
+Examples:
 
----
+- torus uses wrapped angular projection,
+- Euclidean-style geometries usually use identity.
 
-## 5. Low-Rank Riemannian Geometry
+In the current runtime, projection can also be mirrored at the integrator helper level through torus-aware topology resolution, so docs should not pretend projection happens in only one place.
 
-### Purpose
+## Distance
 
-Efficient approximation for high-dimensional manifolds.
+`dist(x1, x2)` is geometry-specific.
 
-### Key Idea
+Examples:
 
-Instead of computing full $D \times D$ Christoffel matrix, decompose as low-rank:
+- torus uses wrapped angular distance,
+- Euclidean uses norm difference,
+- learned geometries may still use simpler approximations unless explicitly overridden.
 
-$$\Gamma \approx \sum_{r=1}^{R} U_r \cdot W_r$$
+## Friction And Geometry
 
-Where $R \ll D$.
+Modern GSSM geometries may provide geometry-side friction information.
 
-### Approximation
+Examples already validated in code:
 
-```python
-# From low_rank.py
-# gamma ≈ sum_r (U_r @ W_r.T) * (v^T @ V_r)
-gamma = sum_r (U_r @ W_r.T) * inner_product
-```
+- torus returns `(gamma, mu)`
+- low-rank returns `(gamma, mu)`
 
-### Complexity
+This means friction is no longer a purely separate scalar concept outside geometry. But the final application of friction still belongs to the physics engine.
 
-| Method | Complexity |
-|--------|------------|
-| Full | $O(D^3)$ |
-| Low-Rank | $O(R^2 \cdot D)$ |
+## Practical Interpretation
 
-### Properties
+The current geometry layer is best understood as:
 
-- Memory efficient
-- Faster computation
-- Approximate (not exact)
+- the provider of manifold structure,
+- the source of curvature-aware acceleration terms,
+- and sometimes the source of geometry-conditioned damping signals.
 
----
+The most important runtime distinction is:
 
-## 6. Reactive Geometry
+- analytical topology, such as `torus`,
+- versus learned geometry, such as `low_rank`.
 
-### Purpose
+## What This Document Should Not Claim
 
-Adaptive geometry that adjusts curvature based on state.
+It would be inaccurate to claim that:
 
-### Key Idea
+- every geometry returns only Christoffel symbols,
+- geometry selection always follows schema defaults literally,
+- the base geometry implementation represents the exact behavior of all subclasses.
 
-The Christoffel symbols are modulated by a learnable "reactivity" factor:
+Those claims do not match the current runtime.
 
-$$\Gamma_{reactive} = \gamma_{base} \cdot (1 + \alpha \cdot \tanh(s))$$
+## Runtime Cross-References
 
-Where:
-- $\gamma_{base}$ is the static Christoffel
-- $\alpha$ is a plasticity parameter
-- $s$ is a state-dependent signal
-
-### Friction Gating
-
-Also returns a friction coefficient based on curvature:
-
-```python
-# From reactive.py
-mu_geo = base_friction + plasticity * curvature_magnitude
-return christoffel, mu_geo
-```
-
-### Properties
-
-- Adaptive to input
-- Can learn task-specific geometry
-- More complex training
-
----
-
-## 7. Hyperbolic Geometry (Poincaré Ball)
-
-### Manifold
-
-Poincaré ball model of hyperbolic space.
-
-### Metric Tensor
-
-For point $x$ in unit ball:
-
-$$g_{ij} = \frac{4}{(1 - \|x\|^2)^2} \delta_{ij}$$
-
-### Christoffel Symbols
-
-$$\Gamma^k_{ij} = \frac{1}{1 - \|x\|^2} (x_i \delta_{kj} + x_j \delta_{ki} - x_k \delta_{ij})$$
-
-### Distance
-
-$$d(u, v) = \text{arcosh}\left(1 + \frac{2\|u - v\|^2}{(1 - \|u\|^2)(1 - \|v\|^2)}\right)$$
-
-### Properties
-
-- Negative curvature
-- Good for tree-like structures
-- Bounded (unit ball)
-
----
-
-## 8. Spherical Geometry
-
-### Manifold
-
-Sphere $S^n$ of radius $r$.
-
-### Metric Tensor
-
-$$g_{ij} = r^2 \delta_{ij}$$
-
-(in local coordinates)
-
-### Christoffel Symbols
-
-For sphere embedded in $\mathbb{R}^{n+1}$:
-
-$$\Gamma^k_{ij} = -\frac{1}{r^2} (x_i \delta_{kj} + x_j \delta_{ki} - x_k \delta_{ij})$$
-
-### Properties
-
-- Constant positive curvature
-- Bounded surface
-- Good for rotational data
-
----
-
-## 9. Holographic Geometry
-
-### Purpose
-
-Uses holographic (interference) patterns for representation.
-
-### Key Idea
-
-Represent state as complex-valued amplitude:
-
-$$\psi(x) = A(x) e^{i\phi(x)}$$
-
-Where:
-- $A(x)$ is amplitude (magnitude)
-- $\phi(x)$ is phase
-
-### Christoffel from Phase
-
-The geometric force comes from phase gradients:
-
-$$\Gamma \propto \nabla \phi$$
-
-### Properties
-
-- Dense representations
-- Quantum-inspired
-- Experimental
-
----
-
-## 10. Geometry Interface
-
-All geometries implement:
-
-```python
-class Geometry(Protocol):
-    def __call__(self, v, x, force=None):
-        """
-        Compute Christoffel symbols.
-        Returns: torch.Tensor or (torch.Tensor, float)
-        """
-        
-    def metric(self, x):
-        """Compute metric tensor g_ij"""
-        
-    def project(self, x):
-        """Project to manifold surface"""
-        
-    def dist(self, x1, x2):
-        """Geodesic distance between points"""
-```
-
----
-
-## 11. Geometry Comparison
-
-| Geometry | Curvature | Bounded | Complexity | Use Case |
-|----------|-----------|---------|------------|----------|
-| torus | Variable | ✅ | Medium | Default, general |
-| euclidean | Zero | ❌ | Minimal | Simple tasks |
-| low_rank | Variable | - | Low | High dimensions |
-| reactive | Adaptive | - | Medium | Adaptive tasks |
-| hyperbolic | Negative | ✅ | Medium | Trees, graphs |
-| spherical | Positive | ✅ | Medium | Rotations |
-| holographic | Variable | - | High | Experimental |
-
----
-
-*File: technical/0_architecture/math/03_geometry.md*
-*Last Updated: 2026-04-02*
+- `gfn/realizations/gssm/geometry/base.py`
+- `gfn/realizations/gssm/geometry/factory.py`
+- `docs/gssm/technical/0_architecture/math/geometry/torus.md`
+- `docs/gssm/technical/runtime/00-effective-defaults.md`

@@ -1,204 +1,173 @@
 # Manifold Normalization
 
-## What is Manifold Normalization?
+This document describes the **current geometry-aware normalization runtime** used by `ManifoldLayer`.
 
-Manifold Normalization ensures that positions and velocities remain well-behaved during evolution. Unlike standard neural network normalization (like BatchNorm), manifold normalization is geometry-aware and respects the topology of the space.
+The authoritative files are:
 
-Think of it as: "Keeping the manifold state within valid bounds while preserving geometric structure."
+- `gfn/realizations/gssm/physics/normalization.py`
+- `gfn/realizations/gssm/models/manifold_layer.py`
 
----
+## What Exists In The Current Runtime
 
-## Why Different Normalization for Position vs Velocity?
+The current normalization registry exposes:
 
-### Position Lives on Manifold
-Position $x$ lives ON the manifold (the curved space itself).
-- Torus: Periodic, bounded $[-\pi, \pi]$
-- Euclidean: Unbounded
+- `position_torus`
+- `position_euclidean`
+- `velocity_tangent`
+- `velocity_metric`
+- `feature_hidden`
+- `identity`
 
-### Velocity Lives in Tangent Space
-Velocity $v$ lives IN the tangent space (flat approximation at each point).
-- Always Euclidean (even for curved manifolds)
-- Can be normalized with standard techniques
+The layer normally uses:
 
----
+- one normalization for position,
+- one normalization for velocity,
 
-## Position Normalization
+selected through `ManifoldNormalizationRegistry.get_for_topology(...)`.
 
-### Torus Position Normalization
+## Position vs Velocity
 
-**Purpose**: Wrap position to valid torus coordinates $[-\pi, \pi]$.
+The runtime intentionally separates these two cases.
 
-**Formula**:
-$$x_{norm} = \arctan_2(\sin(x), \cos(x))$$
+### Position
 
-**Why this works**:
-- $\sin$ and $\cos$ are periodic with period $2\pi$
-- $\arctan_2$ recovers the angle in $[-\pi, \pi]$
-- Effectively "wraps" any value to the fundamental domain
+Position is normalized according to topology:
 
-**Example**:
-- Input: $x = 3\pi$ (outside range)
-- $\sin(3\pi) = 0$, $\cos(3\pi) = -1$
-- $\arctan_2(0, -1) = \pi$
-- Output: $\pi$ (equivalent position on torus)
+- torus -> wrapped angular projection,
+- Euclidean -> identity.
 
-### Euclidean Position Normalization
+### Velocity
 
-**Purpose**: Identity (no wrapping needed).
+Velocity normalization is treated as a tangent-space operation:
 
-**Formula**:
-$$x_{norm} = x$$
+- metric-aware if geometry is available,
+- otherwise a tangent-space clamp / RMS normalization fallback.
 
-Euclidean space is unbounded, so no normalization is applied to position.
+This matches the code more closely than older docs that described position and velocity normalization as one generic process.
 
----
+## Position Normalization Paths
 
-## Velocity Normalization
+### Torus position normalization
 
-### Tangent Velocity Normalization
-
-**Purpose**: Clamp and scale velocity in tangent space.
-
-**Components**:
-
-1. **Hard Clamping**: Prevent runaway velocity
-   $$v_{clamped} = \text{clamp}(v, -v_{max}, +v_{max})$$
-
-2. **RMS Normalization**: Scale to unit norm
-   $$v_{norm} = \frac{v_{clamped}}{\sqrt{\frac{1}{d}\sum_i v_i^2 + \epsilon}}$$
-
-**Combined**:
-$$v_{out} = \text{RMSNorm}(\text{clamp}(v, \pm v_{max}))$$
-
-### Metric-Aware Velocity Normalization
-
-**Purpose**: Normalize using the Riemannian metric (geometry-aware).
-
-**Riemannian Norm**:
-The "true" velocity magnitude on a curved manifold is:
-$$\|v\|_g^2 = v^T g(x) v$$
-
-Where $g(x)$ is the metric tensor at position $x$.
-
-**Normalization**:
-1. Compute metric norm: $\|v\|_g = \sqrt{v^T g(x) v}$
-2. Scale if exceeds limit: $v_{out} = v \cdot \min(1, \frac{v_{max}}{\|v\|_g})$
-
-**Physical Meaning**:
-- Standard norm $\|v\|$ = coordinate velocity
-- Metric norm $\|v\|_g$ = physical velocity on manifold
-- Ensures true physical speed limit
-
----
-
-## The Normalization Registry
-
-### Automatic Selection
-
-The registry automatically selects appropriate normalization based on:
-1. **Topology**: Torus vs Euclidean
-2. **Variable type**: Position vs Velocity
-3. **Geometry availability**: With or without metric tensor
-
-### Selection Logic
-
-```
-IF is_velocity:
-    IF geometry_available:
-        RETURN MetricAwareVelocityNormalization
-    ELSE:
-        RETURN TangentVelocityNormalization
-ELSE (is_position):
-    IF topology == TORUS:
-        RETURN TorusPositionNormalization
-    ELSE:
-        RETURN EuclideanPositionNormalization
-```
-
----
-
-## When Each Normalization Applies
-
-| Variable | Topology | Normalization | Purpose |
-|----------|----------|---------------|---------|
-| Position | Torus | $\arctan_2(\sin, \cos)$ | Wrap to $[-\pi, \pi]$ |
-| Position | Euclidean | Identity | No bounds |
-| Velocity | Any | RMSNorm + Clamp | Prevent explosion |
-| Velocity | With metric | Metric-aware | Physical speed limit |
-
----
-
-## Physical Interpretation
-
-### Position Wrapping (Torus)
-
-Imagine walking on a circular track:
-- After walking $2\pi$ radians, you're back at start
-- $\arctan_2(\sin, \cos)$ computes your "true" position on the circle
-- Handles multiple rotations correctly
-
-### Velocity Clamping
-
-Prevents "runaway" dynamics:
-- Without limits: $v \to \infty$ (numerical explosion)
-- With clamping: $|v| \leq v_{max}$ (stable)
-
-### Metric-Aware Normalization
-
-Like speed limits on curved roads:
-- Flat highway: Speed limit is simple
-- Mountain road: Speed limit varies by curvature
-- Metric tensor $g(x)$ encodes local "road curvature"
-
----
-
-## Mathematical Properties
-
-### Torus Normalization is Idempotent
-
-$$N(N(x)) = N(x)$$
-
-Applying twice gives same result (already wrapped).
-
-### Velocity Normalization is Bounded
-
-$$\|v_{out}\| \leq v_{max}$$
-
-Guaranteed by clamping.
-
-### Metric Norm is Coordinate-Invariant
-
-$$\|v\|_g^2 = v^T g v$$
-
-Same physical velocity regardless of coordinate choice.
-
----
-
-## Configuration
-
-Normalization is typically enabled via stability config:
+`TorusPositionNormalization` uses:
 
 ```python
-physics = {
-    'stability': {
-        'enable_trace_normalization': True,  # Enable position norm
-        'velocity_saturation': 10.0,          # Max velocity
-    }
-}
+atan2(sin(x), cos(x))
 ```
 
----
+This is the same wrapped-angle pattern used elsewhere in the runtime for toroidal projection.
 
-## Comparison with Standard Normalization
+### Euclidean position normalization
 
-| Aspect | Standard (BatchNorm) | Manifold Normalization |
-|--------|---------------------|------------------------|
-| Operates on | Batch statistics | Individual samples |
-| Learns | Scale/shift params | No params (or fixed) |
-| Geometry aware | No | Yes |
-| Purpose | Train stability | Physical validity |
+`EuclideanPositionNormalization` is just identity.
 
----
+Important current detail:
 
-*File: technical/0_architecture/math/components/normalization.md*
-*Last Updated: 2026-04-02*
+- the runtime does **not** apply generic RMS-style normalization to Euclidean positions in this registry.
+
+## Velocity Normalization Paths
+
+### `TangentVelocityNormalization`
+
+This path does:
+
+1. hard clamp velocity to `[-MAX_VELOCITY, MAX_VELOCITY]`
+2. apply `nn.RMSNorm`
+
+So the current tangent fallback is:
+
+```text
+v_out = RMSNorm(clamp(v))
+```
+
+### `MetricAwareVelocityNormalization`
+
+If geometry is available, the registry chooses this stricter path.
+
+It uses `geometry.metric_tensor(context_x)` and scales the velocity only when the metric norm exceeds the maximum allowed magnitude.
+
+Important current detail:
+
+- this path does **not** apply RMSNorm after the metric-aware scaling,
+- it simply rescales or clamps magnitude in metric space and returns the result.
+
+That is an important difference from the older conceptual docs.
+
+## Registry Selection Logic
+
+The current registry logic is:
+
+```text
+if is_velocity:
+    if geometry is available:
+        use velocity_metric
+    else:
+        use velocity_tangent
+else:
+    if topology is torus:
+        use position_torus
+    else:
+        use position_euclidean
+```
+
+This is exactly the logic `ManifoldLayer` uses when normalization is enabled.
+
+## How `ManifoldLayer` Uses It
+
+`ManifoldLayer` reads:
+
+- `config.stability.enable_trace_normalization`
+
+If enabled, it builds:
+
+- `norm_x` from topology and geometry,
+- `norm_v` from topology and geometry.
+
+If disabled, it uses:
+
+- `identity`
+
+Important current caveat:
+
+- the name `enable_trace_normalization` is historical and a bit misleading,
+- enabling it activates the registry-selected normalization stack more broadly, not just one isolated trace-normalization operation.
+
+## Relationship To Velocity Saturation
+
+Velocity saturation also exists in integrators through:
+
+- `stability.velocity_saturation`
+
+That is a separate mechanism from the normalization registry.
+
+So the docs should not collapse these into one single feature:
+
+- registry normalization happens in the layer / dynamics path,
+- velocity saturation happens in the integrator path.
+
+## Practical Interpretation
+
+The current normalization system is best understood as:
+
+- topology-aware position cleanup,
+- geometry-aware or tangent-aware velocity control,
+- selected centrally by the registry,
+- injected into `ManifoldLayer` dynamics routing.
+
+It is not a generic "normalize everything everywhere" system.
+
+## What This Document Should Not Claim
+
+It would be inaccurate to claim that:
+
+- metric-aware velocity normalization always ends with RMSNorm,
+- Euclidean position uses a learned or RMS-style normalization,
+- `velocity_saturation` is the same thing as manifold normalization.
+
+Those claims do not match the current runtime.
+
+## Runtime Cross-References
+
+- `gfn/realizations/gssm/physics/normalization.py`
+- `gfn/realizations/gssm/models/manifold_layer.py`
+- `gfn/realizations/gssm/physics/integrators/base.py`

@@ -1,79 +1,87 @@
 # GSSM Integrators
 
-This directory contains detailed mathematical explanations of all integrators available in GSSM.
+This folder contains solver-specific notes that complement the main runtime overview in [02_integrators.md](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/0_architecture/math/02_integrators.md).
 
----
+## Current Factory Scope
 
-## Available Integrators
+The current integrator factory registers and resolves:
 
-### Symplectic (Energy-Preserving)
+- `leapfrog`
+- `verlet`
+- `yoshida`
+- `forest_ruth`
+- `omelyan`
+- `heun`
+- `rk4`
+- `adaptive`
 
-| File | Name | Order | Force Evals/Step | Best For |
-|------|------|-------|------------------|----------|
-| `leapfrog.md` | Leapfrog / Störmer-Verlet | 2nd | 2 | **Default - Training** |
-| `verlet.md` | Velocity Verlet | 2nd | 2 | Position-velocity sync |
-| `yoshida.md` | Yoshida | 4th | 3 | Long simulations |
-| `forest_ruth.md` | Forest-Ruth | 4th | 3 | Alternative 4th order |
-| `omelyan.md` | Omelyan | 2nd | 6 | Optimized accuracy |
+Important current default:
 
-### Runge-Kutta (Accuracy-Focused)
+- the factory default is `leapfrog`
 
-| File | Name | Order | Force Evals/Step | Best For |
-|------|------|-------|------------------|----------|
-| `rk4.md` | Runge-Kutta 4 | 4th | 4 | Short trajectories |
-| `heun.md` | Heun / Improved Euler | 2nd | 2 | General ODEs |
+If an unknown integrator key is requested, the runtime falls back to `leapfrog`.
 
----
+## What This Folder Is Best For
 
-## Quick Selection Guide
+Use these files for:
 
-**For Training:**
-- Use **Leapfrog** (default) - most stable
+- solver-specific behavior,
+- symplectic vs non-symplectic differences,
+- implementation caveats that are easier to explain per integrator.
 
-**For Long Sequences:**
-- Use **Yoshida** or **Forest-Ruth** (4th order symplectic)
+Use [02_integrators.md](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/0_architecture/math/02_integrators.md) for:
 
-**For Validation:**
-- Use **RK4** (high accuracy)
+- the shared runtime contract,
+- the role of `BaseIntegrator`,
+- current default selection,
+- the difference between `adaptive` and the dynamic-time plugin.
 
-**For Quick Tests:**
-- Use **Heun** (simple)
+## Most Important Files
 
----
+Start with:
 
-## What is a Symplectic Integrator?
+1. [leapfrog.md](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/0_architecture/math/integrators/leapfrog.md)
+2. [yoshida.md](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/0_architecture/math/integrators/yoshida.md)
+3. [verlet.md](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/0_architecture/math/integrators/verlet.md)
 
-A symplectic integrator preserves the symplectic 2-form in phase space:
+Those are the most relevant symplectic paths in the current codebase.
 
-$$\omega = dp \wedge dq$$
+## Practical Guidance
 
-This means:
-- Phase space volume is conserved
-- Energy oscillates but doesn't drift
-- Good for long-term Hamiltonian dynamics
+Use `leapfrog` when:
 
-Non-symplectic methods (like RK4) have systematic energy drift over time.
+- you want the current standard runtime path,
+- you want the documented default,
+- you care about stable geometry-aware training.
 
----
+Use `yoshida` when:
 
-## Comparison Summary
+- you want a higher-order symplectic solver,
+- you accept higher cost.
 
-| Method | Order | Symplectic | Cost | Accuracy | Energy |
-|--------|-------|------------|------|----------|--------|
-| Leapfrog | 2 | ✅ | 1× | Good | Conserved |
-| Yoshida | 4 | ✅ | 3× | High | Conserved |
-| RK4 | 4 | ❌ | 4× | Very High | Drifts |
-| Heun | 2 | ❌ | 1× | Good | Drifts |
+Use `adaptive` when:
 
----
+- you intentionally want the wrapper that rescales `dt` from acceleration magnitude.
 
-## Reading Order
+Use `rk4` or `heun` when:
 
-1. Start with **Leapfrog** (most important, default)
-2. Then **Yoshida** (for 4th order)
-3. Then **RK4** (non-symplectic alternative)
-4. Others as needed
+- you are intentionally exploring non-symplectic alternatives.
 
----
+## Important Caveat
 
-*Last Updated: 2026-04-02*
+Some older descriptions count force evaluations as if every solver were implemented in the pure textbook form.
+
+That is not always the best description of the current runtime, because:
+
+- some solvers include explicit friction handling,
+- some have CUDA fused fast paths,
+- `adaptive` delegates to a base solver,
+- topology wrapping and velocity saturation are handled in shared helper logic.
+
+So this folder should not be read as a purely textbook catalogue detached from the actual implementation.
+
+## Runtime Cross-References
+
+- `gfn/realizations/gssm/physics/integrators/factory.py`
+- `gfn/realizations/gssm/physics/integrators/base.py`
+- `docs/gssm/technical/0_architecture/math/02_integrators.md`

@@ -1,266 +1,180 @@
-# Physics Engine - Mathematical Foundation
+# Physics Engine
 
-## Overview
+This document describes the **current `ManifoldPhysicsEngine` runtime**, not a generic idealized physics stack.
 
-The Physics Engine computes the net acceleration that drives the evolution of the manifold state. It combines geometric, external, and auxiliary forces.
+The authoritative implementation lives in:
 
----
+- `gfn/realizations/gssm/physics/engine.py`
+- `gfn/realizations/gssm/physics/components/`
 
-## 1. Core Equation
+## What The Engine Actually Computes
 
-The fundamental equation governing the dynamics:
+The engine computes a net acceleration tensor from:
 
-$$\frac{dv}{dt} = a_{net}$$
+- geometry curvature output,
+- friction,
+- optional external force,
+- optional hysteresis ghost force,
+- optional stochastic force,
+- optional curiosity force,
+- optional singularity damping.
 
-Where the net acceleration is:
+In the current code, the core pattern is:
 
-$$a_{net} = -\Gamma(x, v) + F_{ext} + F_{friction} + F_{ghost} + F_{stochastic} + F_{curiosity}$$
-
----
-
-## 2. Christoffel Symbols (Geometric Force)
-
-### Definition
-
-The Christoffel symbols $\Gamma^\sigma_{\mu\nu}$ represent the geometric force arising from manifold curvature:
-
-$$\Gamma^k_{ij} = \frac{1}{2} g^{kl} \left( \frac{\partial g_{jl}}{\partial x^i} + \frac{\partial g_{il}}{\partial x^j} - \frac{\partial g_{ij}}{\partial x^l} \right)$$
-
-### In Code
-
-```python
-# From geometry(x, v, force)
-christoffel = geometry(x, v)  # Returns Γ(x,v)
+```text
+net_accel = -christoffel - friction_term
+net_accel += force
+net_accel += ghost_force
+net_accel += stochastic_force
+net_accel += curiosity_force
+net_accel = singularity_gate.damp_force(net_accel, metric_component)   # only if provided
 ```
 
-### Geometric Force
+## Geometry Contract
 
-The geometric acceleration is:
+The engine expects the geometry to return either:
 
-$$F_{geometric} = -\Gamma(x, v)$$
+- `gamma`
+- or `(gamma, mu_geo)`
 
-This force pushes the state along geodesics (shortest paths) on the manifold.
+where:
 
----
+- `gamma` is the curvature contribution,
+- `mu_geo` is an optional geometry-provided friction coefficient or friction gate.
 
-## 3. Friction Force
+This is important because the engine is now the **single authority** on how friction is actually applied.
 
-### Definition
+## Friction Path
 
-Friction provides velocity damping to prevent runaway acceleration:
+The current friction path is:
 
-$$F_{friction} = -\mu \cdot v$$
-
-Where $\mu$ is the friction coefficient.
-
-### Friction Calculation
-
-The total friction coefficient combines geometry-provided and config values:
-
-```python
-mu_total = get_friction_coefficient(x, v, mu_geo)
+```text
+mu_total = friction_fallback + mu_geo
 friction_term = mu_total * v
 ```
 
-### Sources of Friction
+with optional velocity scaling:
 
-1. **Geometry-provided** (from geometry return tuple):
-   - $\mu_{geo} = f(\text{curvature}, \text{velocity})$
-
-2. **Config fallback** (from `stability.friction`):
-   - Default: $\mu = 0.01$
-
-3. **Velocity-dependent** (from `stability.velocity_friction_scale`):
-   - $\mu_{total} = \mu_{base} + \mu_{velocity} \cdot \|v\|$
-
----
-
-## 4. External Force
-
-### Definition
-
-The external force comes from token embeddings:
-
-$$F_{ext} = \text{Embedding}(token\_ids)$$
-
-### In Code
-
-```python
-force = embedding(input_ids)  # [B, S, D]
-net_accel = net_accel + force
+```text
+mu_total = mu_total * (1 + velocity_friction_scale * ||v|| / sqrt(D))
 ```
 
----
+So in the present runtime:
 
-## 5. Hysteresis Ghost Force
+- geometry may provide a friction signal,
+- config still provides the fallback base friction,
+- the engine sums them,
+- and only then applies damping.
 
-### Purpose
+This means the docs should not describe friction as purely geometry-owned or purely config-owned.
 
-Provides memory of previous states through a "ghost" force that persists across timesteps.
+## External Force
 
-### Mathematical Form
+The engine treats `force` as an already prepared external signal.
 
-$$F_{ghost} = W \cdot \tanh(b + h_{prev})$$
+In normal sequence models that force often comes from the embedding path, but the engine itself does not know where it came from. It only receives a tensor and adds it to the acceleration.
 
-Where:
-- $h_{prev}$ is the hysteresis state from previous timestep
-- $W$ is a learnable weight matrix
-- $b$ is a bias term
+So the most faithful statement is:
 
-### Update Rule
+- the engine consumes external force,
+- force generation belongs elsewhere in the model stack.
 
-$$h_{new} = (1 - \alpha) \cdot h_{prev} + \alpha \cdot v$$
+## Optional Modules
 
-Where $\alpha = decay$ is the hysteresis decay rate.
+### Hysteresis
 
-### In Code
-
-```python
-if self.hysteresis is not None:
-    ghost_force = self.hysteresis(x, v, topo_id)
-    net_accel = net_accel + ghost_force
-```
-
----
-
-## 6. Stochastic Forces
-
-### Brownian Motion
-
-For exploration/noise injection:
-
-$$F_{stochastic} = \sigma \cdot \mathcal{N}(0, 1)$$
-
-Where $\sigma$ is the noise magnitude.
-
-### Ornstein-Uhlenbeck (OU)
-
-For correlated noise:
-
-$$dX = -\theta(X - \mu)dt + \sigma dW$$
-
-In discrete form:
-
-$$F_{ou} = -\theta \cdot (v - \mu) + \sigma \cdot \sqrt{dt} \cdot \mathcal{N}(0, 1)$$
-
-### In Code
+If enabled, the engine instantiates `HysteresisModule` and adds:
 
 ```python
-if self.stochasticity_module is not None:
-    stoch_force = self.stochasticity_module(x, v, dt)
-    net_accel = net_accel + stoch_force
+ghost_force = self.hysteresis(x, v, topo_id=self.topo_id)
 ```
 
----
+This is the engine's memory-like residual force path.
 
-## 7. Curiosity Force
+### Stochasticity
 
-### Purpose
+The current runtime supports optional active-inference stochasticity through:
 
-Encourages exploration by adding a force that increases future uncertainty.
+- `BrownianForce`
+- `OUDynamicsForce`
 
-### Mathematical Form
+Important current caveat:
 
-$$F_{curiosity} = \lambda \cdot \nabla_v H$$
+- stochastic force is only added when both the module is enabled and `dt` is provided to `compute_acceleration`.
 
-Where:
-- $H$ is an entropy-like measure of state diversity
-- $\lambda$ is the curiosity strength
+### Curiosity
 
-### Implementation
+If enabled, the engine adds `GeometricCuriosityForce`.
 
-```python
-if self.curiosity_module is not None:
-    curiosity_force = self.curiosity_module(x, v)
-    net_accel = net_accel + curiosity_force
-```
+This is a modular exploration term, not a hardwired part of every acceleration computation.
 
----
+### Singularity Damping
 
-## 8. Singularity Damping
+If singularities are enabled, the engine creates a `SingularityGate`.
 
-### Purpose
+Important current caveat:
 
-Prevents numerical explosion when approaching singularities (where metric tensor becomes singular).
+- singularity damping only runs when `metric_component` is explicitly passed into `compute_acceleration`.
 
-### Mathematical Form
+So singularity protection exists in the engine, but it is not guaranteed to activate in every forward path automatically.
 
-When $\|v\| > threshold$:
+## What The Engine Does Not Do
 
-$$F_{singularity} = -S \cdot \frac{v}{\|v\|} \cdot \tanh\left(\frac{\|v\| - \epsilon}{\epsilon}\right)$$
+The current engine does **not** directly apply:
 
-Where:
-- $S$ is the singularity strength
-- $\epsilon$ is a small threshold
+- timestep integration,
+- topology wrapping of the integration step,
+- velocity saturation.
 
----
+Those responsibilities belong elsewhere:
 
-## 9. Velocity Saturation
+- integration and velocity saturation are handled by integrators,
+- coordinate wrapping is typically handled by geometry projection or integrator topology resolution.
 
-### Purpose
+This is especially important because `engine.py` stores `velocity_saturation` on the module, but `compute_acceleration()` does not use it directly.
 
-Clamps maximum velocity to prevent instability.
+## Helper Methods
 
-### Mathematical Form
+The engine also exposes:
 
-$$v_{sat} = v_{max} \cdot \tanh\left(\frac{v}{v_{max}}\right)$$
+- `get_friction_coefficient(...)`
+- `get_ghost_force(...)`
+- `apply_singularity_damping(...)`
+- `apply_boundary(...)`
+- `reset_hysteresis()`
 
-Or if disabled ($v_{max} = 0$):
+Of these, the most important runtime helper is `get_friction_coefficient(...)`, because integrators can call it directly when they need explicit friction handling during split updates.
 
-$$v_{sat} = v$$
+## Practical Interpretation
 
----
+The current physics engine is best understood as:
 
-## 10. Complete Acceleration Computation
+- an acceleration orchestrator,
+- centered on geometry plus centralized friction,
+- with optional modular add-ons for memory, noise, exploration, and singularity damping.
 
-```python
-def compute_acceleration(x, v, force, dt):
-    # 1. Get Christoffel from geometry
-    geo_out = geometry(x, v, force)
-    christoffel, mu_geo = geo_out  # or just christoffel
-    
-    # 2. Compute friction
-    mu_total = get_friction_coefficient(x, v, mu_geo)
-    friction_term = mu_total * v
-    
-    # 3. Net acceleration
-    net_accel = -christoffel - friction_term
-    
-    # 4. Add external force
-    if force is not None:
-        net_accel = net_accel + force
-    
-    # 5. Add hysteresis ghost force
-    if hysteresis is not None:
-        net_accel = net_accel + hysteresis(x, v)
-    
-    # 6. Add stochastic force
-    if stochasticity is not None:
-        net_accel = net_accel + stochasticity(x, v, dt)
-    
-    # 7. Add curiosity force
-    if curiosity is not None:
-        net_accel = net_accel + curiosity(x, v)
-    
-    return net_accel
-```
+It is not the whole solver. It produces acceleration-like quantities that the integrator then uses.
 
----
+## Parameter Notes
 
-## Parameter Summary
+The most relevant engine-side controls are:
 
-| Parameter | Symbol | Default | Effect |
-|-----------|--------|---------|--------|
-| `friction` | $\mu$ | 0.01 | Velocity damping |
-| `velocity_friction_scale` | $\mu_v$ | 0.0 | Velocity-dependent friction |
-| `velocity_saturation` | $v_{max}$ | 0.0 | Max velocity (0=off) |
-| `hyst_decay` | $\alpha$ | 0.1 | Hysteresis memory decay |
-| `stochasticity.sigma` | $\sigma$ | 0.01 | Noise magnitude |
-| `stochasticity.theta` | $\theta$ | 0.15 | OU mean reversion |
-| `curiosity.strength` | $\lambda$ | 0.1 | Exploration drive |
-| `singularity.strength` | $S$ | 0.1 | Singularity damping |
+| Parameter | Current Role |
+|-----------|--------------|
+| `stability.friction` | fallback base damping |
+| `stability.velocity_friction_scale` | multiplies damping as velocity grows |
+| `hysteresis.*` | enables ghost-force memory |
+| `active_inference.stochasticity.*` | enables Brownian or OU noise |
+| `active_inference.curiosity.*` | enables curiosity force |
+| `singularities.*` | enables singularity gate |
 
----
+Important caveat:
 
-*File: technical/0_architecture/math/01_physics_engine.md*
-*Last Updated: 2026-04-02*
+- `velocity_saturation` is **not** an engine-side clamp in the current runtime, even though it appears in nearby physics config.
+
+## Runtime Cross-References
+
+- `gfn/realizations/gssm/physics/engine.py`
+- `gfn/realizations/gssm/physics/integrators/base.py`
+- `gfn/realizations/gssm/physics/components/friction.py`
+- `docs/gssm/technical/runtime/01-hyperparameters.md`

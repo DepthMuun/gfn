@@ -1,201 +1,191 @@
 # Forward Pass - Conceptual Explanation
 
-## What is the Forward Pass?
+This document explains the **current forward-pass shape and flow** at a conceptual level.
 
-The forward pass is the process of transforming input tokens through the GSSM model to produce output logits. It represents the complete computational flow from input to prediction.
+For the exact runtime behavior, the authoritative sources are:
 
----
+- `gfn/realizations/gssm/models/base.py`
+- `gfn/realizations/gssm/models/manifold_layer.py`
+- [09_forward_pass.md](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/0_architecture/math/09_forward_pass.md)
 
-## Overview
+## High-Level Picture
 
-The forward pass consists of three main phases:
+The current GSSM forward pass has three conceptual stages:
 
-1. **Force Generation**: Convert tokens to manifold forces
-2. **State Evolution**: Evolve (position, velocity) through the manifold
-3. **Output Production**: Project final state to vocabulary logits
+1. resolve a force sequence,
+2. evolve `(x, v)` through manifold layers over time,
+3. collect logits through timestep-end readout hooks.
 
----
+That last point matters: in the current runtime, logits are not produced by a hardcoded direct call inside `BaseModel._evolve_sequence()`. They are usually emitted by hooks attached during model construction.
 
-## Phase 1: Force Generation
+## Stage 1: Force Resolution
 
-### Input
-Token indices: $t \in \{0, 1, ..., V-1\}^{B \times S}$
+`BaseModel.forward()` currently accepts either:
 
-Where:
-- $B$ = batch size
-- $S$ = sequence length  
-- $V$ = vocabulary size
+- `input_ids`
+- or `force_manual`
 
-### Embedding
-Each token is mapped to a force vector:
+If `force_manual` is provided, it is used directly.
 
-$$F_i = \text{Embedding}(t_i) \in \mathbb{R}^D$$
+Otherwise:
 
-Where $D$ = model dimension (heads × head_dim).
-
-### Force Tensor
-Result: $F \in \mathbb{R}^{B \times S \times D}$
-
-Each position in the sequence has an associated force that will drive the manifold dynamics.
-
----
-
-## Phase 2: State Evolution
-
-### Initial State
-The manifold state consists of position $x$ and velocity $v$:
-
-$$x_0 \in \mathbb{R}^{B \times H \times D_h}$$
-$$v_0 \in \mathbb{R}^{B \times H \times D_h}$$
-
-Where:
-- $H$ = number of heads
-- $D_h$ = head dimension
-- $H \times D_h = D$ (total dimension)
-
-Initialized with Gaussian noise scaled by `initial_spread`.
-
-### Evolution Loop
-
-For each timestep $s = 1, ..., S$:
-
-#### Extract Current Force
-$$f_s = F_{:,s} \in \mathbb{R}^{B \times D}$$
-
-#### Layer Processing
-For each layer $\ell = 1, ..., L$:
-
-**Step 1: Pre-processing**
-- Apply plugins (e.g., dynamic time adjustment)
-- Adjust timestep $dt$ if needed
-
-**Step 2: Integration**
-Compute next state using symplectic integrator:
-
-$$(x', v') = \text{Integrator}(x, v, f_s, dt)$$
-
-The integrator solves:
-$$\frac{dx}{dt} = v$$
-$$\frac{dv}{dt} = a(x, v, f_s)$$
-
-Where acceleration $a$ comes from the PhysicsEngine.
-
-**Step 3: Mixing**
-Combine information across heads:
-
-$$(x_{mixed}, v_{mixed}) = \text{Mixer}(x', v')$$
-
-**Step 4: Dynamics Routing**
-Apply state update rule:
-
-$$x_{new} = \text{Dynamics}(x, x_{mixed})$$
-
-Options:
-- Direct: $x_{new} = x_{mixed}$
-- Residual: $x_{new} = x + \sigma(s)(x_{mixed} - x)$
-- Gated: $x_{new} = g \cdot x_{mixed} + (1-g) \cdot x$
-
-**Step 5: Topology Resolution**
-Wrap position to manifold bounds:
-
-$$x_{wrapped} = \text{Wrap}(x_{new})$$
-
-For torus: $x \to \arctan_2(\sin(x), \cos(x))$
-
-**Step 6: Post-processing**
-- Apply plugins (e.g., fractal refinement)
-- Final adjustments
-
-#### Readout
-After all layers, compute logits:
-
-$$\text{logits}_s = \text{Readout}(x_{final}) \in \mathbb{R}^{B \times V}$$
-
----
-
-## Phase 3: Output Assembly
-
-### Sequence of Logits
-Collect logits from all timesteps:
-
-$$\text{Logits} = [\text{logits}_1, \text{logits}_2, ..., \text{logits}_S] \in \mathbb{R}^{B \times S \times V}$$
-
-### Final State
-Return final manifold state for potential continuation:
-
-$$\text{state}_{final} = (x_S, v_S) \in \mathbb{R}^{B \times H \times D_h} \times \mathbb{R}^{B \times H \times D_h}$$
-
-### State Information
-Additional information returned:
-- Full trajectory: $x_{seq} \in \mathbb{R}^{B \times S \times H \times D_h}$
-- Velocities: $v_{seq} \in \mathbb{R}^{B \times S \times H \times D_h}$
-- Forces: $F \in \mathbb{R}^{B \times S \times D}$
-
----
-
-## Key Operations
-
-### 1. Reshape Operations
-
-**Sequence Mode**: Flatten batch and sequence dimensions
-$$[B, S, H, D] \to [B \cdot S, H, D]$$
-
-**Head Mode**: Flatten all spatial dimensions
-$$[B, H, D] \to [B, H \cdot D]$$
-
-### 2. Force Broadcasting
-
-Global force scope: Broadcast to all heads
-$$[B, D] \to [B, H, D]$$
-
-Local force scope: Partition across heads
-$$[B, D] \to [B, H, D/H]$$
-
-### 3. Topology Wrapping
-
-**Torus** (periodic):
-$$x \to \arctan_2(\sin(x), \cos(x)) \in [-\pi, \pi]$$
-
-**Euclidean** (unbounded):
-$$x \to x$$
-
----
-
-## Mathematical Summary
-
-### Complete Forward Pass
-
-$$\text{Logits} = \text{Readout} \circ \underbrace{\text{Layer}_L \circ ... \circ \text{Layer}_1}_{\text{Depth}} \circ \text{Embedding}(t)$$
-
-Where each layer:
-$$\text{Layer} = \text{Dynamics} \circ \text{Mixer} \circ \text{Integrator} \circ \text{Plugins}$$
-
-And the integrator solves Hamiltonian dynamics:
-$$\dot{x} = v$$
-$$\dot{v} = -\Gamma(x,v) + F_{ext} - \mu v + F_{aux}$$
-
----
-
-## Output Format
-
-The forward pass returns a tuple:
-
-```
-(logits, (x_final, v_final), {
-    'x_seq': x_trajectory,
-    'v_seq': v_trajectory,
-    'forces': F,
-    'x_final': x_final,
-    'v_final': v_final,
-    ...
-})
+```python
+all_forces = self.embedding(input_ids)
 ```
 
-- **logits**: $[B, S, V]$ - predictions for each position
-- **state**: $(x, v)$ for autoregressive continuation
-- **info**: Full trajectory for analysis/loss computation
+Then the model builds:
 
----
+- `batch_size`
+- `seq_len`
+- `mask`
 
-*File: technical/0_architecture/math/forward_pass_conceptual.md*
-*Last Updated: 2026-04-02*
+and gives hooks a chance to modify the force path through:
+
+- `on_resolve_forces`
+
+So the most faithful conceptual statement is:
+
+- the forward pass starts by creating or receiving a force sequence,
+- then optionally lets hooks transform that force sequence before evolution starts.
+
+## Stage 2: State Initialization
+
+The runtime keeps a latent state:
+
+- `x`
+- `v`
+
+If a prior state is passed in, that state is reused.
+
+Otherwise the model:
+
+- expands learned `x0` and `v0`,
+- optionally adds noise to `x` using `initial_spread`,
+- leaves `v` as the expanded learned initial velocity unless a hook overrides state initialization.
+
+Important current detail:
+
+- only `x` gets the default random perturbation in the fallback initialization path shown in `BaseModel.forward()`.
+
+## Stage 3: Sequence Evolution
+
+The main evolution logic lives in `BaseModel._evolve_sequence()`.
+
+Conceptually, for each timestep:
+
+1. extract the current force from the full force sequence,
+2. apply timestep-start hooks,
+3. pass the current state through every manifold layer,
+4. trigger timestep-end hooks,
+5. collect any tensor outputs from those hooks as logits,
+6. optionally store full `x` and `v` trajectories.
+
+So the core forward path is:
+
+```text
+forces -> timestep loop -> layer loop -> timestep-end readout hooks -> logits
+```
+
+## What A Manifold Layer Does
+
+Inside `ManifoldLayer.forward()`, the current conceptual flow is:
+
+1. reshape to `[B_eff, H, D_h]`,
+2. let pre-integrate plugins adjust state or `dt`,
+3. call the integrator,
+4. let post-integrate plugins modify the stepped state,
+5. mix heads,
+6. apply dynamics routing,
+7. wrap topology on the new position,
+8. run finalize hooks such as fractal refinement,
+9. reshape back to the original tensor layout.
+
+This is why the more accurate conceptual layer formula is:
+
+```text
+Layer = reshape + pre_integrate_plugins + integrator + post_integrate_plugins
+        + mixer + dynamics + topology_wrap + finalize_plugins
+```
+
+not just a generic "integrator then readout" story.
+
+## Force Shape Handling
+
+`ManifoldLayer` supports multiple force layouts depending on the input state shape and geometry scope.
+
+Conceptually:
+
+- 4D state input gets flattened to effective batch form,
+- 2D or 3D force inputs may be broadcast or partitioned,
+- `geometry_scope` affects whether force is shared globally or partitioned per head.
+
+So the docs should not pretend there is only one universal force shape during the whole forward path.
+
+## Readout And Logits
+
+In the current runtime, logits are usually produced by hook callbacks triggered on:
+
+- `on_timestep_end`
+
+Any hook that returns a tensor there contributes to `l_logits`.
+
+That means the conceptual story is:
+
+- the forward pass evolves state continuously through layers,
+- then readout is attached as a hook-driven observation mechanism at timestep boundaries.
+
+This is more faithful than describing readout as an unconditional direct method call inside the evolution loop.
+
+## Return Value
+
+`BaseModel.forward()` currently returns:
+
+```python
+(res_logits, (x_final, v_final), state_info)
+```
+
+where `state_info` contains at least:
+
+- `x_seq`
+- `v_seq`
+- `forces`
+- `x_final`
+- `v_final`
+- `mask`
+- `plugin_results`
+
+Important current caveat:
+
+- `x_seq` and `v_seq` only contain full trajectories when `store_full_sequence=True`,
+- otherwise they are reduced to final-state-shaped placeholders for consistency.
+
+## Hook-Wrapped Evolution
+
+The evolution function itself can be replaced or wrapped through:
+
+- `wrap_evolution`
+
+This is how optional features such as checkpointing or adjoint-style evolution enter the forward path.
+
+So conceptually, the forward pass is not strictly a single immutable loop; it is a hook-wrappable evolution skeleton.
+
+## Practical Summary
+
+The current forward pass is best understood as:
+
+- force resolution,
+- state initialization,
+- hook-wrappable timestep evolution through manifold layers,
+- hook-driven readout collection,
+- final state plus trajectory metadata assembly.
+
+## What This Document Should Not Claim
+
+It would be inaccurate to claim that:
+
+- logits always come from a direct hardcoded readout call in the main loop,
+- force shape is always a single fixed layout,
+- the forward pass always stores the full trajectory,
+- the evolution loop cannot be wrapped by plugins.
+
+Those claims do not match the current runtime.

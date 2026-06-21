@@ -1,195 +1,239 @@
-# Optimizers - Riemannian Adam
+# Optimizers
 
-## What is Riemannian Adam?
+This document explains the **current optimizer utilities actually implemented** in GSSM.
 
-Riemannian Adam is an extension of the standard Adam optimizer that respects manifold constraints. While standard Adam works in Euclidean space, Riemannian Adam accounts for curved geometries like the torus.
+The relevant code lives in:
 
-Think of it as: "Adam that understands the manifold's shape."
+- `gfn/realizations/gssm/training/optimizer.py`
+- `gfn/realizations/gssm/training/__init__.py`
 
----
+## What Exists In The Current Runtime
 
-## Standard Adam Review
+The training package currently exposes:
 
-Adam combines momentum and adaptive learning rates:
+- `RiemannianAdam`
+- `RiemannianSGD`
+- `create_optimizer(...)`
+- `make_gfn_optimizer(...)`
+- `all_parameters(...)`
 
-### Update Rule
-
-**Momentum** (first moment):
-$$m_t = \beta_1 m_{t-1} + (1-\beta_1) g_t$$
-
-**Adaptive rate** (second moment):
-$$v_t = \beta_2 v_{t-1} + (1-\beta_2) g_t^2$$
-
-**Bias correction**:
-$$\hat{m}_t = \frac{m_t}{1-\beta_1^t}, \quad \hat{v}_t = \frac{v_t}{1-\beta_2^t}$$
-
-**Parameter update**:
-$$\theta_t = \theta_{t-1} - \eta \frac{\hat{m}_t}{\sqrt{\hat{v}_t} + \epsilon}$$
-
-Where:
-- $g_t$ = gradient at step $t$
-- $\beta_1$ = 0.9 (momentum decay)
-- $\beta_2$ = 0.999 (second moment decay)
-- $\eta$ = learning rate
-- $\epsilon$ = 1e-8 (numerical stability)
-
----
-
-## Riemannian Extension
-
-### For Euclidean Geometry
-
-Identical to standard Adam. No special handling needed.
-
-### For Torus Geometry
-
-After parameter update, **wrap position parameters**:
-
-$$\theta_t = \arctan_2(\sin(\theta_t), \cos(\theta_t))$$
-
-This ensures positions stay in $[-\pi, \pi]$.
-
-**Why?**
-- Gradient descent moves in tangent space (flat)
-- But parameters live on curved manifold
-- Wrapping projects back to valid manifold coordinates
-
----
-
-## Dual-Parameter Group Optimization
-
-### The Problem
-
-GSSM has two types of parameters:
-
-**Group 1: Network Parameters**
-- Embedding weights
-- Mixer weights
-- Readout weights
-- Normal learning rate needed
-
-**Group 2: Physics Parameters**
-- Initial state $x_0, v_0$
-- Impulse scale
-- Gating parameters
-- Need higher learning rate
-
-**Why different rates?**
-- Physics params are few but crucial
-- Their gradients are typically smaller
-- They need faster adaptation
-
-### Solution: Parameter Groups
-
-```
-param_groups = [
-    {
-        'params': network_params,
-        'lr': lr,              # Normal rate
-        'weight_decay': 1e-4,
-    },
-    {
-        'params': physics_params,
-        'lr': lr * 10,         # 10x faster
-        'weight_decay': 0.0,   # No decay
-    }
-]
-```
-
-**Typical values**:
-- Base LR: 1e-3
-- Physics LR: 1e-2 (10x base)
-- Weight decay: 1e-4 (network only)
-
----
-
-## Riemannian SGD
-
-Simpler alternative to Adam:
-
-$$\theta_t = \theta_{t-1} - \eta g_t$$
-
-With torus wrapping for position parameters.
-
-**When to use**:
-- Simplicity preferred
-- Large batch sizes
-- Less memory (no momentum buffers)
-
----
-
-## Optimizer Selection Guide
-
-| Optimizer | Use Case | Notes |
-|-----------|----------|-------|
-| **RiemannianAdam** | Default | Best for most cases |
-| **RiemannianSGD** | Large scale | Simpler, less memory |
-| **AdamW** | Standard | If no manifold constraints |
-| **Standard SGD** | Baseline | Without Riemannian features |
-
----
-
-## Configuration
+These utilities are public through:
 
 ```python
-# Simple usage
+from gfn.realizations.gssm.training import (
+    RiemannianAdam,
+    RiemannianSGD,
+    create_optimizer,
+    make_gfn_optimizer,
+)
+```
+
+## What `RiemannianAdam` Really Does
+
+`RiemannianAdam` is currently a **thin extension of `torch.optim.Adam`**.
+
+Its special behavior is not a full general-purpose Riemannian optimizer. Instead, after the base optimizer step, it optionally wraps selected position parameters back onto a torus:
+
+```python
+p.data = torch.atan2(torch.sin(p.data), torch.cos(p.data))
+```
+
+This wrap happens only when both conditions hold:
+
+1. `geometry_type == "torus"`
+2. the parameter group has `is_position=True`
+
+So the current semantics are:
+
+- Euclidean behavior -> standard Adam update
+- Toroidal position parameters -> Adam update plus angular wrapping
+
+## What `RiemannianSGD` Really Does
+
+`RiemannianSGD` follows the same idea but extends `torch.optim.SGD` instead of `AdamW`.
+
+Again, the current special behavior is:
+
+- run the normal SGD step,
+- then wrap toroidal position groups if `is_position=True`.
+
+## Important Current Limitation
+
+Despite the names, these optimizers do **not** currently implement:
+
+- parallel transport,
+- manifold-aware momentum transport,
+- general retractions for arbitrary geometries,
+- geometry-specific updates beyond torus angle wrapping.
+
+So the most accurate mental model is:
+
+- standard Euclidean optimizer core,
+- plus optional torus projection for marked position parameters.
+
+## Parameter Grouping In `create_optimizer(...)`
+
+`create_optimizer(model, ...)` scans `model.named_parameters()` and builds two buckets:
+
+### Position parameters
+
+A parameter is treated as a toroidal position parameter if:
+
+- its name contains `"x0"`, or
+- its name contains `"position"`
+
+These parameters are placed in a group with:
+
+- `is_position=True`
+
+### Other parameters
+
+Everything else is placed in a normal group with:
+
+- `is_position=False`
+
+If the selected optimizer class is one of the Riemannian variants, this flag controls whether post-step torus wrapping is applied.
+
+## What `make_gfn_optimizer(...)` Does
+
+`make_gfn_optimizer(...)` is the higher-level helper for **dual-group optimization**.
+
+It splits parameters into:
+
+### Physics-sensitive parameters
+
+The function places the following into the physics group:
+
+- parameters named `x0`
+- parameters named `v0`
+- parameters named `impulse_scale`
+- parameters whose names contain `"gate"`
+
+This group gets:
+
+- `lr = lr * physics_lr_scale`
+- `weight_decay = 0.0`
+
+### Base network parameters
+
+Everything else goes into the base group with:
+
+- `lr = lr`
+- `weight_decay = weight_decay`
+
+Important current detail:
+
+- parameters from `extra_modules` are appended to the global named-parameter pool,
+- but the physics group is collected only from `manifold.named_parameters()`,
+- so `extra_modules` contribute to the base network group unless they are handled separately outside this helper.
+
+## Default Optimizer Choice In `make_gfn_optimizer(...)`
+
+The current helper defaults to:
+
+- `optimizer_cls = torch.optim.AdamW`
+
+That means the helper does **not** automatically choose `RiemannianAdam`.
+
+If you want torus wrapping behavior through the helper, you must pass a compatible optimizer class explicitly.
+
+## Typical Usage Patterns
+
+### Simple torus-aware optimizer
+
+```python
+from gfn.realizations.gssm.training import RiemannianAdam
+
 optimizer = RiemannianAdam(
     model.parameters(),
     lr=1e-3,
-    geometry_type='torus'  # or 'euclidean'
+    geometry_type="torus",
 )
+```
 
-# Dual-group (recommended)
+### Name-based grouped optimizer
+
+```python
+from gfn.realizations.gssm.training import create_optimizer, RiemannianAdam
+
+optimizer = create_optimizer(
+    model,
+    {
+        "type": "riemannian_adam",
+        "lr": 1e-3,
+        "geometry": "torus",
+        "weight_decay": 0.0,
+    },
+)
+```
+
+### Dual-group optimizer
+
+```python
+from gfn.realizations.gssm.training import make_gfn_optimizer
+
 optimizer = make_gfn_optimizer(
     model,
     lr=1e-3,
     physics_lr_scale=10.0,
-    weight_decay=1e-4
+    weight_decay=1e-4,
 )
 ```
 
----
+## When The Riemannian Variants Matter
 
-## Physical Interpretation
+The Riemannian wrappers matter mainly when:
 
-### Gradient Descent on Manifolds
+- the topology is toroidal,
+- you want `x0` or other marked position parameters wrapped back to `[-pi, pi]`,
+- you are using name-based or explicit parameter groups that preserve `is_position=True`.
 
-Standard gradient descent:
-$$\theta_{new} = \theta - \eta \nabla L$$
+They matter much less when:
 
-This moves in the tangent space, which is flat.
+- the topology is Euclidean,
+- no parameter group is marked as positional,
+- you use plain `AdamW` or `SGD`.
 
-But the manifold is curved! After moving, we must **retract** back to the manifold:
-$$\theta_{new} = \text{retract}(\theta - \eta \nabla L)$$
+## Practical Interpretation
 
-For torus: $\text{retract}(x) = \arctan_2(\sin(x), \cos(x))$
+### Why wrap position parameters?
 
-### Why Different LR for Physics Params?
+On a torus, positions are angular coordinates. A raw optimizer step can move them outside the canonical range.
 
-Think of the system as:
-- **Network weights**: Fine-tuning the machinery
-- **Physics params**: Fundamental constants
+The current optimizer handles this by mapping them back with:
 
-Physics params need larger updates because:
-1. They affect the entire dynamics
-2. They're initialized with uncertainty
-3. Small gradients need amplification
+$$\theta \mapsto \operatorname{atan2}(\sin\theta, \cos\theta)$$
 
----
+which keeps angular coordinates in a wrapped representation compatible with toroidal dynamics.
 
-## When to Use Riemannian Optimizers
+### Why dual learning rates?
 
-**Always use RiemannianAdam for:**
-- Torus topology
-- Any manifold-constrained parameters
-- Production training
+The helper assumes that some parameters have a more direct effect on the physical trajectory:
 
-**Can use standard Adam for:**
-- Euclidean topology only
-- Quick experiments
-- When simplicity matters
+- initial state,
+- velocity seed,
+- impulse gain,
+- gate parameters.
 
----
+So it optionally trains them with:
 
-*File: technical/0_architecture/math/training/optimizers.md*
-*Last Updated: 2026-04-02*
+- larger learning rate,
+- no weight decay.
+
+This is a training heuristic encoded in the helper, not a theorem about all GSSM workloads.
+
+## What This Document Should Not Claim
+
+It would be inaccurate to claim that the current runtime:
+
+- always uses `RiemannianAdam`,
+- always uses dual-group optimization,
+- implements fully general manifold optimization.
+
+Those are stronger statements than the current code supports.
+
+## Runtime Cross-References
+
+- `gfn/realizations/gssm/training/optimizer.py`
+- `gfn/realizations/gssm/training/__init__.py`
+- `docs/gssm/technical/runtime/01-hyperparameters.md`

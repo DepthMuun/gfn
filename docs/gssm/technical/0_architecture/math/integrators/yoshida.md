@@ -1,145 +1,124 @@
 # Yoshida Integrator
 
-## What is it?
+This document describes the **current `YoshidaIntegrator` implementation**.
 
-The Yoshida integrator is a fourth-order symplectic integrator. It achieves higher accuracy than Leapfrog by using a carefully constructed sequence of substeps with optimized coefficients.
+The authoritative code is:
 
-Named after Haruo Yoshida, who developed the coefficient optimization scheme in 1990.
+- `gfn/realizations/gssm/physics/integrators/symplectic/yoshida.py`
 
----
+## What It Is In The Current Runtime
 
-## The Algorithm
+`YoshidaIntegrator` is a fourth-order symplectic solver with:
 
-Yoshida constructs a 4th order method by composing three 2nd order leapfrog steps with different step sizes.
+- explicit Yoshida coefficients,
+- shared topology wrapping,
+- shared velocity clamping,
+- an optional fused CUDA fast path for low-rank geometries.
 
-### Coefficients
+So the current implementation is not just a pure educational composition formula; it also contains runtime specialization and fallback behavior.
 
-The Yoshida coefficients are derived from:
+## Coefficients Used By The Code
 
-$$w_1 = \frac{1}{2 - 2^{1/3}} \approx 1.3512$$
-$$w_0 = \frac{-2^{1/3}}{2 - 2^{1/3}} \approx -1.7024$$
+The runtime sets:
 
-From these, the position and velocity coefficients are:
+```text
+w1 =  1.3512071919596576
+w0 = -1.7024143839193153
 
-$$c_1 = c_4 = \frac{w_1}{2}$$
-$$c_2 = c_3 = \frac{w_0 + w_1}{2}$$
+c1 = c4 = w1 / 2
+c2 = c3 = (w0 + w1) / 2
+d1 = d3 = w1
+d2 = w0
+```
 
-$$d_1 = d_3 = w_1$$
-$$d_2 = w_0$$
+These match the standard Yoshida fourth-order composition.
 
-### Step Sequence
+## Current Slow-Path Step Pattern
 
-The algorithm performs three force evaluations per full step:
+In the Python fallback path, each full step does:
 
-#### Sub-step 1
-$$x_1 = x_n + c_1 \cdot \Delta t \cdot v_n$$
-$$v_1 = v_n + d_1 \cdot \Delta t \cdot a(x_1)$$
+1. drift with `c1`, compute acceleration, kick with `d1`,
+2. drift with `c2`, compute acceleration, kick with `d2`,
+3. drift with `c3`, compute acceleration, kick with `d3`,
+4. final drift with `c4`,
+5. apply topology resolution after each drift and velocity clamping after each kick.
 
-#### Sub-step 2
-$$x_2 = x_1 + c_2 \cdot \Delta t \cdot v_1$$
-$$v_2 = v_1 + d_2 \cdot \Delta t \cdot a(x_2)$$
+So the current runtime is:
 
-#### Sub-step 3
-$$x_3 = x_2 + c_3 \cdot \Delta t \cdot v_2$$
-$$v_3 = v_2 + d_3 \cdot \Delta t \cdot a(x_3)$$
+- symplectic,
+- topology-aware,
+- velocity-saturation-aware through the base class.
 
-#### Final Drift
-$$x_{n+1} = x_3 + c_4 \cdot \Delta t \cdot v_3$$
-$$v_{n+1} = v_3$$
+## CUDA Fast Path
 
----
+The current code has a fused fast path when:
 
-## Properties
+- CUDA extensions are available,
+- `yoshida_fused` exists,
+- geometry is low-rank or paper-low-rank,
+- external force is present,
+- `x` is on CUDA.
 
-| Property | Value |
-|----------|-------|
-| **Order** | 4th order (error ~ $O(\Delta t^5)$ per step) |
-| **Symplectic** | Yes |
-| **Force evaluations** | 3 per step |
-| **Cost** | ~3× Leapfrog |
-| **Accuracy** | Higher than Leapfrog |
+That path passes through:
 
----
+- low-rank tensors `U` and `W`,
+- clamp values,
+- friction configuration,
+- velocity friction scaling,
+- velocity saturation,
+- friction-gate parameters,
+- singularity settings,
+- trace-normalization flag,
+- paper-vs-base low-rank flag.
 
-## Why it Works
+This matters because the real runtime performance and numerical behavior can differ substantially between the fused path and the Python fallback.
 
-### Composition Method
+## Fallback Behavior
 
-Yoshida is a composition of three leapfrog steps:
+If the fused path is not available, the class emits a one-time warning and falls back to the explicit Python loop.
 
-$$\Phi_{\Delta t} = \Phi_{\alpha_3 \Delta t} \circ \Phi_{\alpha_2 \Delta t} \circ \Phi_{\alpha_1 \Delta t}$$
+So the docs should not describe the CUDA fast path as unconditional.
 
-Where $\Phi$ represents a leapfrog step and the coefficients $\alpha_i$ are chosen to cancel out 3rd and 4th order error terms.
+## Relationship To Leapfrog
 
-### Error Cancellation
+Compared to leapfrog, Yoshida in the current runtime offers:
 
-The specific values of $w_0$ and $w_1$ are chosen such that:
+- higher formal order,
+- more sub-steps,
+- higher cost,
+- similar shared safety helpers for topology and velocity control.
 
-1. The sum of coefficients equals 1: $2w_1 + w_0 = 1$
-2. Higher-order error terms cancel out
-3. The method remains symmetric (time-reversible)
+But it does **not** reuse the leapfrog-specific explicit friction-averaging scheme.
 
-### Symplectic Property
+Instead, it repeatedly calls the shared acceleration helper at each sub-step.
 
-Since each sub-step is symplectic and the composition of symplectic maps is symplectic, the full Yoshida step preserves the symplectic structure.
+## When To Use It
 
----
+Use Yoshida when:
 
-## Error Analysis
+- you want a higher-order symplectic solver,
+- you accept more cost than leapfrog,
+- long-horizon trajectory quality matters more than default simplicity.
 
-Local truncation error per step: $O(\Delta t^5)$
+It is less attractive when:
 
-Global error after $N$ steps: $O(\Delta t^4)$
+- you want the main documented default,
+- training cost is the top priority,
+- you rely on the default leapfrog path already being sufficient.
 
-Compared to Leapfrog:
-- Yoshida: error $\propto \Delta t^4$
-- Leapfrog: error $\propto \Delta t^2$
+## What This Document Should Not Claim
 
-For the same $\Delta t$, Yoshida is more accurate by a factor of $\Delta t^2$.
+It would be inaccurate to claim that:
 
----
+- Yoshida is the default integrator,
+- the current implementation is only a pure textbook composition with no runtime specialization,
+- it has no fast path,
+- it uses the same friction-correction path as leapfrog.
 
-## When to Use
+Those claims do not match the current code.
 
-**Use Yoshida for:**
-- Long simulations where accuracy matters
-- When you need to minimize energy drift over many steps
-- Scientific computing requiring high precision
-- Validation against analytical solutions
+## Runtime Cross-References
 
-**Don't use when:**
-- Training speed is critical (3× cost)
-- Stability matters more than accuracy (use Leapfrog)
-- Short trajectories (error advantage not worth cost)
-
----
-
-## Comparison with Leapfrog
-
-| Aspect | Leapfrog | Yoshida |
-|--------|----------|---------|
-| Order | 2nd | 4th |
-| Force evals/step | 2 | 3 |
-| Accuracy | Good | Excellent |
-| Speed | Fast | 1.5× slower |
-| Energy drift | Low | Very low |
-
----
-
-## Coefficient Derivation
-
-The coefficients come from solving:
-
-$$\sum \alpha_i = 1$$
-$$\sum \alpha_i^3 = 0$$
-
-The solution gives:
-- $\alpha_1 = \alpha_3 = w_1$
-- $\alpha_2 = w_0$
-
-These ensure 4th order accuracy while maintaining symmetry.
-
----
-
-*File: technical/0_architecture/math/integrators/yoshida.md*
-*Last Updated: 2026-04-02*
+- `gfn/realizations/gssm/physics/integrators/symplectic/yoshida.py`
+- `gfn/realizations/gssm/physics/integrators/base.py`
+- `docs/gssm/technical/0_architecture/math/integrators/leapfrog.md`

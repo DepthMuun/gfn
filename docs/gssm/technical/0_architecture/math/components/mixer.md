@@ -1,157 +1,197 @@
-# Mixer (FlowMixer)
+# Mixer
 
-## What is the Mixer?
+This document describes the **current mixer runtime** used by `ManifoldLayer`.
 
-The Mixer is a component that combines information across multiple heads. After each head evolves independently through the integrator, the Mixer fuses their states to enable information exchange between heads.
+The authoritative files are:
 
-Think of it as: "Each head has seen the input from its own perspective; now they share what they learned."
+- `gfn/realizations/gssm/models/components/mixer.py`
+- `gfn/realizations/gssm/models/builders/layer_builder.py`
+- `gfn/realizations/gssm/models/manifold_layer.py`
 
----
+## What The Mixer Does
 
-## The Problem
+The mixer runs **after integration** and **before dynamics routing** inside `ManifoldLayer.forward()`.
 
-Each head in GSSM operates independently during integration:
-- Head 1 evolves position $x_1$ and velocity $v_1$
-- Head 2 evolves position $x_2$ and velocity $v_2$
-- ...and so on
+The current sequence is:
 
-Without mixing, heads never share information. The Mixer solves this by combining head states.
+1. integrate each head,
+2. mix head states,
+3. feed the mixed proposal into the dynamics modules,
+4. reshape back to per-head form if needed.
 
----
+So the mixer is not the final output head and not a hook plugin. It is a required internal component of each manifold layer.
 
-## Two Mixing Modes
+## Two Concrete Mixer Classes
 
-### 1. Partition Mode (low_rank, attention)
+The current code exposes:
 
-**What it does**: Collapses all heads into a single aggregated state.
+- `FlowMixer`
+- `GeodesicAttentionMixer`
 
-**Input**: $x \in \mathbb{R}^{B \times H \times D_h}$ (B=batch, H=heads, D=head_dim)
+The builder chooses between them like this:
 
-**Output**: $x_{mixed} \in \mathbb{R}^{B \times D}$ where $D = H \times D_h$
+- if `mixer_type == "attention"`, build `GeodesicAttentionMixer`
+- otherwise build `FlowMixer`
 
-**Process**:
+This is important because older docs tended to merge all attention behavior into `FlowMixer`, which is no longer the cleanest description of the current builder path.
 
-For **Euclidean** topology:
-$$x_{flat} = \text{flatten}(x) \in \mathbb{R}^{B \times (H \cdot D_h)}$$
-$$x_{mixed} = W_{mix} \cdot x_{flat} + b_{mix}$$
+## `FlowMixer`
 
-For **Torus** topology:
-$$\sin_x = \sin(x), \quad \cos_x = \cos(x)$$
-$$v_{scaled} = \tanh(v / 10)$$
-$$x_{cat} = [\sin_x; \cos_x; v_{scaled}] \in \mathbb{R}^{B \times 3H D_h}$$
-$$x_{mixed} = W_{mix} \cdot x_{cat}$$
-$$x_{mixed} = \arctan_2(\sin(x_{mixed}), \cos(x_{mixed}))$$
+`FlowMixer` supports modes:
 
-**Why trigonometric projection for Torus?**
-- Direct averaging doesn't work on circular manifolds
-- $\sin/\cos$ encoding preserves periodic structure
-- Final $\arctan_2$ projects back to valid torus coordinates
+- `low_rank`
+- `default`
+- `geodesic`
+- `attention`
+- `ensemble`
 
----
+Important current caveat:
 
-### 2. Ensemble Mode
+- inside `FlowMixer` itself, the modes `low_rank`, `default`, `geodesic`, and `attention` all route to the same partition-style build path,
+- the truly separate attention implementation in the current builder is `GeodesicAttentionMixer`.
 
-**What it does**: Preserves per-head structure but couples them softly.
+So the most faithful runtime description is:
 
-**Input**: $x \in \mathbb{R}^{B \times H \times D_h}$
+- `FlowMixer` provides partition mixing plus ensemble mixing,
+- attention as a distinct class lives in `GeodesicAttentionMixer`.
 
-**Output**: $x_{coupled} \in \mathbb{R}^{B \times H \times D_h}$ (same shape)
+## Partition Path In `FlowMixer`
 
-**Process**:
+For non-ensemble modes, `FlowMixer` collapses:
 
-**Step 1: Compute consensus center**
+- `[B, H, D_h] -> [B, D]`
 
-$$w = \text{softmax}(\text{ensemble\_attn}) \in \mathbb{R}^H$$
+for both position and velocity.
+
+### Euclidean partition path
+
+For position:
+
+```text
+x_flat = reshape(x)
+x_agg = out_proj_x(x_flat)
+```
+
+For velocity:
+
+```text
+v_flat = reshape(v)
+v_agg = out_proj_v(v_flat)
+```
+
+### Toroidal partition path
+
+For torus, position mixing uses:
+
+```text
+[sin(x), cos(x), tanh(v / 10)]
+```
+
+as the feature vector before projection, then wraps back with:
+
+```text
+atan2(sin(x_agg), cos(x_agg))
+```
+
+Important current detail:
+
+- toroidal position mixing explicitly includes a velocity-derived feature through `tanh(v / 10)`,
+- so it is not only a position-only circular average.
+
+### Velocity normalization in partition mode
+
+Current runtime detail:
+
+- partition velocity mixing uses `Identity()` for `mixed_norm_v`,
+- not `RMSNorm`.
+
+The reason is explicit in code comments: preserve momentum magnitude information instead of sphericalizing the mixed velocity.
+
+## Ensemble Path In `FlowMixer`
+
+In `ensemble` mode, `FlowMixer` preserves head structure:
+
+- input `[B, H, D_h]`
+- output `[B, H, D_h]`
+
+It computes:
+
+- softmax head weights from `ensemble_attn`,
+- a consensus center,
+- a small coupling update with coefficient `0.1`.
+
+For torus:
+
+- center uses circular averaging through `atan2(sum(w sin), sum(w cos))`,
+- head-to-center deltas are wrapped angular differences.
+
+For velocity:
+
+- it computes a weighted center in ordinary linear space.
+
+This mode is the right description when the model wants to keep separate head trajectories instead of collapsing them immediately.
+
+## `GeodesicAttentionMixer`
+
+`GeodesicAttentionMixer` is a separate class used by the builder when `mixer_type == "attention"`.
+
+Its path is:
+
+1. project `q`, `k`, `v`,
+2. compute pairwise head distances,
+3. turn negative distances into attention weights,
+4. mix across heads,
+5. flatten to `[B, D]`,
+6. apply final output projection.
+
+For torus:
+
+- pairwise distance uses wrapped angular differences,
+- mixed position uses `atan2(sum(w sin), sum(w cos))`.
 
 For Euclidean:
-$$x_{center} = \sum_{h=1}^H w_h \cdot x_h \in \mathbb{R}^{B \times 1 \times D_h}$$
 
-For Torus:
-$$x_{center} = \arctan_2\left(\sum_h w_h \sin(x_h), \sum_h w_h \cos(x_h)\right)$$
+- pairwise distance is ordinary squared-distance style attention.
 
-**Step 2: Soft coupling**
+So this is the actual current geodesic-attention implementation, not just a label on `FlowMixer`.
 
-Each head moves slightly toward the consensus:
+## Relation To `ManifoldLayer`
 
-$$\Delta x = x_{center} - x$$
+After mixing:
 
-For Torus:
-$$\Delta x = \arctan_2(\sin(\Delta x), \cos(\Delta x))$$
+- if the mixer returns `[B, D]`, the layer runs the partition dynamics path and redistributes back into heads,
+- if the mixer returns `[B, H, D_h]`, the layer runs the ensemble-preserving path.
 
-$$x_{coupled} = x + 0.1 \cdot \tanh(W_{couple} \cdot \Delta x)$$
+This is why the output shape of the mixer matters so much to downstream behavior.
 
-**Why 0.1?**
-- Small step prevents disruption of individual head trajectories
-- $\tanh$ limits maximum change
-- Heads maintain identity while influencing each other
+## Practical Guidance
 
----
+Use partition-style mixing when:
 
-## Geodesic Attention Mixer
+- you want a single aggregated latent proposal per layer,
+- the model behaves more like standard head aggregation.
 
-An alternative mixing mechanism using attention weights based on manifold distance.
+Use ensemble mode when:
 
-### Distance-Based Attention
+- you want to preserve headwise trajectories longer,
+- you care about soft consensus instead of immediate collapse.
 
-**Query-Key projection**:
-$$Q = W_q \cdot x, \quad K = W_k \cdot x$$
+Use `mixer_type="attention"` when:
 
-**Geodesic distance** (for Torus):
-$$d(q, k) = \arctan_2(\sin(q-k), \cos(q-k))^2$$
+- you explicitly want the dedicated `GeodesicAttentionMixer` path.
 
-**Attention weights**:
-$$A_{ij} = \text{softmax}\left(-\frac{d(Q_i, K_j)}{\tau}\right)$$
+## What This Document Should Not Claim
 
-Closer heads (smaller geodesic distance) get higher attention weights.
+It would be inaccurate to claim that:
 
-**Mixing**:
-$$x_{mixed} = \sum_j A_{ij} \cdot V_j$$
+- all attention behavior is implemented inside `FlowMixer`,
+- velocity mixing always uses RMS normalization,
+- the mixer is an optional plugin rather than a required layer component.
 
----
+Those claims do not match the current runtime.
 
-## Why Mixing Matters
+## Runtime Cross-References
 
-### Without Mixer
-- Each head is isolated
-- No information sharing
-- Like having multiple independent models
-
-### With Mixer
-- Heads share insights
-- Emergent ensemble behavior
-- Better representation capacity
-
-### Analogy
-Think of heads as experts in a meeting:
-- **Partition mode**: Experts vote and produce single consensus decision
-- **Ensemble mode**: Experts discuss and adjust their individual opinions
-
----
-
-## Mathematical Properties
-
-| Property | Partition | Ensemble |
-|----------|-----------|----------|
-| Output shape | [B, D] (collapsed) | [B, H, D] (preserved) |
-| Information flow | Heads → Single state | Heads ↔ Heads |
-| Parameters | $W_{mix} \in \mathbb{R}^{D \times D}$ | $W_{couple} \in \mathbb{R}^{D_h \times D_h}$, attn ∈ ℝ^H |
-| Use case | Standard processing | Multi-trajectory preservation |
-
----
-
-## When to Use Each Mode
-
-**Use Partition (default)**:
-- Standard sequence modeling
-- Classification tasks
-- Most language modeling
-
-**Use Ensemble**:
-- Need to preserve per-head trajectories
-- Ensemble methods
-- Uncertainty quantification per head
-
----
-
-*File: technical/0_architecture/math/components/mixer.md*
-*Last Updated: 2026-04-02*
+- `gfn/realizations/gssm/models/components/mixer.py`
+- `gfn/realizations/gssm/models/builders/layer_builder.py`
+- `gfn/realizations/gssm/models/manifold_layer.py`

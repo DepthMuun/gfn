@@ -1,375 +1,407 @@
-# Forward Pass - Complete Data Flow
+# Forward Pass - Current Runtime Data Flow
 
-**Source Files Analyzed:**
-- `models/base.py` lines 36-114
-- `models/manifold_layer.py` lines 119-241
-- `physics/integrators/symplectic/leapfrog.py` lines 38-117
+This document describes the **current forward path** implemented in:
 
----
+- `gfn/realizations/gssm/models/base.py`
+- `gfn/realizations/gssm/models/manifold_layer.py`
+- `gfn/realizations/gssm/models/components/readout.py`
+- the selected integrator and physics engine
 
-## 1. Entry Point: BaseModel.forward()
+## High-Level Structure
 
-**Location**: `models/base.py:36`
+At runtime, the default forward path is:
 
-### Signature
-```python
-def forward(self, input_ids=None, attention_mask=None, state=None, force_manual=None, **kwargs)
-    -> Tuple[Tensor, Tuple[Tensor, Tensor], Dict]
+```text
+input_ids or force_manual
+  -> force sequence
+  -> initial state (x, v)
+  -> sequence evolution over timesteps
+       -> per-layer manifold updates
+  -> hook-based readout
+  -> logits + final state + state_info
 ```
 
-### Step 1: Resolve Forces (lines 42-58)
+## Entry Point: `BaseModel.forward(...)`
+
+The current public model forward accepts:
+
+```python
+forward(
+    input_ids=None,
+    attention_mask=None,
+    state=None,
+    force_manual=None,
+    **kwargs,
+)
+```
+
+and returns:
+
+```python
+(logits, (x_final, v_final), state_info)
+```
+
+## 1. Force Resolution
+
+The current runtime resolves forces in this order:
 
 ```python
 if force_manual is not None:
     all_forces = force_manual
 elif input_ids is not None:
-    all_forces = self.embedding(input_ids)  # [B, S, D]
+    all_forces = self.embedding(input_ids)
+else:
+    raise ValueError(...)
 ```
 
-**Flow**:
-- `input_ids` [Batch, Sequence] integer tokens
-- `self.embedding` is `FunctionalEmbedding`
-- Output: `all_forces` [B, S, D] where D = heads × head_dim
+So the default path is still:
 
-**Mask Creation**:
+- token ids in,
+- `FunctionalEmbedding` produces continuous forces out.
+
+Important current caveat:
+
+- even though `FunctionalEmbedding` supports `mode="continuous"`,
+- the main path still calls `self.embedding(input_ids)` unless you provide a compatible alternative path such as `force_manual`.
+
+## 2. Attention Mask Handling
+
+The current code builds:
+
 ```python
-mask = attention_mask.unsqueeze(-1).float()  # [B, S, 1]
-# or ones if no mask provided
+mask = attention_mask.unsqueeze(-1).float()
 ```
 
----
+when an attention mask is supplied, otherwise it creates an all-ones mask.
 
-## 2. State Initialization (lines 73-86)
+That means masking happens at the force level through:
 
-**Location**: `models/base.py:73`
-
-### From External State
 ```python
-if state is not None:
-    x, v = state  # Directly use provided state
+force = fs[:, i] * ms[:, i]
 ```
 
-### Default Initialization
+inside the timestep loop.
+
+## 3. Batch Start Hook
+
+Before state initialization, the model triggers:
+
+```python
+self.hooks.trigger("on_batch_start", batch_size=batch_size, device=all_forces.device)
+```
+
+This is a model-level lifecycle event, not a layer plugin call.
+
+## 4. State Initialization
+
+State initialization happens in one of three ways.
+
+### External state
+
+If `state` is provided:
+
+```python
+x, v = state
+```
+
+### Hook override
+
+If no explicit state is passed, the model gives `state_init` a chance to override initialization:
+
+```python
+init_res = self.hooks.trigger("state_init", batch_size=batch_size)
+if init_res:
+    x, v = init_res[-1]
+```
+
+### Default learned initialization
+
+Otherwise, the model expands learnable parameters:
+
 ```python
 x = self.x0.expand(batch_size, self.x0.shape[1], self.x0.shape[2])
 v = self.v0.expand(batch_size, self.v0.shape[1], self.v0.shape[2])
-if self.initial_spread > 0:
-    x = x + torch.randn_like(x) * self.initial_spread
 ```
 
-**Shapes**:
-- `self.x0` initialized in factory: [1, heads, head_dim]
-- After expand: [B, heads, head_dim]
-- `initial_spread` adds Gaussian noise
+and optionally adds noise to `x` when `initial_spread > 0`.
 
----
+Current shapes:
 
-## 3. Sequence Evolution Loop (lines 116-168)
+- `x0`, `v0`: `[1, heads, head_dim]`
+- expanded state: `[B, heads, head_dim]`
 
-**Location**: `models/base.py:_evolve_sequence()`
+## 5. Evolution Function Selection
 
-### Outer Loop: Sequence Positions
+`BaseModel.forward()` does not always call `_evolve_sequence()` directly.
+
+Instead, it first lets hooks wrap the evolution function:
+
 ```python
-for i in range(l_seq_len):  # For each token position
-    force = fs[:, i] * ms[:, i]  # [B, D]
+wrapped_evolution = self.hooks.trigger("wrap_evolution", evolution_fn=evolve_fn)
+if wrapped_evolution:
+    evolve_fn = wrapped_evolution[-1]
 ```
 
-### Inner Loop: Layers
+This is how the optional adjoint plugin replaces the default discrete loop with its own wrapped evolution path.
+
+## 6. Default Sequence Evolution Loop
+
+In the default path, `_evolve_sequence()` iterates over timesteps:
+
 ```python
-for layer in self.layers:  # For each manifold layer
-    res = layer(local_x, local_v, force)
-    local_x, local_v = res[0], res[1]
+for i in range(l_seq_len):
+    force = fs[:, i] * ms[:, i]
 ```
 
----
+At each timestep, the model:
 
-## 4. ManifoldLayer Forward (Detailed)
+1. triggers `on_timestep_start`,
+2. runs all manifold layers,
+3. triggers `on_timestep_end`,
+4. stores logits and state snapshots.
 
-**Location**: `models/manifold_layer.py:119`
+## 7. Timestep Start Hook
 
-### Input Shapes
-- `x`: [B, S, H, D] or [B, H, D]
-- `v`: Same shape as x
-- `force`: [B, S, H×D] or [B, H×D]
+The current loop allows `on_timestep_start` to modify the force.
 
-### Step 4.1: Reshape (lines 152-185)
+If a callback returns:
 
-**4D Input [B, S, H, D]**:
+- a tensor -> it is added to the force,
+- a dict containing `"force"` -> it replaces the force.
+
+This makes `on_timestep_start` the main model-level hook for force preprocessing.
+
+## 8. Layer Stack
+
+For each timestep, the model iterates through:
+
 ```python
-B, S = x.shape[:2]
-x_3d = x.reshape(B * S, self.heads, self.head_dim)  # [B×S, H, D]
-v_3d = v.reshape(B * S, self.heads, self.head_dim)
+for layer in self.layers:
 ```
 
-**Force Reshaping**:
-```python
-if force.dim() == 3:  # [B, S, D]
-    f_3d = force.reshape(B * S, 1, -1).expand(-1, self.heads, -1)
-```
+and around each layer call it triggers:
 
-### Step 4.2: Pre-Integrate Plugins (lines 190-193)
+- `on_layer_start`
+- `on_layer_end`
+
+The layer itself remains the main site of physics evolution.
+
+## 9. `ManifoldLayer.forward(...)`
+
+Each `ManifoldLayer` receives:
+
+- `x`
+- `v`
+- `force`
+
+with either:
+
+- batch shape `[B, H, D]`, or
+- sequence shape `[B, S, H, D]`
+
+and normalizes everything internally to `[B_eff, H, D]`.
+
+### 9.1 Force reshaping
+
+The exact reshaping depends on:
+
+- input rank,
+- `geometry_scope`,
+- whether force arrives already partitioned by head or flattened across heads.
+
+So it is not always accurate to think of force as a single fixed `[B, D] -> [B, H, D]` reshape. The code handles:
+
+- 2D force `[B, H*D]`
+- 3D force `[B, H, D]`
+- sequence forms of both
+- global-scope force broadcast
+
+### 9.2 Layer plugins: `pre_integrate`
+
+The layer keeps a `ModuleDict` of layer plugins and applies:
 
 ```python
-dt_base = getattr(self.config.stability, 'base_dt', 0.1)
-dt_eff = dt_base
 for plugin in self.plugins.values():
     x_3d, v_3d, dt_eff = plugin.pre_integrate(x_3d, v_3d, dt_eff, f_3d)
 ```
 
-**Plugins**: dynamic_time (adjusts dt per head)
+This is where dynamic time-step logic lives in the current runtime.
 
-### Step 4.3: Integration (lines 196-198)
+Important distinction:
+
+- this is **not** the same as `HookManager`,
+- these are layer plugins called directly by `ManifoldLayer.forward()`.
+
+### 9.3 Integrator step
+
+The core update is:
 
 ```python
 res = self.integrator.step(x_3d, v_3d, force=f_3d, dt=dt_eff)
 x_stepped, v_stepped = res["x"], res["v"]
 ```
 
-**Integrator**: Leapfrog, Yoshida, etc. Returns dict with 'x', 'v' keys.
+The integrator is selected by config and may be:
 
-### Step 4.4: Post-Integrate Plugins (lines 200-204)
+- `leapfrog`
+- `yoshida`
+- `verlet`
+- `forest_ruth`
+- `omelyan`
+- `heun`
+- `rk4`
+- `adaptive`
+
+### 9.4 Layer plugins: `post_integrate`
+
+After the integrator step:
 
 ```python
 for plugin in self.plugins.values():
-    x_stepped, v_stepped = plugin.post_integrate(
-        x_stepped, v_stepped, x_prev, v_prev
-    )
+    x_stepped, v_stepped = plugin.post_integrate(...)
 ```
 
-### Step 4.5: Head Mixing (lines 206-207)
+### 9.5 Mixing
+
+The stepped states are then mixed:
 
 ```python
 x_mix, v_mix = self.mixer(x_stepped, v_stepped)
 ```
 
-**FlowMixer**:
-- Flattens heads: [B, H, D] → [B, H×D]
-- Low-rank mixing: projects through learnable matrices
-- Unflattens: [B, H×D] → [B, H, D]
+The mixer is a required layer component, not a plugin.
 
-### Step 4.6: Dynamics Routing (lines 209-226)
+### 9.6 Dynamics routing
 
-**Partition Mode** (x_mix is 2D [B, D]):
-```python
-x_ref_h = x_3d.reshape(B_eff, -1)  # Flatten heads
-x_next_flat = self.dynamics_x(x_ref_h, x_mix, context_x=x_ref_h)
-x_next = x_next_flat.view(B_eff, self.heads, self.head_dim)
-```
+The mixed proposal is combined with the reference state through:
 
-**Dynamics Types**:
-- `direct`: x_next = x_mix
-- `residual`: x_next = x + σ(s) × (x_mix - x)
-- `gated`: x_next = g × x_mix + (1-g) × x
+- `self.dynamics_x`
+- `self.dynamics_v`
 
-### Step 4.7: Topology Wrapping (line 229)
+depending on the configured dynamics type.
+
+The current code supports flat routing over reshaped head states and then restores `[B_eff, H, D]`.
+
+### 9.7 Topology wrapping
+
+After routing:
 
 ```python
 x_next = self.integrator._resolve_topology(x_next)
 ```
 
-**For Torus**:
-```python
-def _resolve_topology(self, x):
-    return torch.atan2(torch.sin(x), torch.cos(x))  # Wrap to [-π, π]
-```
+For toroidal coordinates this wraps angles back into a valid periodic representation.
 
-### Step 4.8: Finalize Plugins (lines 231-233)
+### 9.8 Layer plugins: `finalize`
+
+Finally:
 
 ```python
 for plugin in self.plugins.values():
     x_next, v_next = plugin.finalize(x_next, v_next)
 ```
 
-**Fractal Plugin**: Adds sub-manifold refinement steps
+This is where the current fractal plugin would act if enabled and fully configured.
 
-### Step 4.9: Restore Shape (lines 236-240)
+## 10. Physics Engine Contribution
 
-```python
-if len(original_shape) == 4:
-    x_next = x_next.view(B, S, self.heads, self.head_dim)
-    v_next = v_next.view(B, S, self.heads, self.head_dim)
-```
-
----
-
-## 5. Integrator Step (Detailed)
-
-**Location**: `physics/integrators/symplectic/leapfrog.py:38`
-
-### Leapfrog Algorithm (lines 90-115)
-
-**Input**: x [B, H, D], v [B, H, D], force [B, H, D], dt
+Inside the integrator, acceleration ultimately comes from the physics engine:
 
 ```python
-for i in range(steps):
-    # 1. Resolve friction coefficient μ
-    mu1 = self._resolve_friction_mu(curr_x, curr_v, force=force)
-    
-    # 2. Compute acceleration
-    a1 = self._get_acceleration(curr_x, curr_v, force, dt=eff_dt)
-    a1_nf = a1 + mu1 * curr_v
-    
-    # 3. Half-step velocity (Kick)
-    v_half = (curr_v + 0.5 * eff_dt * a1_nf) / (1.0 + 0.5 * eff_dt * mu1 + EPS)
-    v_half = self._clamp_velocity(v_half)
-    
-    # 4. Full-step position (Drift)
-    curr_x = self._resolve_topology(curr_x + eff_dt * v_half)
-    
-    # 5. Re-evaluate acceleration at new position
-    mu2 = self._resolve_friction_mu(curr_x, v_half, force=force)
-    a2 = self._get_acceleration(curr_x, v_half, force, dt=eff_dt)
-    a2_nf = a2 + mu2 * v_half
-    
-    # 6. Final half-step velocity (Kick)
-    a_avg = (a1_nf + a2_nf) / 2
-    mu_avg = (mu1 + mu2) / 2
-    curr_v = (curr_v + eff_dt * a_avg) / (1.0 + eff_dt * mu_avg + EPS)
-    curr_v = self._clamp_velocity(curr_v)
+net_accel = -christoffel - friction_term
+if force is not None:
+    net_accel = net_accel + force
 ```
 
-**Return**: `{'x': curr_x, 'v': curr_v}`
+and then optionally adds enabled auxiliary modules such as:
 
----
+- hysteresis
+- stochasticity
+- curiosity
 
-## 6. Physics Engine Integration
+The exact combination depends on the instantiated physics engine and config.
 
-**Location**: `physics/integrators/base.py:72`
+## 11. Readout Generation
 
-### Acceleration Computation
+The current model does not call a readout module directly in the outer forward loop.
 
-```python
-def _get_acceleration(self, x, v, force, dt, **kwargs):
-    res = self.physics_engine.compute_acceleration(x, v, force=force, dt=dt, **kwargs)
-    if isinstance(res, tuple):
-        return res[0]  # (accel, friction) - return accel only
-    return res
-```
-
-**In PhysicsEngine.compute_acceleration()**:
-```python
-# 1. Geometry: Christoffel symbols
-geo_out = self.geometry(x, v, force=force)
-if isinstance(geo_out, tuple):
-    christoffel, mu_geo = geo_out
-else:
-    christoffel = geo_out
-    mu_geo = 0.0
-
-# 2. Friction
-mu_total = self.get_friction_coefficient(x, v, mu_geo=mu_geo)
-friction_term = mu_total * v
-
-# 3. Net acceleration
-net_accel = -christoffel - friction_term + force
-
-# 4. Add auxiliary forces (hysteresis, stochastic, curiosity)
-if self.hysteresis is not None:
-    net_accel = net_accel + self.hysteresis(x, v)
-if self.stochasticity_module is not None:
-    net_accel = net_accel + self.stochasticity_module(x, v, dt)
-if self.curiosity_module is not None:
-    net_accel = net_accel + self.curiosity_module(x, v)
-
-return net_accel
-```
-
----
-
-## 7. Readout Generation
-
-**Location**: `models/base.py:151-154`
-
-### Hook-Based Readout
+Instead, readout is hook-driven:
 
 ```python
 step_res = self.hooks.trigger("on_timestep_end", x=local_x, v=local_v)
 for r in step_res:
     if isinstance(r, torch.Tensor):
-        l_logits.append(r)  # Readout plugin produces logits
+        l_logits.append(r)
 ```
 
-**CategoricalReadout**:
-```python
-def forward(self, x):
-    # x: [B, H, D]
-    if self.topology == 'torus':
-        x_enc = torch.cat([torch.sin(x), torch.cos(x)], dim=-1)
-    else:
-        x_enc = x
-    logits = self.proj(x_enc.flatten(-2))  # [B, vocab_size]
-    return logits
+In the common path, `ReadoutPlugin` provides those tensors.
+
+### Categorical readout
+
+`CategoricalReadout`:
+
+- flattens `[B, H, D]` to `[B, H*D]`,
+- uses `[sin(x), cos(x)]` features for torus,
+- uses raw latent features for Euclidean-type readout,
+- returns `[B, vocab_size]`.
+
+## 12. Sequence Outputs
+
+The evolution loop collects:
+
+- timestep logits
+- `x` states
+- `v` states
+
+and stacks them into:
+
+- `logits`: `[B, S, V]`
+- `x_seq`: `[B, S, H, D]`
+- `v_seq`: `[B, S, H, D]`
+
+## 13. Returned `state_info`
+
+The current forward path returns a `state_info` dictionary containing:
+
+- `x_seq`
+- `v_seq`
+- `forces`
+- `x_final`
+- `v_final`
+- `mask`
+- `plugin_results`
+
+This matters because downstream training losses only have access to what the forward path actually stores here.
+
+## 14. Forward Summary
+
+```text
+token ids or force_manual
+  -> force sequence
+  -> initial (x, v)
+  -> optional wrapped evolution function
+  -> for each timestep:
+       -> timestep-start hooks
+       -> for each layer:
+            -> layer-start hooks
+            -> layer plugin pre_integrate
+            -> integrator step
+            -> layer plugin post_integrate
+            -> mixer
+            -> dynamics routing
+            -> topology wrapping
+            -> layer plugin finalize
+            -> layer-end hooks
+       -> timestep-end hooks
+  -> stack logits and state trajectories
+  -> batch-end hooks
+  -> return logits, final state, state_info
 ```
 
----
+## Runtime Cross-References
 
-## 8. Complete Forward Pass Flow Summary
-
-```
-Input: token_ids [B, S]
-
-1. Embedding
-   token_ids [B, S] → forces [B, S, D]
-
-2. State Init
-   x0 [1, H, D] → expand → x [B, H, D]
-   v0 [1, H, D] → expand → v [B, H, D]
-
-3. For each timestep t in [0, S):
-   
-   a. Extract force: f = forces[:, t]  # [B, D]
-   
-   b. For each layer in depth:
-      
-      i. Reshape: [B, H, D] → [B, H, D] (no change if 3D)
-      
-      ii. Pre-integrate plugins (adjust dt)
-      
-      iii. Integrator.step(x, v, f, dt):
-           - Get acceleration from PhysicsEngine
-           - Leapfrog: Kick-Drift-Kick
-           - Return x_stepped, v_stepped
-      
-      iv. Post-integrate plugins
-      
-      v. Mixer(x_stepped, v_stepped) → x_mix, v_mix
-      
-      vi. Dynamics routing:
-          - Flatten: [B, H, D] → [B, H×D]
-          - Apply: x_next = dynamics(x, x_mix)
-          - Unflatten: [B, H×D] → [B, H, D]
-      
-      vii. Topology wrap (atan2 for torus)
-      
-      viii. Finalize plugins (fractal)
-   
-   c. Readout(x) → logits [B, vocab_size]
-   
-   d. Store: logits[t], x_seq[t], v_seq[t]
-
-4. Stack outputs
-   logits: [S, B, V] → [B, S, V]
-   x_seq: [S, B, H, D] → [B, S, H, D]
-   v_seq: [S, B, H, D] → [B, S, H, D]
-
-5. Return: (logits, (x_final, v_final), state_info)
-```
-
----
-
-## 9. Tensor Shape Transformations
-
-| Stage | Shape | Notes |
-|-------|-------|-------|
-| Input | [B, S] | token_ids |
-| Embedding | [B, S, D] | D = heads × head_dim |
-| State Init | [B, H, D] | heads × head_dim = D |
-| Layer Input | [B×S, H, D] | If sequence mode |
-| After Mixer | [B×S, H, D] | Mixed across heads |
-| Dynamics Flat | [B×S, H×D] | For routing |
-| Output | [B, S, V] | logits |
-
----
-
-*File: technical/0_architecture/math/09_forward_pass.md*
-*Last Updated: 2026-04-02*
+- `gfn/realizations/gssm/models/base.py`
+- `gfn/realizations/gssm/models/manifold_layer.py`
+- `gfn/realizations/gssm/models/components/readout.py`
+- `gfn/realizations/gssm/physics/engine.py`
+- `docs/gssm/technical/0_architecture/math/system/hooks.md`

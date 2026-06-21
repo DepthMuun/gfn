@@ -1,144 +1,180 @@
-# Dynamics - Mathematical Foundation
+# Dynamics
 
-## Overview
+This document describes the **current dynamics-routing runtime**.
 
-Dynamics modules determine how the state updates from the current state and the integrator's proposal. They act as "routing" mechanisms for state evolution.
+The authoritative code is:
 
----
+- `gfn/realizations/gssm/physics/dynamics/__init__.py`
+- `gfn/realizations/gssm/physics/dynamics/base.py`
+- `gfn/realizations/gssm/physics/dynamics/*.py`
+- `gfn/realizations/gssm/models/manifold_layer.py`
 
-## 1. Direct Dynamics
+## What Dynamics Means In The Current Runtime
 
-### Formula
+Dynamics modules decide how the layer moves from:
 
-$$x_{next} = \text{norm}(x_{proposal})$$
+- `current_state`
 
-The integrator proposal directly becomes the next state.
+to:
 
-### Implementation
+- `absolute_proposal`
 
-```python
-class DirectDynamics(BaseDynamics):
-    def forward(self, current_state, absolute_proposal):
-        return self._apply_norm(absolute_proposal)
+after the integrator and mixer have produced a candidate update.
+
+So dynamics is the routing layer between:
+
+- integrated mixed proposal,
+- and final next state.
+
+## Current Registry
+
+The current runtime registry supports:
+
+- `direct`
+- `residual`
+- `mix`
+- `gated`
+- `stochastic`
+
+Important correction:
+
+- older docs that only listed `direct`, `residual`, and `gated` are incomplete.
+
+## Shared Base Contract
+
+All current dynamics modules inherit from `BaseDynamics`.
+
+That base class provides:
+
+- topology-aware `_apply_norm(...)`
+
+with behavior:
+
+- torus -> wrap through `atan2(sin(x), cos(x))`
+- otherwise -> apply the injected normalization layer
+
+Important current detail:
+
+- `context_x` can be passed into the normalization layer,
+- which matters for metric-aware normalization behavior.
+
+## `direct`
+
+`DirectDynamics` simply returns:
+
+```text
+norm(absolute_proposal)
 ```
 
-### Properties
+This is the simplest routing mode and remains the effective default behavior.
 
-- Simplest dynamics
-- No residual connection
-- Full replacement of state
-- **Default behavior**
+## `residual`
 
----
+`ResidualDynamics` computes a residual between proposal and current state, normalizes that residual, then applies:
 
-## 2. Residual Dynamics
-
-### Formula
-
-$$x_{next} = x_{current} + \sigma(s) \cdot \text{norm}(x_{proposal} - x_{current})$$
-
-Where:
-- $s$ is a learnable residual scale parameter
-- $\sigma(s)$ is the sigmoid function
-- The difference uses geodesic distance for torus
-
-### Toroidal Geodesic Difference
-
-$$\Delta x_{torus} = \arctan_2(\sin(x_{proposal} - x_{current}), \cos(x_{proposal} - x_{current}))$$
-
-### Implementation
-
-```python
-class ResidualDynamics(BaseDynamics):
-    def __init__(self, ..., residual_scale=0.1):
-        self.residual_scale = nn.Parameter(torch.tensor(residual_scale))
-    
-    def forward(self, current_state, absolute_proposal):
-        if self.topology == 'torus':
-            residual = torch.atan2(
-                torch.sin(absolute_proposal - current_state),
-                torch.cos(absolute_proposal - current_state)
-            )
-        else:
-            residual = absolute_proposal - current_state
-        
-        scale = torch.sigmoid(self.residual_scale)
-        next_state = current_state + scale * normalized_residual
-        
-        if self.topology == 'torus':
-            next_state = torch.atan2(torch.sin(next_state), torch.cos(next_state))
-        
-        return next_state
+```text
+current_state + sigmoid(residual_scale) * residual_normalized
 ```
 
-### Properties
+For torus:
 
-- Learnable correction magnitude
-- Smooth interpolation between states
-- Better gradient flow
+- the residual is a wrapped angular difference.
 
----
+Important current detail:
 
-## 3. Gated Dynamics
+- `residual_scale` is a learnable parameter initialized from `residual_scale=0.1`.
 
-### Formula
+## `gated`
 
-$$g = \sigma(W_g \cdot [x_{current}; x_{proposal}])$$
+`GatedDynamics` builds a learned gate from:
 
-$$x_{next} = \text{norm}(g \cdot x_{proposal} + (1-g) \cdot x_{current})$$
-
-Where:
-- $[;]$ denotes concatenation
-- $\sigma$ is sigmoid
-- $W_g$ is a learnable linear layer
-
-### Implementation
-
-```python
-class GatedDynamics(BaseDynamics):
-    def __init__(self, dim, ...):
-        self.gate = nn.Sequential(
-            nn.Linear(dim * 2, dim),
-            nn.Sigmoid()
-        )
-    
-    def forward(self, current_state, absolute_proposal):
-        gate_input = torch.cat([current_state, absolute_proposal], dim=-1)
-        g = self.gate(gate_input)
-        mixed = g * absolute_proposal + (1.0 - g) * current_state
-        return self._apply_norm(mixed)
+```text
+[current_state, absolute_proposal]
 ```
 
-### Properties
+then mixes:
 
-- State-dependent gate
-- Can learn complex update rules
-- More expressive than mix
-- Requires more parameters
-
----
-
-## 4. Comparison
-
-| Dynamics | Formula | Parameters | Use Case |
-|----------|---------|------------|----------|
-| `direct` | $x_{next} = x_{proposal}$ | None | Default, simple |
-| `residual` | $x_{next} = x + \sigma(s) \cdot \Delta x$ | 1 scalar | Smooth updates |
-| `gated` | $x_{next} = g \cdot x_{proposal} + (1-g) \cdot x$ | Linear layer | Complex routing |
-
----
-
-## 5. Configuration
-
-```python
-physics = {
-    'dynamics': {
-        'type': 'direct'  # 'direct', 'residual', 'gated'
-    }
-}
+```text
+g * proposal + (1 - g) * current
 ```
 
----
+and normalizes the result.
 
-*File: technical/0_architecture/math/08_dynamics.md*
-*Last Updated: 2026-04-02*
+This is the explicit state-dependent routing path.
+
+## `mix`
+
+`MixDynamics` is a real runtime mode and should be documented explicitly.
+
+It uses:
+
+- a learnable `log_alpha`,
+- a learnable `change_scale`.
+
+For Euclidean:
+
+- interpolate linearly between current and proposal.
+
+For torus:
+
+- interpolate in circular form through `sin/cos` averaging,
+- then apply a wrapped difference and scaled update.
+
+So `mix` is not just a synonym for gated or residual dynamics; it is its own interpolation-based routing mechanism.
+
+## `stochastic`
+
+`StochasticDynamics` adds learnable noise on top of either:
+
+- the pure proposal,
+- or a residual-style base depending on `mode`.
+
+It uses:
+
+- a learnable `sigma`,
+- `softplus(sigma) + 1e-6`,
+- random Gaussian noise,
+- then topology-aware normalization.
+
+So this is a true dynamics-level stochastic routing mode, distinct from the physics-engine stochasticity module.
+
+## Position Vs Velocity Routing
+
+In `ManifoldLayer`, the runtime creates:
+
+- `dynamics_x` with the configured topology,
+- `dynamics_v` with Euclidean topology.
+
+That means:
+
+- position routing is manifold-aware,
+- velocity routing is always treated in tangent-space Euclidean form.
+
+This distinction is central to the current implementation.
+
+## Configuration Reality
+
+The effective dynamics type can come from:
+
+- `config.dynamics.type`
+- or fallback `dynamics_type`
+
+with `ManifoldLayer` resolving the final choice.
+
+So the docs should describe dynamics choice as a resolved runtime setting, not just one isolated config field.
+
+## What This Document Should Not Claim
+
+It would be inaccurate to claim that:
+
+- only three dynamics modes exist,
+- `mix` is just an alias for `gated`,
+- velocity dynamics use toroidal routing in the current layer path.
+
+Those claims do not match the runtime.
+
+## Runtime Cross-References
+
+- `gfn/realizations/gssm/physics/dynamics/__init__.py`
+- `gfn/realizations/gssm/physics/dynamics/base.py`
+- `gfn/realizations/gssm/models/manifold_layer.py`

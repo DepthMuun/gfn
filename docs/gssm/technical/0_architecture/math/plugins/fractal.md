@@ -1,188 +1,155 @@
-# Plugins - Fractal (Sub-Manifold Tunneling)
+# Plugins - Fractal
 
-## What is Fractal Tunneling?
+This document describes the **current `FractalPlugin` implementation** used by `ManifoldLayer`.
 
-Fractal tunneling is a technique that refines the manifold evolution by adding a "micro-scale" dynamics layer. When the main manifold experiences high curvature, the fractal plugin creates a temporary sub-manifold to handle finer-scale physics.
+The important source files are:
 
-Think of it as: "When things get complex, zoom in and think more carefully."
+- `gfn/realizations/gssm/models/plugins/fractal.py`
+- `gfn/realizations/gssm/models/manifold_layer.py`
 
----
+## What The Plugin Is Supposed To Do
 
-## The Problem
+Conceptually, the plugin is meant to provide a micro-manifold refinement path:
 
-### High Curvature Regions
+- detect high-curvature or high-velocity regions,
+- run an auxiliary micro-manifold evolution,
+- blend that refined state back into the main trajectory.
 
-In regions where the velocity norm $\|v\|$ is large:
-- The integrator may struggle with accuracy
-- Large steps miss fine-scale structure
-- Numerical errors accumulate
+That conceptual idea is still visible in the code.
 
-### Standard Solution
-Reduce $dt$ globally - but this slows down the entire model.
+## What The Current Runtime Actually Does
 
-### Fractal Solution
-Detect high-curvature regions and add local refinement only where needed.
+The plugin is a **layer plugin** and only participates through:
 
----
+- `finalize(...)`
 
-## How It Works
+inside `ManifoldLayer.forward()`.
 
-### Step 1: Curvature Detection
+Its actual logic is:
 
-Estimate local curvature from velocity magnitude:
+1. if the plugin is disabled, do nothing,
+2. if `micro_manifold is None`, do nothing,
+3. otherwise estimate curvature from velocity norm,
+4. compute a sigmoid tunnel gate,
+5. call `micro_manifold(x, v)`,
+6. blend the micro state back into `(x, v)`.
 
-$$c = \|v\| = \sqrt{\sum_i v_i^2}$$
+## Critical Current Caveat
 
-Where:
-- $c$ = curvature estimate
-- $v$ = velocity tensor
-- Averaged across heads for stability
+In the present implementation:
 
-### Step 2: Tunnel Gate
+- `setup()` does **not** build a micro-manifold,
+- `self.micro_manifold` starts as `None`,
+- nothing in the default path shown here assigns it automatically.
 
-Compute how much we should "tunnel" into the micro-manifold:
+That means:
 
-$$g = \sigma((c - \tau) \cdot s)$$
+- the plugin class exists,
+- the finalize logic exists,
+- but in the ordinary runtime path it is effectively a no-op unless some external code injects a real `micro_manifold`.
 
-Where:
-- $\sigma$ = sigmoid function
-- $\tau$ = curvature threshold
-- $s$ = slope (sharpness of transition)
-- $g$ ∈ [0, 1] = tunnel gate value
+This is the most important thing to document accurately.
 
-**Behavior**:
-- $c \ll \tau$: $g \approx 0$ (no tunneling)
-- $c \approx \tau$: $g \approx 0.5$ (partial)
-- $c \gg \tau$: $g \approx 1$ (full tunneling)
+## Current Formula
 
-### Step 3: Micro-Manifold Evolution
+When a micro-manifold is actually present, the plugin computes:
 
-If a micro-manifold exists:
+### Curvature estimate
 
-$$(x_{micro}, v_{micro}) = \text{MicroManifold}(x, v)$$
+```text
+curvature_est = mean_h(||v_h||)
+```
 
-This runs a smaller, faster integration on the sub-scale.
+implemented as average velocity norm across heads.
 
-### Step 4: State Blending
+### Tunnel gate
 
-Blend the original and micro-manifold states:
+```text
+tunnel_gate = sigmoid((curvature_est - threshold) * slope)
+```
 
-$$x_{out} = x + g \cdot \alpha \cdot (x_{micro} - x)$$
-$$v_{out} = v + g \cdot \alpha \cdot (v_{micro} - v)$$
+### Blend
 
-Where:
-- $\alpha$ = blending strength (typically 0.1)
-- $g$ = tunnel gate (0 to 1)
+```text
+x_out = x + tunnel_gate * (x_f - x) * alpha
+v_out = v + tunnel_gate * (v_f - v) * alpha
+```
 
-**Result**: Smooth transition from normal to refined evolution.
+where `(x_f, v_f)` comes from:
 
----
+```python
+x_f, v_f = self.micro_manifold(x, v)
+```
 
-## Physical Interpretation
+## Parameters Used Today
 
-### Multi-Scale Physics
+The plugin currently stores:
 
-Think of the manifold as having structure at multiple scales:
-- **Macro scale**: Main manifold evolution
-- **Micro scale**: Fine details in high-curvature regions
+- `threshold`
+- `alpha`
+- `slope`
 
-The fractal plugin automatically switches between scales as needed.
+with current defaults:
 
-### Energy Landscape Analogy
+- `threshold = 1.0`
+- `alpha = 0.1`
+- `slope = 1.0`
 
-Imagine walking on a terrain:
-- **Flat regions**: Walk normally (no tunneling)
-- **Steep/cluttered regions**: Take smaller, careful steps (tunneling)
+These affect behavior only if a micro-manifold is actually present.
 
-The tunnel gate $g$ determines how carefully to step.
+## What The Plugin Does Not Currently Do
 
----
+The present implementation does **not**:
 
-## Mathematical Properties
+- automatically build a sub-manifold in `setup()`,
+- modify the timestep,
+- observe force directly,
+- attach any hook-based behavior,
+- guarantee any extra compute in the default path.
 
-### Curvature Estimation
+So it should not be documented as if it were an always-on refinement engine.
 
-$$c(x, v) = \frac{1}{H} \sum_{h=1}^H \|v_h\|$$
+## Best Interpretation
 
-Average velocity norm across heads.
+The most faithful interpretation is:
 
-### Sigmoid Gate
+- this is a prepared extension point for fractal or multiscale refinement,
+- its blending rule is implemented,
+- but the runtime still needs an external micro-manifold assignment for it to become active.
 
-$$g(c; \tau, s) = \frac{1}{1 + \exp(-s(c - \tau))}$$
+## When It Would Matter
 
-Properties:
-- Differentiable (smooth)
-- Saturates at 0 and 1
-- Threshold controlled by $\tau$
+The plugin becomes meaningful only when a calling path supplies `micro_manifold`.
 
-### Blending Formula
+Then it can be useful for:
 
-$$x_{new} = x + \alpha \cdot g(c) \cdot (x_{micro} - x)$$
+- localized refinement,
+- multiscale experiments,
+- high-velocity regime smoothing through blended micro-evolution.
 
-This is a convex combination when $g \cdot \alpha \leq 1$.
-
----
-
-## Parameters
-
-| Parameter | Symbol | Default | Effect |
-|-----------|--------|---------|--------|
-| Threshold | $\tau$ | 1.0 | When to start tunneling |
-| Alpha | $\alpha$ | 0.1 | Blending strength |
-| Slope | $s$ | 1.0 | Sharpness of transition |
-
-### Tuning Guidelines
-
-**Lower threshold** ($\tau$ = 0.5):
-- More aggressive tunneling
-- More compute overhead
-- Better accuracy in moderate curvature
-
-**Higher threshold** ($\tau$ = 2.0):
-- Conservative tunneling
-- Less overhead
-- Only extreme curvature triggers it
-
-**Higher alpha** ($\alpha$ = 0.2):
-- Stronger micro-manifold influence
-- More refinement
-- Risk of instability
-
-**Lower alpha** ($\alpha$ = 0.05):
-- Weaker refinement
-- More conservative
-- Less benefit
-
----
-
-## When to Use
-
-**Use Fractal when:**
-- Model shows instability in high-curvature regions
-- You need higher accuracy in complex regions
-- Computational budget allows extra overhead
-
-**Don't use when:**
-- Training is already stable
-- Speed is critical (adds ~10-20% overhead)
-- No micro-manifold is available
-
----
+Without that extra setup, enabling the config flag alone is not enough to get the intended effect.
 
 ## Configuration
 
+A representative config is:
+
 ```python
 physics = {
-    'fractal': {
-        'enabled': True,
-        'threshold': 1.0,   # Curvature threshold
-        'alpha': 0.1,       # Blending strength
-        'slope': 1.0        # Gate sharpness
+    "fractal": {
+        "enabled": True,
+        "threshold": 1.0,
+        "alpha": 0.1,
+        "slope": 1.0,
     }
 }
 ```
 
----
+Important current caveat:
 
-*File: technical/0_architecture/math/plugins/fractal.md*
-*Last Updated: 2026-04-02*
+- this config enables the plugin instance,
+- but it does not by itself create the micro-manifold that the plugin needs to do any refinement.
+
+## Runtime Cross-References
+
+- `gfn/realizations/gssm/models/plugins/fractal.py`
+- `gfn/realizations/gssm/models/manifold_layer.py`

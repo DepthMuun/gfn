@@ -1,105 +1,98 @@
 # Velocity Verlet Integrator
 
-## What is it?
+This document describes the **current `VerletIntegrator` implementation**.
 
-The Velocity Verlet (or simply Verlet) integrator is a second-order symplectic method that explicitly includes velocity in the calculation. It is mathematically equivalent to Leapfrog but organized differently.
+The authoritative code is:
 
-Originally developed by Loup Verlet in 1967 for molecular dynamics simulations.
+- `gfn/realizations/gssm/physics/integrators/symplectic/verlet.py`
 
----
+## What It Is In The Current Runtime
 
-## The Algorithm
+`VerletIntegrator` is a second-order symplectic solver that updates:
 
-Verlet computes position using both velocity and acceleration explicitly.
+- position with explicit `x + v dt + 0.5 a dt^2`,
+- then velocity using the average of two acceleration evaluations.
 
-### Step 1: Initial Acceleration
+It is closely related to leapfrog, but the current implementation is not identical to the repo's friction-aware leapfrog path.
 
-Compute acceleration at current state:
+## Current Step Pattern
 
-$$a_n = a(x_n, v_n)$$
+The current code performs:
 
-### Step 2: Position Update
+1. compute initial acceleration `a0`,
+2. update position with the quadratic term,
+3. wrap topology,
+4. compute an average velocity `v_avg`,
+5. compute new acceleration `a1` at the updated position,
+6. update velocity with `0.5 * (a0 + a1) * dt`,
+7. clamp velocity.
 
-Update position using current velocity and acceleration:
+In code form, the core update is:
 
-$$x_{n+1} = x_n + v_n \cdot \Delta t + \frac{1}{2} a_n \cdot \Delta t^2$$
+```text
+a0 = accel(x, v)
+x' = resolve_topology(x + v*dt + 0.5*a0*dt^2)
+v_avg = v + 0.5*a0*dt
+a1 = accel(x', v_avg)
+v' = clamp_velocity(v + 0.5*(a0 + a1)*dt)
+```
 
-### Step 3: Velocity Average
+## Topology Handling
 
-Compute intermediate velocity:
+Like the other integrators, Verlet uses the shared base helper:
 
-$$v_{avg} = v_n + \frac{1}{2} a_n \cdot \Delta t$$
+- torus -> wrapped angular coordinates,
+- Euclidean -> identity.
 
-### Step 4: New Acceleration
+So topology handling is part of the actual runtime step, not something external to the integrator.
 
-Compute acceleration at new position:
+## Velocity Handling
 
-$$a_{n+1} = a(x_{n+1}, v_{avg})$$
+Velocity is passed through `_clamp_velocity(...)` at the final update.
 
-### Step 5: Velocity Update
+That means Verlet inherits the same runtime behavior as the shared base class:
 
-Complete velocity update using average acceleration:
+- differentiable tanh saturation when `velocity_saturation > 0`,
+- otherwise hard clamping.
 
-$$v_{n+1} = v_n + \frac{1}{2} (a_n + a_{n+1}) \cdot \Delta t$$
+## Relationship To Leapfrog
 
----
+The docs should be careful here.
 
-## Comparison with Leapfrog
+It is reasonable to call Verlet and leapfrog closely related second-order symplectic methods, but in the current runtime they are **not** implemented the same way:
 
-| Aspect | Leapfrog | Verlet |
-|--------|----------|--------|
-| Velocity storage | Half-integer steps | Integer steps |
-| Position update | Uses $v_{n+1/2}$ | Uses $v_n$ and $a_n$ |
-| Implementation | Simpler | More explicit |
-| Result | Same trajectory | Same trajectory |
+- `LeapfrogIntegrator` has an explicit friction-aware split update and averaging path,
+- `VerletIntegrator` uses the more direct `x + v dt + 0.5 a dt^2` form.
 
-Both methods produce identical trajectories for the same initial conditions and time step.
+So "mathematically related" is accurate.
+Line-by-line interchangeability in the current code is not.
 
----
+## Practical Interpretation
 
-## Properties
+Use Verlet when:
 
-| Property | Value |
-|----------|-------|
-| **Order** | 2nd order |
-| **Symplectic** | Yes |
-| **Force evaluations** | 2 per step |
-| **Time-reversible** | Yes |
-| **Energy conservation** | Good |
+- you want a symplectic second-order solver,
+- you want the more explicit position update form,
+- you want a simpler alternative to the default leapfrog path.
 
----
+Compared with leapfrog, the current Verlet implementation is:
 
-## Error Analysis
+- simpler,
+- less specialized,
+- not the primary documented default.
 
-Local truncation error: $O(\Delta t^3)$
+## What This Document Should Not Claim
 
-Global error: $O(\Delta t^2)$
+It would be inaccurate to claim that:
 
-The position update includes the $\frac{1}{2} a \Delta t^2$ term which gives better accuracy than first-order methods.
+- the current runtime Verlet is literally the same implementation as leapfrog,
+- Verlet has the same explicit friction-correction path as leapfrog,
+- topology wrapping is absent from the current step.
 
----
+Those claims do not match the code.
 
-## When to Use
+## Runtime Cross-References
 
-**Use Verlet when:**
-- You need position at every integer time step
-- Velocity must be synchronized with position
-- You want explicit velocity in the algorithm
-- Molecular dynamics simulations
-
-**Equivalent to Leapfrog:**
-- Either choice produces same results
-- Choose based on implementation preference
-
----
-
-## Historical Note
-
-The Verlet algorithm was originally developed for simulating Lennard-Jones fluids in molecular dynamics. Its simplicity and symplectic properties made it the standard for MD simulations for decades.
-
-The equivalence with Leapfrog was recognized later, showing both are different implementations of the same underlying symplectic map.
-
----
-
-*File: technical/0_architecture/math/integrators/verlet.md*
-*Last Updated: 2026-04-02*
+- `gfn/realizations/gssm/physics/integrators/symplectic/verlet.py`
+- `gfn/realizations/gssm/physics/integrators/base.py`
+- `docs/gssm/technical/0_architecture/math/integrators/leapfrog.md`

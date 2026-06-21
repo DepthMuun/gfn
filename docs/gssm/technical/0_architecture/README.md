@@ -1,35 +1,66 @@
 # Architecture Overview
 
-## Table of Contents
+This folder contains the architecture-level documentation for GSSM.
 
-1. [Overview](00_overview.md) - Complete architecture guide with diagnostic results
-2. [Components](01_components.md) - Detailed component breakdown
-3. [Data Flow](02_data_flow.md) - How data moves through the model
+It should now be read as an index into the updated runtime-aligned docs, not as a frozen dump of old diagnostics.
+
+## Main Entry Points
+
+Start here:
+
+1. [00_overview.md](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/0_architecture/00_overview.md) for the current architecture overview.
+2. [math/README.md](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/0_architecture/math/README.md) for the mathematical and component-level layer.
+3. [runtime/README.md](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/runtime/README.md) for effective defaults and runtime hyperparameters.
+
+## Current Folder Structure
+
+- [00_overview.md](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/0_architecture/00_overview.md): current technical overview
+- [01_components.md](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/0_architecture/01_components.md): component-oriented architecture notes
+- [02_code_analysis.md](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/0_architecture/02_code_analysis.md): legacy analysis notes that should be read cautiously
+- [math/README.md](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/0_architecture/math/README.md): mathematics and deep component explanations
+
+Important correction:
+
+- the older reference to `02_data_flow.md` was stale; that file is not part of the maintained structure here.
 
 ## Quick Links
 
-- **Models**: See `../3_models/`
-- **Physics**: See `../2_physics/`
-- **Geometry**: See `../1_geometry/`
-- **Config**: See `../5_config/`
+- [models](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/3_models/manifold_model.md)
+- [physics](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/2_physics/engine.md)
+- [geometry](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/1_geometry/base.md)
+- [config](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/5_config/schema_loader.md)
 
-## Key Findings from Diagnostics
+## How To Use These Docs
 
-### Stability Recommendations
+Use `0_architecture/` when you want:
 
-| Parameter | Default | Recommended |
-|-----------|---------|-------------|
-| `initial_spread` | 0.0 | 0.1-0.5 |
-| `base_dt` | 0.1 | 0.05-0.1 |
-| `integrator_type` | leapfrog | leapfrog |
-| `topology_type` | torus | torus |
+- a system-level picture of how GSSM fits together,
+- entry points into the deeper math and runtime docs,
+- architecture context before reading detailed component pages.
 
-### Known Issues
+Use `technical/runtime/` when you want:
 
-1. **Rank Deficiency**: Layer 0 has condition number ~17M - use `initial_spread=0.1`
-2. **Vanishing Gradients**: min gradient ~1e-08 - use larger initial spread
-3. **Numerical Instability**: dt > 0.2 may cause NaN - keep dt <= 0.1
+- effective defaults,
+- hyperparameter behavior,
+- precedence and runtime truth.
 
----
+Use `guides/` when you want:
 
-*Last Updated: 2026-04-02*
+- user-facing recipes,
+- practical configuration examples,
+- public-reference style explanations.
+
+## Important Caveat
+
+This folder previously mixed:
+
+- architecture notes,
+- snapshot diagnostics,
+- stale links,
+- and recommendations frozen to older runtime behavior.
+
+The maintained path now prefers:
+
+- runtime-aligned docs,
+- explicit caveats,
+- and links to the current canonical pages.
