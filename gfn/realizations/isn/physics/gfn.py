@@ -1,26 +1,15 @@
 """
-ISN GFN Physics Engine — Modular V5
-================================
-O(1) Memory complexity using pure geodetic flow principles.
+Composable ISN physics engine for latent world-flow integration.
 
-v2.7.3 — Composable integrators
--------------------------------
-This module is now a thin orchestrator. The world-flow integration is
-delegated to one of three pluggable components (see ``integrators/``):
+This module delegates rollout to pluggable integrator components:
 
-  - ``EulerIntegrator``   — original forward-Euler with tanh-saturated drift.
-  - ``LeapfrogIntegrator`` — Störmer-Verlet 2nd-order symplectic.
-  - ``YoshidaIntegrator``  — 4th-order Yoshida composition.
+  - ``EulerIntegrator``    for single-state integration
+  - ``LeapfrogIntegrator`` for second-order symplectic updates
+  - ``YoshidaIntegrator``  for fourth-order symplectic composition
 
-The integrator is selected with the ``integrator`` constructor argument
-(defaults to ``"euler"`` for backward compatibility).
-
-Public API
-----------
-``GFNPhysics`` keeps the same call signature as v2.7.2 so existing training
-scripts and checkpoints continue to work. Symplectic variants add an extra
-``initial_v`` learnable parameter and expose ``final_velocity`` in the
-forward output dict.
+The public forward signature remains stable across integrator choices.
+Symplectic variants additionally manage an optional velocity state and expose
+``final_velocity`` in the output dictionary.
 """
 
 import math
@@ -54,8 +43,6 @@ class GFNPhysics(nn.Module):
     World Engine that evolves state as a continuous flow in the latent manifold.
     Implements the "Persistent Internal World" pillar.
 
-    v2.7.3 — The integrator is now a swappable component.
-
     Args:
         d_model:        input embedding dimension.
         d_embedding:    latent world dimension.
@@ -67,7 +54,7 @@ class GFNPhysics(nn.Module):
         velocity_scale: std of the random init for ``initial_v``.
         friction:       optional linear damping (Euler: on state; symplectic:
                         on velocity).
-        use_ste:        kept for backward compat with STE strategy — falls
+        use_ste:        preserved for compatibility with the STE strategy — falls
                         back to the Euler path because the STE closure operates
                         on a single state tensor.
     """
@@ -117,7 +104,7 @@ class GFNPhysics(nn.Module):
         # ── Integrator component (does NOT hold learnable params) ──
         self.integrator: nn.Module = get_integrator(integrator, friction=friction)
 
-        # ── World-flow learnable parameters (kept identical to v2.7.2) ──
+        # ── World-flow learnable parameters ──
         self.drift = nn.Linear(d_embedding, d_embedding)
         self.diffusion = nn.Linear(d_model, d_embedding)
         self.norm = nn.LayerNorm(d_embedding)
@@ -153,7 +140,7 @@ class GFNPhysics(nn.Module):
         if drift_b is None:
             drift_b = torch.zeros(self.d_embedding, device=device, dtype=dtype)
 
-        # ── STE branch (only valid for Euler; kept for backward compat) ──
+        # ── STE branch (only valid for Euler; preserved for compatibility) ──
         if self.use_ste and not self.is_symplectic:
             from ..training.strategies.core import StraightThroughEstimator
 

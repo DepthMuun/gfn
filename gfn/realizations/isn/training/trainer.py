@@ -1,7 +1,5 @@
 """
-ISN Unified Trainer — Modular V5
-=============================
-Handles all backpropagation strategies and performance monitoring.
+Unified ISN trainer for backpropagation strategies and performance monitoring.
 """
 
 import os
@@ -138,5 +136,5 @@ class GenericISNDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         return self.data[idx]
 
-# Alias for backward compatibility
+# Backward-compatible alias.
 ArithmeticDataset = GenericISNDataset

@@ -1,7 +1,5 @@
 """
-ReactiveRiemannianGeometry — GFN V5
-Active-inference geometry: curvature reacts to system state.
-Migrated from gfn/geo/physical/reactive_field_geometry.py
+Reactive geometry that modulates curvature using the current system state.
 """
 
 import torch

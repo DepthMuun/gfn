@@ -1,8 +1,5 @@
 """
-ISN API — Modular V5
-===================
-Public interface for the Inertial State Network realization.
-Uses the Registry system for dynamic component assembly.
+Public factory API for assembling ISN models from registered components.
 """
 
 import torch

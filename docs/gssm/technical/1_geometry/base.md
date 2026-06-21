@@ -1,76 +1,137 @@
-# GFN Geometry System
+# GSSM Geometry Base
 
-The `gfn/realizations/gssm/geometry` module provides the mathematical foundation for GFN. Each geometry class implements a specific topology and metric space, registered via `GEOMETRY_REGISTRY`.
+This document describes the current geometry contract used by the GSSM runtime.
 
-## 1. Base Strategy
-All geometries inherit from `gfn.realizations.gssm.geometry.base.BaseGeometry` and implement the `Geometry` protocol from `gfn.realizations.gssm.interfaces.geometry`.
+For file-level details of specific implementations, also see:
 
-### Key Methods:
-- `metric_tensor(x)`: Returns the metric tensor $g_{ij}$ at position $x$.
-- `christoffel_symbols(x)`: Calculates the Christoffel symbols $\Gamma^k_{ij}$ (geodesic curvature).
-- `forward(x, v, force)`: Computes acceleration, returns `(christoffel, friction)` tuple.
-- `project(x)`: Projects a point back to the manifold.
-- `dist(x1, x2)`: Measures the shortest distance (geodesic) between points.
+- `technical/0_architecture/math/03_geometry.md`
+- `technical/0_architecture/math/geometry/`
+- `technical/runtime/00-effective-defaults.md`
 
----
+## Core Role
 
-## 2. Core Geometries (9 Total)
+Geometry is the layer that tells the physics engine how curvature and, optionally, geometry-driven friction should behave.
 
-### Euclidean Geometry (`euclidean.py`)
-Standard flat space.
-- **Metric**: Identity matrix $I$.
-- **Christoffel**: Always zero (straight lines).
-- **Use Case**: Regression and baseline comparisons.
+In the current runtime, geometry is not just a metric lookup. It participates directly in the acceleration path consumed by `ManifoldPhysicsEngine`.
 
-### Torus Geometry (`torus.py`)
-Maps dimensions into pairs of $(\theta, \phi)$ on nested tori.
-- **Metric**: $ds^2 = r^2 d\theta^2 + (R + r \cos \theta)^2 d\phi^2$.
-- **Topology**: Periodic in $[-\pi, \pi]$ for all dimensions.
-- **Use Case**: Language modeling and cyclic logic (XOR).
+## Base Class
 
-### Low-Rank Riemannian (`low_rank.py`)
-Efficiently approximates high-dimensional curved spaces using low-rank decomposition.
-- **Decomposition**: $\Gamma^k_{ij} \approx \Sigma_r W_{rk} \cdot (U_{ir} \cdot U_{jr})$
-- **Optimization**: Reduces $O(D^3)$ to $O(Rank^2 \cdot D)$ via Woodbury Identity.
-- **Use Case**: Large models where full metric calculation is prohibitive.
-
-### Reactive Geometry (`reactive.py`)
-Geometries that adjust their curvature dynamically based on input flow. Implements geometric plasticity with learnable parameters.
-
-### Adaptive Geometry (`adaptive.py`)
-Self-adjusting geometry that adapts to data distribution during training.
-
-### Hyperbolic Geometry (`hyperbolic.py`)
-Implements hyperbolic (Poincaré ball) space with negative curvature.
-- **Use Case**: Hierarchical data and tree-like structures.
-
-### Holographic Geometry (`holographic.py`)
-Representations where geometry itself stores information through interference patterns. Implements associative memory.
-
-### Hierarchical Geometry (`hierarchical.py`)
-Multi-scale geometry for nested structural representations.
-
-### Spherical Geometry (`spherical.py`)
-Positive curvature geometry on $S^n$ sphere.
-- **Use Case**: Directional data and normalized representations.
-
----
-
-## 3. Geometry Factory
-The `GeometryFactory` uses `GEOMETRY_REGISTRY` to instantiate classes based on config:
+All geometry implementations inherit from `gfn/realizations/gssm/geometry/base.py`:
 
 ```python
-from gfn.realizations.gssm.geometry.factory import GeometryFactory
-
-geometry = GeometryFactory.create(config.physics)
-# Returns appropriate geometry based on topology.type and riemannian_type
-```
-
-### Registration Pattern:
-```python
-from gfn.realizations.gssm.registry import register_geometry
-
-@register_geometry('my_geometry')
-class MyGeometry(BaseGeometry):
+class BaseGeometry(nn.Module):
     ...
 ```
+
+The base class stores:
+
+- `config`
+- `return_friction_separately`
+- `topology_type`
+
+and provides default implementations for:
+
+- `metric_tensor(x)`
+- `christoffel_symbols(x)`
+- `compute_kinetic_energy(x, v)`
+- `compute_potential_energy(x)`
+- `forward(x, v, force=None)`
+- `project(x)`
+- `dist(x1, x2)`
+
+## Runtime Contract
+
+The geometry `forward()` path may return either:
+
+- a tensor representing the geometry contribution
+- a tuple `(gamma, mu)`
+
+where:
+
+- `gamma` is the Christoffel-like curvature term
+- `mu` is an optional friction contribution
+
+The physics engine is responsible for interpreting that result and combining `mu` with the fallback friction from config.
+
+That tuple-return contract is important because several current docs from older versions incorrectly assumed a single universal geometry output shape.
+
+## BaseGeometry Behavior
+
+The base implementation is intentionally conservative:
+
+- `metric_tensor(x)` returns ones
+- `christoffel_symbols(x)` returns zeros
+- `project(x)` is identity
+- `dist(x1, x2)` is Euclidean norm
+
+Its `forward()` implementation computes a simplified acceleration-like quantity and, when `return_friction_separately` is enabled, returns a tuple whose second component is zero friction.
+
+Concrete geometries override the parts they actually need.
+
+## Factory Selection
+
+Geometry instances are created through `GeometryFactory`.
+
+The selection keys are:
+
+- `physics.topology.type`
+- `physics.topology.riemannian_type`
+
+Current runtime rule:
+
+- analytical topologies such as `torus`, `hyperbolic`, and `spherical` win by default
+- learned geometries such as `low_rank`, `reactive`, and `adaptive` only override when `riemannian_type` was explicitly requested
+
+This behavior depends on `_explicit_keys` propagated from `ModelFactory`.
+
+## Effective Default
+
+For a fresh:
+
+```python
+import gfn
+
+model = gfn.create("gssm", vocab_size=256)
+```
+
+the effective geometry is analytical torus geometry, not a learned `reactive` geometry, even though `TopologyConfig.riemannian_type` defaults to `reactive` in the schema.
+
+## Geometry Families In The Current Runtime
+
+The factory imports and registers these geometry modules:
+
+- `euclidean`
+- `torus`
+- `low_rank`
+- `adaptive`
+- `reactive`
+- `hyperbolic`
+- `holographic`
+- `hierarchical`
+- `spherical`
+
+They do not all play the same role:
+
+- some are analytical topologies
+- some are learned geometries
+- some are more experimental extension points
+
+The important distinction for runtime behavior is whether a geometry is selected by declared topology or by explicit learned-geometry override.
+
+## Dimension Handling
+
+The main model factory usually constructs geometry with `create_with_dim(...)`, not the simpler `create(...)` helper.
+
+That matters because geometry usually runs on per-head tensors:
+
+- local scope: per-head dimension
+- global scope: full model dimension
+
+`geometry_scope` decides which dimension is passed into the geometry builder.
+
+## Practical Caveats
+
+- Do not infer geometry behavior from the schema alone.
+- Do not assume `riemannian_type` always wins over `topology.type`.
+- Do not assume every geometry returns only curvature without friction.
+- Treat torus as the current best-supported analytical default path.

@@ -1,6 +1,5 @@
 """
-gfn/math/physics.py — GFN V5
-Curvature and mechanical energy metrics.
+Curvature and mechanical-energy helper functions.
 """
 import torch
 

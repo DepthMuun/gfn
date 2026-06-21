@@ -1,7 +1,5 @@
 """
-GeometryFactory — GFN V5
-Creates geometry instances from PhysicsConfig.
-Supports: euclidean, torus, low_rank, reactive, adaptive, hyperbolic, holographic.
+Factory helpers for constructing geometry modules from `PhysicsConfig`.
 """
 
 from typing import Optional

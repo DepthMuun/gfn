@@ -1,8 +1,5 @@
 """
-ISN Parallel Physics Engine — Modular V5
-=====================================
-O(log L) Memory and Time complexity using Stable Associative Scan.
-Linearized SSM backbone with log-space normalization for L=1024+.
+Parallel world engine based on a stable associative scan over linearized SSM dynamics.
 """
 
 import torch

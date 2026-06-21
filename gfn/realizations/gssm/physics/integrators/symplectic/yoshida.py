@@ -1,7 +1,5 @@
 """
-YoshidaIntegrator — GFN V5
-4th-order symplectic integration scheme.
-Migrated from gfn/nn/physics/integrators/symplectic/yoshida.py
+Fourth-order Yoshida composition integrator for symplectic updates.
 """
 
 import torch

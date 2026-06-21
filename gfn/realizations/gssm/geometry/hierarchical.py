@@ -10,8 +10,6 @@ class HierarchicalGeometry(BaseGeometry):
     """
     Multi-Scale Riemannian Geometry (Christoffel Mixture).
     Combines multiple geometries (typically Low-Rank) with different scales.
-    
-    Migrated from gfn_old HierarchicalRiemannianGeometry.
     """
     def __init__(self, dim: int, rank: int = 16, ranks: Optional[List[int]] = None, 
                  num_heads: int = 1, config: Optional[Any] = None, **kwargs):

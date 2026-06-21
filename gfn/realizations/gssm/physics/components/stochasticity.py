@@ -1,6 +1,5 @@
 """
-Stochastic Forces — GFN V5
-Unified module for random physical forces (Langevin dynamics).
+Stochastic force modules for Langevin-style dynamics.
 """
 
 import torch

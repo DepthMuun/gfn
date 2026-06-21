@@ -1,6 +1,5 @@
 """
-Curiosity Force (Intrinsic Motivation) — GFN V5
-Injects forces directed away from high-density states (exploration on the Manifold).
+Intrinsic exploration force that repels states from dense regions of the batch.
 """
 
 import torch
@@ -12,7 +11,6 @@ class GeometricCuriosityForce(nn.Module):
     """
     Applies a repulsive force from dense geometric aggregates,
     using local curvature or position history.
-    In V5, it acts as a plugin coupled to the PhysicsEngine.
     """
     def __init__(self, strength: float = 0.1, decay: float = 0.99):
         super().__init__()

@@ -1,7 +1,5 @@
 """
-BaseIntegrator — GFN V5
-Clean base for all symplectic and Runge-Kutta integrators.
-Migrated and simplified from gfn/nn/physics/integrators/base.py
+Base utilities shared by symplectic and Runge-Kutta integrators.
 """
 
 import torch
@@ -15,7 +13,7 @@ from ...interfaces.physics import PhysicsEngine
 
 class BaseIntegrator(nn.Module):
     """
-    Base class for all GFN V5 integrators.
+    Base class for GSSM integrators.
 
     Provides:
     - Velocity clamping
@@ -28,7 +26,7 @@ class BaseIntegrator(nn.Module):
         self.physics_engine = physics_engine
         self.config = config or PhysicsConfig()
 
-        # Expose geometry for backward compat
+        # Expose geometry for compatibility with callers that access it directly.
         if hasattr(physics_engine, 'geometry'):
             self.geometry = physics_engine.geometry
         else:
@@ -59,15 +57,13 @@ class BaseIntegrator(nn.Module):
         """
         Apply velocity saturation or clamping.
         If velocity_saturation > 0: use differentiable tanh clamping.
-        Otherwise: use hard clamp (legacy behavior, velocity_clamp not in StabilityConfig).
+        Otherwise: use hard clamping with the configured fallback limit.
         """
         if self.velocity_saturation > 0:
             # P2.3: Differentiable tanh saturation - smoothly clamps magnitude
             # Formula: tanh(v / sat) * sat ensures smooth transition near ±sat
             return torch.tanh(v / self.velocity_saturation) * self.velocity_saturation
         else:
-            # Legacy hard clamp - velocity_clamp not available in StabilityConfig
-            # Default to MAX_VELOCITY if not set
             clamp_val = getattr(self, 'velocity_clamp', MAX_VELOCITY)
             return torch.clamp(v, -clamp_val, clamp_val)
 

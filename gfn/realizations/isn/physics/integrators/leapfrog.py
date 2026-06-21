@@ -1,7 +1,5 @@
 """
-Leapfrog Integrator Component — ISN v2.7.3
-==========================================
-Störmer-Verlet (2nd-order symplectic) integration of the world flow.
+Störmer-Verlet second-order symplectic integration of the ISN world flow.
 
 Dynamics (split Hamiltonian form with ``H(x, v) = ½‖v‖² + V(x)`` and
 ``a(x, f_ext) = tanh(W x + b) + f_ext``):

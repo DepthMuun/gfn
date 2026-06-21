@@ -1,151 +1,164 @@
 # Quick Start Guide
 
-## Your First Experiment
+This guide gives you the shortest reliable path to a working GSSM run using the current public API.
 
-This guide lets you run a basic experiment in under 10 minutes. We assume you already have the environment configured according to the installation instructions.
+It intentionally starts from code, not from older YAML snapshots.
 
-### Step 1: Verify the Installation
+## 1. Verify The Import
 
-Before starting, verify that everything works correctly.
+From the project root:
 
 ```bash
-python -c "import gfn; print('Version:', gfn.__version__)"
+python -c "import gfn; print('gfn import ok')"
 ```
 
-If you see a version number, the installation is correct. If there are errors, review the installation section.
+If that fails, fix the environment before continuing.
 
-### Step 2: Run a Simple Experiment
+## 2. Create A Minimal GSSM Model
 
-The project includes training examples in the `tests/gssm/benchmarks/` directory. To verify the system works, run one of the benchmark tests:
+The preferred public entry point is:
+
+```python
+import gfn
+
+model = gfn.create(
+    "gssm",
+    vocab_size=256,
+    dim=128,
+    depth=2,
+    heads=4,
+)
+```
+
+That path goes through the current config normalization and model factory.
+
+## 3. Run A Sanity Forward Pass
+
+```python
+import torch
+import gfn
+
+model = gfn.create("gssm", vocab_size=256, dim=128, depth=2, heads=4)
+input_ids = torch.randint(0, 256, (2, 8))
+
+logits, (x_final, v_final), state_info = model(input_ids)
+
+print(logits.shape)
+print(x_final.shape, v_final.shape)
+print(state_info.keys())
+```
+
+Expected shape-level behavior:
+
+- `logits` has `[batch, seq, vocab]`
+- `x_final` and `v_final` have matching latent shapes
+- `state_info` includes trajectory information such as `x_seq` and `v_seq`
+
+## 4. Start From Effective Defaults
+
+A fresh `gfn.create("gssm", ...)` currently resolves close to:
+
+- topology: `torus`
+- geometry: analytical torus
+- integrator: `leapfrog`
+- `base_dt = 0.1`
+- `friction = 0.01`
+- embedding mode: `linear`
+- readout type: `standard`
+
+These are safe starting values because they match the current runtime path.
+
+## 5. Minimal Training Loop
+
+```python
+import torch
+import gfn
+
+model = gfn.create("gssm", vocab_size=256, dim=128, depth=2, heads=4)
+optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+
+input_ids = torch.randint(0, 256, (4, 16))
+targets = input_ids.roll(shifts=-1, dims=1)
+
+logits, (_, _), state_info = model(input_ids)
+loss = torch.nn.functional.cross_entropy(
+    logits.reshape(-1, logits.shape[-1]),
+    targets.reshape(-1),
+)
+
+optimizer.zero_grad()
+loss.backward()
+optimizer.step()
+```
+
+This is only a shape-valid example. Real tasks should use targets and losses that actually match the task semantics.
+
+## 6. Use A Real Benchmark Script
+
+If you want a repository example instead of a handcrafted loop, there are real scripts under `tests/gssm/benchmarks/`.
+
+One current example is:
 
 ```bash
 python tests/gssm/benchmarks/convergence/math/train_math.py
 ```
 
-This command:
-- Loads a configuration for a simple mathematical task
-- Trains using the parameters specified in the config
-- Verifies the G-SSM implementation works correctly
+That script uses the public `gfn.create(...)` path and a generative loss over a small symbolic math task.
 
-### Step 3: Monitor Training
+## 7. What To Watch First
 
-The system reports metrics every certain number of steps. Look for in the output:
+At the beginning, check only the basics:
 
-- `loss`: Total loss (should decrease)
-- `h_loss`: Hamiltonian loss (should stay stable)
-- `g_loss`: Geodesic loss (should decrease slowly)
-- `grad_norm`: Gradient norm (should stay bounded)
+- loss decreases at all
+- logits and targets actually live in the same space
+- no NaNs appear
+- the model return contract matches what your training script expects
 
-If the loss diverges (goes to NaN or infinity), stop training with Ctrl+C and review the common problems section.
+Do not assume every benchmark prints the same metric names.
 
-### Step 4: Inspect the Model
+## 8. First Safe Overrides
 
-After training, the model saves checkpoints in the `logs/` directory. You can load and inspect them using standard PyTorch:
+If you need to customize the model, start with explicit but conservative overrides:
 
 ```python
-import torch
+import gfn
 
-# Load checkpoint
-checkpoint = torch.load('logs/math/run_xxx/checkpoints/last.ckpt')
-print(checkpoint.keys())  # View available data
+model = gfn.create(
+    "gssm",
+    vocab_size=1024,
+    dim=256,
+    depth=3,
+    heads=4,
+    physics={
+        "topology": {"type": "torus"},
+        "stability": {
+            "integrator_type": "leapfrog",
+            "base_dt": 0.1,
+            "friction": 0.01,
+        },
+        "dynamics": {"type": "direct"},
+        "readout": {"type": "standard"},
+    },
+)
 ```
 
-The checkpoint contains model state, training metrics, and configuration.
+## 9. When To Change More
 
-## Anatomy of a Configuration
+Only start changing these after the baseline path works:
 
-The YAML configuration files control all aspects of the experiment. Below is an example configuration:
+- geometry override
+- readout type
+- continuous embedding mode
+- optional physics modules
+- non-default integrators
 
-```yaml
-model:
-  vocab_size: 10000
-  dim: 512
-  depth: 6
-  rank: 64
-  heads: 8
-  integrator_type: "leapfrog"
+Most early failures come from mismatching readout, target, and loss, not from lacking an exotic geometry setting.
 
-training:
-  learning_rate: 0.0001
-  batch_size: 16
-  max_steps: 1000
-  warmup_steps: 100
-  
-physics:
-  friction_scale: 0.02
-  dt: 0.05
-  lambda_h: 0.0
-  lambda_g: 0.00005
-```
+## 10. Next Steps
 
-Main sections:
-- `model`: Model architecture
-- `training`: Optimizer parameters
-- `physics`: Physical and integrator constants
-- `data`: Dataset configuration
+After the sanity run works, continue with:
 
-## Your Own Experiment
-
-To create your own experiment, create a new configuration file:
-
-```bash
-# Create a new config file
-nano my_experiment.yaml
-```
-
-Edit the file with your parameters. For example, for a larger model:
-
-```yaml
-model:
-  vocab_size: 50000
-  dim: 1024
-  depth: 12
-  rank: 128
-  heads: 16
-
-training:
-  learning_rate: 0.00005  # Lower LR for larger models
-  batch_size: 8           # Smaller batch due to memory
-  max_steps: 5000
-```
-
-Run your experiment:
-
-```bash
-python my_experiment.py --config my_experiment.yaml
-```
-
-## Log Structure
-
-Results are saved in the directory specified by --output. Typical structure:
-
-```
-logs/my_experiment/
-├── checkpoints/
-│   ├── last.ckpt
-│   └── best.ckpt
-├── events.out.tfevents.xxx
-├── config.yaml
-└── metrics.json
-```
-
-- `last.ckpt`: Most recent model checkpoint
-- `best.ckpt`: Best performing checkpoint based on validation loss
-
-## Monitoring
-
-To manually inspect convergence, read the console outputs for `PPL` (Perplexity) and `Val Loss`. Look for the "New best model saved" checkmark indicator.
-## Next Steps
-
-Now that you have an experiment running, you can:
-
-1. Read the advanced configuration guide to tune parameters
-2. Review the constants reference to understand each parameter
-3. Explore the benchmarks in `tests/gssm/benchmarks/` for other experiment types
-4. Run the test suite to verify correctness
-
-If you run into problems, consult the troubleshooting guide.
-
----
-
-**DepthMuun (GFN v2)**
+1. `03-reference/00-handbook.md`
+2. `03-reference/02-api-classes.md`
+3. `04-guides/02-advanced-configuration.md`
+4. `04-guides/03-problem-solving.md`

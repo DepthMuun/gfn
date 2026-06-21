@@ -1,6 +1,5 @@
 """
-gfn/training/__init__.py
-Public API del módulo training — GFN V5
+Public training API for GSSM trainer, optimizers, schedulers, metrics, and callbacks.
 """
 
 from ..training.trainer import GFNTrainer

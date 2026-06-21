@@ -1,7 +1,5 @@
 """
-ISN Threshold Emitter — Modular V5
-================================
-Emitter with non-linear threshold activation.
+Emitter that applies a non-linear threshold before projection to logits.
 """
 
 import torch

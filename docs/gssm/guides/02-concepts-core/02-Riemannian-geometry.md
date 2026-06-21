@@ -1,59 +1,134 @@
-# Riemannian Geometry
+# Riemannian Geometry In GSSM
 
-## Manifolds and Metrics
+This guide explains what geometry means in the current GSSM runtime.
 
-A Riemannian manifold is a mathematical space that locally behaves like Euclidean space but globally can have curvature. In Manifold, the latent space is modeled as a manifold where the metric g(q) defines the local geometric structure.
+For implementation details, use:
 
-The metric is a function that assigns an inner product to each point q in the tangent space. Formally, g: T_q M â†’ â„, where T_q M is the tangent space at q. In practical terms, the metric determines how we measure distances and angles at each point on the manifold.
+- `technical/1_geometry/base.md`
+- `technical/0_architecture/math/03_geometry.md`
+- `technical/0_architecture/math/geometry/`
 
-The choice of metric is crucial because it defines what "near" and "far" mean in representation space. A well-designed metric can capture relevant data structure, while an inadequate metric can obscure important relationships.
+## The Main Idea
 
-In DepthMuun, the geometry is not explicitly derived from an invertible metric matrix. Instead, the "metric" behavior is empirically parameterized via static learned projection matrices ($U$ and $W$). This acts as a pseudo-connection that guides dynamic adaptation to the data structure without the $O(d^3)$ overhead of true metric inversion.
+GSSM evolves latent state on a chosen manifold rather than assuming one flat latent space for every task.
 
-## The Connection Tensor
+In practical terms, geometry affects:
 
-Rather than computing a symmetric $d \times d$ metric tensor, DepthMuun learns the **Christoffel Connection** directly. The connection determines how the latent velocity state $v$ interacts with itself to produce geometric drag:
+- how trajectories bend
+- how distances are interpreted
+- whether coordinates wrap
+- whether extra friction can come from the geometry itself
 
-- If the generalized connection $\Gamma(x, v)$ is close to zero, the manifold is locally flat and allows high-velocity straight-line paths (exploration).
-- If $\Gamma(x, v)$ is large, the manifold exhibits high "curvature," inducing significant geometric resistance and bending the trajectory.
+## Metrics vs. Runtime Geometry
 
-We compute $\Gamma$ via a static parameterization ($U$ and $W$ matrices) combined with a scalar state-dependent Friction Gate. This directly defines the system dynamics without requiring intermediate neural network matrix generation.
+In differential geometry, a Riemannian manifold is usually described by a metric tensor that defines local inner products and therefore lengths, distances, and curvature.
+
+That mathematical picture is still useful for intuition, but the current GSSM runtime does not always operate by constructing a full metric tensor and analytically deriving everything from it.
+
+Instead, different geometry implementations provide the behavior needed by the physics engine directly.
+
+## Current Geometry Contract
+
+In the runtime, the geometry module may return:
+
+- `gamma`
+- `(gamma, mu)`
+
+where:
+
+- `gamma` is the Christoffel-like curvature contribution
+- `mu` is optional geometry-provided friction
+
+That means geometry is part of the actual acceleration path, not just a passive measurement tool.
+
+## Geometry Families
+
+The current factory can build both analytical topologies and learned geometries.
+
+### Analytical Topologies
+
+These are selected primarily through `physics.topology.type`:
+
+- `torus`
+- `euclidean`
+- `hyperbolic`
+- `spherical`
+
+### Learned Geometries
+
+These are selected through `physics.topology.riemannian_type` when explicitly requested:
+
+- `low_rank`
+- `reactive`
+- `adaptive`
+- plus more experimental entries such as `holographic` and `hierarchical`
+
+## Important Runtime Rule
+
+The current factory no longer lets `riemannian_type="reactive"` silently override `topology.type="torus"` just because it appears in the schema defaults.
+
+Current effective behavior:
+
+- analytical topology wins by default
+- learned geometry override only wins when explicitly requested
+
+This is why a fresh GSSM model currently builds torus geometry by default.
+
+## Torus As The Default
+
+For a plain:
+
+```python
+import gfn
+
+model = gfn.create("gssm", vocab_size=256)
+```
+
+the effective geometry is analytical torus geometry.
+
+That means:
+
+- position is wrapped periodically
+- torus-aware readouts and toroidal losses are available when appropriate
+- `R`, `r`, `learnable_R`, `learnable_r`, and `toroidal_curvature_scale` are real runtime knobs
+
+## Low-Rank Geometry
+
+Low-rank geometry is the main learned-geometry family used when you want trainable curvature instead of a fixed analytical topology.
+
+Why it matters:
+
+- it reduces parameter and compute cost relative to a dense full-geometry picture
+- it exposes `riemannian_rank`
+- it has both Python and nearby optimized paths in the broader runtime
+
+What matters most in user-facing terms is not the exact derivation but the fact that low-rank geometry must now be requested explicitly when used together with a declared analytical topology.
 
 ## Curvature Bounding
 
-True curvature on a manifold is formally measured by the Riemann tensor $R^k_{ijk}$, which requires fourth-order index computation capturing parallel transport holonomy.
+The runtime still includes curvature-control mechanisms such as `curvature_clamp`, but the exact effect depends on the geometry implementation and where the clamp is applied.
 
-In DepthMuun V2, we **do not** compute the Riemann tensor computationally, as it is completely intractable for sequences of dimension $d=256$ or higher ($O(d^4)$ cost). 
+So the safe interpretation is:
 
-Instead of bounding formal scalar curvature $K$, we directly bound the raw connection vector outputs ($\Gamma$) computationally.
+- curvature is bounded for numerical stability
+- the clamp is a runtime safeguard, not a proof of exact Riemannian curvature control
 
-In DepthMuun, we limit effective trajectory bending via an asymptotic projection:
+## Geometry Scope
 
-```python
-Gamma = CURVATURE_CLAMP * torch.tanh(Gamma / CURVATURE_CLAMP)
-```
+`physics.topology.geometry_scope` affects the dimensional view used by the geometry builder:
 
-This prevents the pseudo-connection from becoming numerically unstable or blowing up gradients during long sequence integration, acting as an empirical safeguard against curvature singularities.
+- `local`: per-head geometry
+- `global`: geometry sees the full model dimension
 
-## Low-Rank Formulation
+This setting matters because GSSM layers usually operate on head-partitioned state rather than on one single flat latent tensor.
 
-Computing formal Christoffel symbols directly from an explicit metric requires $O(d^3)$ operations due to metric inversion and derivative computation. For high-dimensional ML embeddings, this is prohibitive.
+## Practical Reading Guide
 
-DepthMuun utilizes a strictly $O(1)$ memory architecture relying entirely on a **Low-Rank Formula** for the connection:
+When choosing geometry, ask these questions in order:
 
-$$\Gamma(v, x) \approx W \cdot \left[ (U^T v)^2 \odot \sigma(\|U^T v\|_2) \right]$$
+1. Does the task naturally want periodic coordinates?
+2. Do I want an analytical topology or a learned geometry?
+3. Does the loss live in vocabulary space, Euclidean space, or manifold coordinates?
+4. Do I need toroidal wrapping, toroidal loss, or identity readout?
 
-Here $U$ and $W$ are $d \times r$ explicit matrices, where $r \ll d$. This approximation reduces the continuous time-step cost to $O(d^2 \cdot r)$. 
-
-The system relies *exclusively* on this empirical low-rank formulation. There is no fallback to "full exact metric" execution, as doing so would violate the strict $O(1)$ hardware design assumptions underlying the Leapfrog symplectic kernel.
-
-## Core Topologies
-
-DepthMuun implements several spatial topologies determining boundary interactions:
-
-- **Toroidal Topology (`type='torus'`)**: The space is bounded with periodic boundaries (e.g., $[-\pi, \pi]$). Particles that exit one side of the representation space re-enter from the opposite side. Toroidal topologies are highly effective at enforcing bounded gradient energy and capturing cyclic sequence semantics naturally (like language context attention limits).
-- **Euclidean Topology**: Standard unbounded vector space. Can grow infinitely without hard boundaries, but is more susceptible to exploding trajectories if the conformal friction gate fails to learn appropriate damping.
-
----
-
-**DepthMuuns (JoaquÃ­n StÃ¼rtz)**
+That sequence is usually more useful than starting from abstract curvature theory alone.

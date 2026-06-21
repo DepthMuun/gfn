@@ -1,7 +1,5 @@
 """
-ISN Registry System — Modular V5
-==============================
-Centralized registry for Physics, Projections, and Training Strategies.
+Registry helpers for ISN physics, projections, and training strategies.
 """
 
 from typing import Dict, Type, Any

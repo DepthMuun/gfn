@@ -1,9 +1,5 @@
 """
-ISN Reality Model — Modular V5
-=============================
-Modular Orchestrator for Component-based Neural Simulation.
-Connects Physics Engenines, Projections, and Telemetry.
-Optimized for C++ Direct Logit Path.
+Component-based ISN model that connects scanning, world simulation, and emission.
 """
 
 import torch
@@ -15,8 +11,7 @@ from ..telemetry.hooks import HookManager, ISNHook
 
 class Model(nn.Module):
     """
-    ISN V5 Modular Orchestrator.
-    Connects Scanner, Physics Engine, and Emitter via Component Injection.
+    Orchestrates scanner, world engine, emitter, and optional hooks.
     """
     def __init__(
         self,

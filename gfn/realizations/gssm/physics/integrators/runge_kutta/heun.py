@@ -1,7 +1,5 @@
 """
-HeunIntegrator — GFN V5
-Heun (explicit trapezoidal) 2nd-order Runge-Kutta integrator.
-Migrated from gfn/nn/physics/integrators/runge_kutta/heun.py
+Second-order Heun integrator for non-symplectic manifold dynamics.
 """
 
 import torch

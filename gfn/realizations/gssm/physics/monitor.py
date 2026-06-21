@@ -1,6 +1,5 @@
 """
-gfn/physics/monitor.py — GFN V5
-PhysicsMonitorPlugin: Hamiltonian energy diagnostic during training.
+Hamiltonian energy monitoring plugin for training-time diagnostics.
 
 Connects to HookManager and tracks H(t) = T + V per batch,
 calculating relative energy_drift to detect instability.
@@ -40,7 +39,7 @@ class PhysicsMonitorPlugin(Plugin):
                  window: int = 64):
         """
         Args:
-            geometry: GFN geometry object (for Riemannian T). Can be None.
+            geometry: geometry object used for Riemannian kinetic energy. Can be None.
             enabled:  If False, plugin is a no-op (no overhead).
             window:   Maximum steps stored per batch for drift calculation.
         """

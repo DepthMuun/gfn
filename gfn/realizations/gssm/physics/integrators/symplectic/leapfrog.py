@@ -1,7 +1,5 @@
 """
-LeapfrogIntegrator — GFN V5
-Störmer-Verlet (Leapfrog) 2nd-order symplectic integrator.
-Migrated from gfn/nn/physics/integrators/symplectic/leapfrog.py
+Second-order Störmer-Verlet integrator for symplectic manifold dynamics.
 """
 
 import torch

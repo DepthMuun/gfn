@@ -1,8 +1,5 @@
 """
-ISN Adjoint Strategy — Modular V5
-=============================
-Implements O(1) memory complexity using the Adjoint State Method.
-Treats the GFN physics flow as a continuous ODE.
+Adjoint-based training strategy that treats the world flow as a continuous ODE.
 """
 
 import torch
@@ -37,7 +34,7 @@ class ISN_ODEFunc(nn.Module):
         idx = torch.clamp(t.long(), 0, self.n_steps - 1)
         u_t = self.impulses[:, idx]
         
-        # GFN Physics: s_dot = drift(s) + diffusion(u)
+        # Physics flow: s_dot = drift(s) + diffusion(u)
         v_drift = torch.tanh(self.physics.drift(s))
         f_ext = self.physics.diffusion(u_t)
         

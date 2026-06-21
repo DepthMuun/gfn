@@ -1,6 +1,5 @@
 """
-gfn/models/factory.py — GFN V5
-ModelFactory: builds complete ManifoldModel from ManifoldConfig.
+Factory utilities to build complete manifold models from typed configuration.
 
 Configuration support via:
   - ManifoldConfig directly (config=...)
@@ -42,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 class ModelFactory:
     """
-    Factory to build GFN V5 models.
+    Factory to build GSSM models from normalized configuration.
 
     IMPORTANT: Geometry operates on per-head tensors [B, H, HD] where HD = dim/heads.
     The factory passes head_dim to GeometryFactory, not the total dim.

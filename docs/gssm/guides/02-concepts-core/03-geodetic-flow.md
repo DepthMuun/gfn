@@ -1,72 +1,126 @@
-# Geodesic Flow
+# Geodesic Flow In Practice
 
-## Geodesic Definition
+This guide explains what "geodesic flow" means in the current GSSM runtime.
 
-A geodesic is the shortest path between two points on a manifold. In physical terms, it is the trajectory a particle free of external forces would follow. Mathematically, it satisfies the geodesic equations:
+For exact implementation details, use:
 
-dÂ²q^k/dtÂ² + Î“^k_ij * dq^i/dt * dq^j/dt = 0
+- `technical/2_physics/engine.md`
+- `technical/0_architecture/math/02_integrators.md`
+- `technical/0_architecture/math/training/losses.md`
 
-The first term is acceleration in curvilinear coordinates. The second term involves Christoffel symbols and captures the effect of curvature on motion.
+## The Basic Idea
 
-In Manifold, the geodesic flow evolves the system state by following these equations. The system naturally "falls" along the manifold toward lower-energy configurations, with the metric determining the shape of the energy landscape.
+A geodesic is the natural path induced by the geometry of a space.
 
-## Numerical Integration
+As intuition, if there were no external force and no damping, a state moving on the manifold would continue along the path preferred by the geometry itself.
 
-The geodesic equations are second-order differential equations. To solve them numerically, we convert them to a first-order system by introducing momenta:
+In GSSM, this idea is useful, but the real runtime usually includes more than pure geodesic motion:
 
-dq/dt = p
-dp/dt = -Î“(q)(p,p)
+- external force from the embedding
+- friction
+- optional hysteresis
+- optional stochasticity
+- optional curiosity
+- optional singularity damping
 
-Now we have 2d first-order equations that we can integrate with standard methods.
+So the actual model should be understood as geometry-aware forced motion, not as a pure free-particle geodesic solver on every step.
 
-The **Conformal Symplectic Leapfrog** integrator (a modified Verlet scheme handling friction) is our primary choice. Its structure is:
+## Runtime Update Picture
 
-1. **Kick**: $p_{t+h/2} = \frac{p_t + \frac{h}{2} \cdot \left( \frac{dp}{dt}(q_t) + F_{\text{ghost}} \right)}{1 + \frac{h}{2} \mu_t}$
-2. **Drift**: $q_{t+h} = \text{Bnd}(q_t + h \cdot p_{t+h/2})$
-3. **Kick**: $p_{t+h} = \frac{p_{t+h/2} + \frac{h}{2} \cdot \left( \frac{dp}{dt}(q_{t+h}) + F_{\text{ghost}} \right)}{1 + \frac{h}{2} \mu_{t+h}}$
+At a high level, each timestep follows:
 
-Unlike generic integrators or pure conservative Leapfrog, this specific scheme rigorously enforces $O(1)$ memory mapping (by omitting expensive inverse metric multiplications on $p$) and explicitly handles topological boundaries $\text{Bnd}(\cdot)$. Most importantly, the $1 + \mu$ denominator correctly contracts phase-space volume seamlessly corresponding to the active friction gate.
+```text
+embedding -> external force
+geometry -> curvature term
+physics engine -> acceleration
+integrator -> proposal
+dynamics mode -> next state
+```
 
-## Optimality Properties
+The geodesic idea mainly lives in the geometry + acceleration part of that chain.
 
-Geodesic flow has important theoretical properties that inform the model design.
+## What The Integrator Actually Does
 
-The first property is optimality: given two points on the manifold, the geodesic is the shortest path. In the model context, this means the system finds efficient representations that minimize "distance" in latent space.
+The current integrator family includes:
 
-The second property is local uniqueness: near any point, there exists exactly one short geodesic between sufficiently close points. This guarantees the system converges to stable representations rather than oscillating indefinitely.
+- `leapfrog`
+- `verlet`
+- `yoshida`
+- `forest_ruth`
+- `omelyan`
+- `rk4`
+- `heun`
 
-The third property is reversibility: reversing time transforms one geodesic into another. This symmetry is important for training because it enables a well-behaved backward pass.
+The effective default is `leapfrog`.
 
-## Geodesic Regularization
+All integrators inherit shared runtime behaviors from `BaseIntegrator`, including:
 
-We add a loss term that forces model trajectories to behave like geodesics. This improves representation quality and prevents pathological behavior.
+- topology-aware position wrapping
+- optional velocity saturation
+- delegated acceleration computation through the physics engine
 
-The geodesic loss term is:
+That means "geodesic flow" in GSSM is never just a standalone equation on paper. It is the combination of geometry, engine, integrator, and topology helpers.
 
-L_geo = ||dÂ²q/dtÂ² + Î“(q)(dq/dt, dq/dt)||Â²
+## Friction Changes The Story
 
-This term penalizes deviations from geodesic dynamics. Small values indicate the model is "falling naturally" along the manifold rather than moving arbitrarily.
+Pure geodesic motion assumes no damping.
 
-The weight of this regularization is controlled by `LAMBDA_G` (default: **$0.00005$**). High values enforce strict geometry but can severely crush the semantic gradients. This scalar was empirically tuned down to very small margins in DepthMuun V2 specifically to perfectly maintain curvature without overpowering the primary sequence-modeling task vectors.
+The current runtime does include damping:
 
-## Integration Horizon
+- base friction from `config.stability.friction`
+- optional geometry-returned `mu`
+- optional velocity-dependent scaling through `velocity_friction_scale`
 
-The number of integration steps (`LEAPFROG_SUBSTEPS`) determines how long the system evolves per processed token layer.
+Because of that, a more realistic mental model is:
 
-- **Fast mapping (1-2)**: The system barely moves. The dynamics are similar to standard attention with little refinement.
-- **V2 Standard (3)**: In DepthMuun V2, the base standard is exactly **3** substeps. We optimized this down from historic defaults (5) because empirical testing proved that 3 iterations provide ideal refinement paths while ensuring a significantly cleaner backward pass tracking.
-- **Deep Iterations (>3)**: The system has time to fully converge, but the memory tracking cost during `.backward()` grows linearly. Useful for stress-testing representations but impractical for large-scale training.
+- geometry bends the motion
+- friction damps the motion
+- external force drives the motion
 
-The optimal choice depends on the task. Tasks that require multi-step reasoning benefit from more iterations. Simple tasks can work with fewer.
+## Topology Wrapping
 
-## Singularities and Black Holes
+When the topology is toroidal, position is wrapped with:
 
-The metric can become singular at some points, causing division by zero in the integrator. We prevent this through clamping and normalization.
+```python
+torch.atan2(torch.sin(x), torch.cos(x))
+```
 
-The "black hole" mechanism dynamically scales geometry saturation in regions of critical curvature, preventing the system from escaping or crashing the numeric float bounds. `BLACK_HOLE_STRENGTH` controls the intensity of this saturation (tuned to **1.5**).
+This matters because the actual trajectory is defined on a periodic manifold, not on an unconstrained Euclidean line.
 
-If you observe NaN loss or erratic gradient behavior, the system may have encountered a singularity jump before the protective boundary triggered. The V2 `SINGULARITY_THRESHOLD` has been lowered from historical defaults down to **0.5**, purposefully triggering these protective asymptotes much earlier during volatile initial training phases.
+So even if the motion is geodesic-like locally, the global path must respect topology.
 
----
+## About Geodesic Regularization
 
-**DepthMuuns (Joaquin Sturtz)**
+GSSM does contain physics-aware losses, including geodesic-style regularization paths, but they are not all automatically active in a plain training loop.
+
+Important runtime caveat:
+
+- `PhysicsLoss` can use a geodesic component
+- that component depends on data such as `state_info["christoffels"]`
+- the default `BaseModel.forward()` contract does not expose `christoffels` by default
+
+So geodesic regularization exists in the codebase, but it should not be documented as a universal always-on loss term for every training script.
+
+## What To Tune First
+
+If the trajectory behavior looks wrong, the most useful knobs are usually:
+
+- `integrator_type`
+- `base_dt`
+- `friction`
+- `velocity_friction_scale`
+- topology choice
+- whether the task actually needs toroidal supervision or identity readout
+
+These runtime choices affect trajectory behavior more directly than abstract geodesic language alone.
+
+## Practical Interpretation
+
+Use "geodesic flow" as the organizing intuition for why GSSM uses geometry-aware state evolution.
+
+But when reading or debugging the actual model, think in runtime terms:
+
+- forced motion, not free motion
+- damped motion, not purely conservative motion
+- wrapped topology, not unconstrained coordinates
+- integrator behavior, not only continuous-time equations

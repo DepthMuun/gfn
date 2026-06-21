@@ -273,8 +273,6 @@ class WorldPhysics:
     def _process_relation(self, e1, e2, net=None): return None # To be implemented
     def _process_influence(self, e1, e2, net=None): return None # To be implemented
     
-    # Removed hardcoded arithmetic transformers
-    
     def check_conservation_laws(
         self,
         entities_before: List[Entity],

@@ -1,6 +1,5 @@
 """
-Callbacks — GFN V5
-Interface base y callbacks estándar para entrenamiento.
+Training callback base class and standard callback implementations.
 """
 
 import torch
@@ -10,8 +9,7 @@ from typing import Optional, Dict, Any
 
 class Callback:
     """
-    Interfaz base para callbacks de entrenamiento.
-    Todos los callbacks heredan de esta clase.
+    Base interface for training callbacks.
     """
     def on_epoch_start(self, epoch: int, trainer=None): pass
     def on_epoch_end(self, epoch: int, metrics: Dict[str, float], trainer=None): pass

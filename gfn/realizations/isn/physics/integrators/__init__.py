@@ -1,11 +1,9 @@
 """
-ISN Physics Integrators — Modular v2.7.3
-=====================================
-Swappable integrator components for the world flow.
+Swappable integrator components for the ISN world-flow engine.
 
 Available integrators
 ---------------------
-- ``EulerIntegrator``  : forward-Euler (backward-compatible default).
+- ``EulerIntegrator``  : forward-Euler default.
 - ``LeapfrogIntegrator``: Störmer-Verlet 2nd-order symplectic.
 - ``YoshidaIntegrator`` : 4th-order Yoshida composition on top of leapfrog.
 

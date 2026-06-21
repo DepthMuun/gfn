@@ -1,6 +1,5 @@
 """
-LoggerCallback — GFN V5
-Logging de métricas de entrenamiento a consola y/o archivo.
+Logging callback for training metrics written to console and optional files.
 """
 
 import json

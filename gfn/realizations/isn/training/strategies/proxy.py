@@ -1,7 +1,5 @@
 """
-Proxy Training Strategy — Modular V5
-=================================
-Ultra-fast O(1) training using a DirectProjection proxy.
+Proxy-based training strategy that bypasses recurrent backpropagation.
 """
 
 import torch

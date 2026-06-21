@@ -1,7 +1,5 @@
 """
-Yoshida Integrator Component — ISN v2.7.3
-========================================
-4th-order symplectic composition built on top of the leapfrog kernel.
+Fourth-order symplectic composition built on top of the leapfrog kernel.
 
 Dynamics:
     Three leapfrog stages with weights ``w1, w0, w1`` and a final half-kick

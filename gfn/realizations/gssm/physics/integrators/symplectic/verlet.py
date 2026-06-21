@@ -1,7 +1,5 @@
 """
-VerletIntegrator — GFN V5
-Velocity Verlet / Störmer-Verlet symplectic integrator.
-Migrated from gfn/nn/physics/integrators/symplectic/verlet.py
+Velocity Verlet integrator for second-order symplectic updates.
 """
 
 import torch

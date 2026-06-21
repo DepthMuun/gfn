@@ -164,9 +164,6 @@ class MultiDimensionalLoss(nn.Module):
         pass
 
 
-# (Removed legacy OutcomeLoss due to pure geometrical shift)
-
-
 class CoherenceLoss(nn.Module):
     """
     L₂: World Coherence Loss

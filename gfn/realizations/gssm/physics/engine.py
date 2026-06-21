@@ -1,7 +1,5 @@
 """
-ManifoldPhysicsEngine — GFN V5
-Central orchestration of physical forces.
-Migrated and simplified from gfn/nn/physics/engine.py
+Central orchestration of geometric, external, and dissipative forces.
 """
 
 import torch
@@ -24,8 +22,6 @@ from .components import (
 
 class ManifoldPhysicsEngine(nn.Module):
     """
-    Manifold Physics Engine — GFN V5.
-
     Computes the net acceleration:
       dv/dt = -Γ(x,v) + F_ext + F_friction + F_ghost
 
@@ -55,8 +51,8 @@ class ManifoldPhysicsEngine(nn.Module):
 
         topo = self.config.topology.type.lower()
         self.is_torus = (topo == TOPOLOGY_TORUS)
-        # P0.2: engine is the SINGLE authority on friction application.
-        # friction_fallback is used ONLY when geometry returns a plain tensor (no mu).
+        # The engine is the single authority on friction application.
+        # The fallback is used only when geometry returns no explicit friction term.
         self.friction_fallback = self.config.stability.friction
         self.velocity_friction_scale = getattr(self.config.stability, 'velocity_friction_scale', 0.0)
         # P2.3: velocity saturation via differentiable tanh clamp (0 = disabled)

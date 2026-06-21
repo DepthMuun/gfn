@@ -1,8 +1,5 @@
 """
-gfn/training/evaluation.py — GFN V5
-Ported from: gfn_old/engine/evaluation/
-
-Evaluators for geometric metrics and physical constraints for GFN models.
+Evaluators for geometric metrics and physical constraints in GSSM models.
 """
 import torch
 import torch.nn as nn
@@ -13,7 +10,7 @@ import math
 
 class ManifoldMetricEvaluator:
     """
-    Evaluates geometric and architectural metrics of the Manifold system.
+    Evaluates geometric and state-space metrics for manifold trajectories.
 
     Available metrics:
       - Manifold space coverage (variance, distance to centroid)
@@ -109,7 +106,7 @@ class ManifoldMetricEvaluator:
 
 class PhysicsConstraintEvaluator:
     """
-    Valida que el entrenamiento respeta las restricciones físicas del GFN.
+    Valida restricciones numericas y geometricas del estado integrado.
 
     Verificaciones:
       - Conservación de energía (drift Hamiltoniano)

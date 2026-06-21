@@ -1,6 +1,5 @@
 """
-ISN Interfaces — GFN V4
-Base abstract classes for component interchangeability.
+Base abstract interfaces for interchangeable ISN components.
 """
 
 import torch

@@ -1,7 +1,5 @@
 """
-LowRankRiemannianGeometry — GFN V5
-Computes Christoffel symbols via a low-rank decomposition.
-Migrated from gfn/geo/riemannian/low_rank_geometry.py
+Low-rank geometry that computes Christoffel responses from learned factors.
 """
 
 import torch

@@ -1,257 +1,134 @@
 # Numerical Validation
 
-## Purpose
+This guide describes the validation paths that actually exist in the current repository.
 
-This guide documents procedures to verify the system's numerical correctness. Validation is crucial because the system depends on physical properties (energy conservation, geodesic trajectories) that can break subtly.
+It does not assume a single monolithic orchestrator. The current tree is better understood as a set of focused health tests, audits, and benchmark scripts.
 
-## Python-CUDA Consistency Tests
+## What To Validate First
 
-The implementation has two backends: pure Python and custom CUDA kernels. For consistent results, both must produce the same values within numerical tolerance.
+For GSSM, the most useful validation layers are:
 
-### Execution
+- component health tests
+- integration tests across topology / integrator / mixer combinations
+- targeted physics audits
+- benchmark scripts for runtime or convergence behavior
 
-```bash
-pytest tests/gssm/unit/cuda/
-```
+## 1. Health Test Suite
 
-This test compares outputs of key operations across backends.
-
-### Reported Metrics
-
-The test reports the maximum absolute and relative error for each operation:
-
-```
-Operation: leapfrog_step
-  Max abs diff: 1.2e-7
-  Max rel diff: 3.4e-6
-  Status: PASS
-
-Operation: christoffel_computation
-  Max abs diff: 8.5e-8
-  Max rel diff: 2.1e-5
-  Status: PASS
-```
-
-### Tolerances
-
-Per-operation tolerances:
-
-| Operation | Absolute | Relative |
-|-----------|----------|----------|
-| Leapfrog | 1e-5 | 1e-4 |
-| Christoffel | 1e-6 | 1e-3 |
-| Metric | 1e-6 | 1e-3 |
-| Gradients | 1e-4 | 1e-2 |
-
-If errors exceed these tolerances, the system may still work but with different behavior on GPU.
-
-### Causes of Failures
-
-**Out-of-sync constants.** Verify that EPSILON_STANDARD, FRICTION_SCALE, and other values match between Python and CUDA.
-
-**Operation order.** Reduction operations can differ in floating-point associativity.
-
-**Data types.** Verify both use float32 (not float16).
-
-## Energy Conservation Test
-
-In the absence of friction and external forces, the Hamiltonian H(q,p) should stay constant.
-
-### Execution
+The main automated validation entry point that clearly exists today is:
 
 ```bash
-python tests/gssm/diagnostics/check_energy.py
+pytest tests/gssm/health -v
 ```
 
-### Metrics
+This area contains:
 
-The test reports:
+- unit tests for geometries and integrators
+- config override tests
+- force and attention tests
+- integration tests for model combinations
+- pipeline-level checks
 
-- **Energy drift**: Percentage change of the Hamiltonian over the simulation
-- **Energy oscillation**: Amplitude of fluctuations
-- **Energy variance**: Hamiltonian variance
-
-### Interpretation
-
-Typical results for Leapfrog with low friction:
-
-```
-Energy drift: 0.023%  (expected: < 1%)
-Energy oscillation: 0.15%  (expected: < 1%)
-Status: PASS
-```
-
-Acceptable results:
-
-- Drift < 1% for 1000 steps
-- Oscillation < 1% of the initial value
-- No monotonic trend (up or down)
-
-### Failure Diagnosis
-
-**Large positive drift.** Indicates spurious energy gain. Check:
-- That external force is zero
-- That there are no incorrect force terms
-
-**Large negative drift.** Indicates excessive energy loss. Check:
-- That friction is not too high
-- That the timestep is not too large
-
-**Growing oscillation.** Indicates integrator instability. Solution:
-- Reduce DEFAULT_DT
-- Increase LEAPFROG_SUBSTEPS
-- Switch to a more stable integrator
-
-## Geodesic Trajectory Test
-
-Geodesics are minimum-length paths. We verify that model trajectories are geodesic.
-
-### Execution
+Useful sub-runs include:
 
 ```bash
-pytest tests/gssm/unit/geometry/
+pytest tests/gssm/health/unit/test_geometries.py -v
+pytest tests/gssm/health/unit/test_integrators.py -v
+pytest tests/gssm/health/integration/test_combinations.py -v
+pytest tests/gssm/health/integration/test_pipeline.py -v
 ```
 
-### Metrics
+## 2. Forward/Backward Compatibility Checks
 
-The test reports:
+Two important questions for GSSM are:
 
-- **Geodesic deviation**: Deviation from the geodesic equation
-- **Length optimality**: Ratio between actual length and geodesic distance
-- **Parallel transport**: Rotation of transported vectors
+- can the model be instantiated across relevant config combinations?
+- does a forward and backward pass still work?
 
-### Interpretation
+The integration suite under `tests/gssm/health/integration/` is a better current source of truth for that than older docs that referenced generic “numeric validation” directories that no longer match the tree cleanly.
 
-```
-Geodesic deviation: 0.0023  (expected: < 0.01)
-Length optimality: 1.0012  (expected: < 1.01)
-Parallel transport error: 0.0015  (expected: < 0.01)
-Status: PASS
-```
+## 3. Physics Audit Scripts
 
-### Failure Diagnosis
+There are also focused audit scripts under `tests/gssm/benchmarks/physics/`.
 
-**High geodesic deviation.** Indicates the system does not follow geodesics. Possible causes:
-- LAMBDA_G_DEFAULT too low
-- FRICTION_SCALE too high
-- Incorrect integrator
-
-**Poor length optimality.** Indicates trajectories are not optimal. Solution:
-- Increase LAMBDA_G_DEFAULT
-- Reduce DEFAULT_DT
-- Increase LEAPFROG_SUBSTEPS
-
-## Differentiability Test
-
-All operations must be differentiable for training.
-
-### Execution
+One current example is:
 
 ```bash
-pytest tests/gssm/unit/core/
+python tests/gssm/benchmarks/physics/integration_audit.py
 ```
 
-### Checks
+This script is not a universal certification suite. It is a focused comparative audit for explicit versus semi-implicit friction handling under a simple oscillatory setup.
 
-The test verifies that:
-- The forward pass produces gradient tensors
-- Gradients are not NaN or Inf
-- Gradients have correct shapes
-- The gradient of gradients (Hessian) exists where applicable
+Use it to inspect:
 
-### Failure Diagnosis
+- trajectory behavior
+- energy variance trends
+- relative stability of update formulas
 
-**NaN gradients.** Indicates non-differentiable operations. Check:
-- Non-differentiable operations in the forward
-- Division by tensors that can be zero
+## 4. Integrator Benchmark Scripts
 
-**Zero gradients.** Indicates the computation graph is broken. Check:
-- That there are no incorrect detach() or no_grad()
-- That operations are part of the graph
+There are performance-oriented scripts under:
 
-## Gradient Parity Test
+- `tests/gssm/benchmarks/stress/performance/`
 
-CUDA backend gradients must match Python.
-
-### Execution
+For example:
 
 ```bash
-pytest tests/unit/cuda/
+python tests/gssm/benchmarks/stress/performance/bench_integrators.py
 ```
 
-### Metrics
+Important caveat:
 
-Reports differences between gradients:
+- some of these scripts contain older benchmarking code paths and should be treated as exploratory tooling, not as the sole source of runtime truth
 
-```
-Gradient: dL/dq
-  Max abs diff: 2.3e-7
-  Status: PASS
+They are useful for investigation, but the health tests and the current model/runtime code remain the authority.
 
-Gradient: dL/dp
-  Max abs diff: 1.8e-7
-  Status: PASS
-```
+## 5. CUDA And Backend Validation
 
-### Failure Diagnosis
+If you are debugging CUDA-specific behavior, validate in layers:
 
-**Large gradient differences.** Indicates errors in the CUDA backward pass. Check:
-- That the CUDA backward matches the analytic formula
-- That there are no errors in gradient propagation
+1. first run the general health suite
+2. then run the relevant stress/performance script
+3. compare the behavior against CPU or simpler paths
 
-## Full Validation Suite
+Do not assume one repository path like `tests/gssm/unit/cuda/` exists as a canonical suite just because older docs referenced it.
 
-For exhaustive validation:
+## 6. What Counts As A Good Result
+
+A practically good result for current GSSM work looks like this:
+
+- model instantiates under the intended config
+- forward pass returns the expected contract
+- backward pass runs without NaNs
+- health tests for the changed area pass
+- any targeted audit you care about behaves consistently before and after the change
+
+That is more reliable than using one fixed numeric threshold copied from an older version of the docs.
+
+## 7. Minimal Validation Order
+
+When you change runtime code, this is the safest order:
+
+1. run the smallest relevant health test
+2. run the matching integration test
+3. run a targeted audit or benchmark only if the change affects runtime behavior materially
+
+Examples:
 
 ```bash
-python tests/gssm/orchestrator.py --mode all
+pytest tests/gssm/health/unit/test_integrators.py -v
+pytest tests/gssm/health/integration/test_combinations.py -v
+python tests/gssm/benchmarks/physics/integration_audit.py
 ```
 
-This suite runs all validation tests and generates a report.
+## 8. What To Record When Something Fails
 
-### Suite Report
+When a numerical issue appears, record:
 
-The report includes:
+- exact command used
+- affected topology / integrator / mixer
+- input shape and dtype
+- whether CUDA was enabled
+- whether the failure is in instantiation, forward, backward, or a benchmark script
 
-- Summary of passed/failed tests
-- Performance metrics
-- Alerts about potential issues
-- Recommendations
-
-### Approval Criteria
-
-For the build to be approved:
-
-- 100% of unit tests passed
-- 100% of parity tests passed (or within tolerance)
-- 100% of differentiability tests passed
-- Conservation audit: drift < 1%
-- Geodesic test: deviation < 0.01
-
-## Continuous Monitoring
-
-During development, run the suite regularly:
-
-```bash
-# Before commit
-python tests/gssm/orchestrator.py --mode fast
-
-# Integration
-python tests/gssm/orchestrator.py --mode all
-```
-
-The quick test includes only the most critical tests.
-
-## Problem Reporting
-
-If you encounter validation issues:
-
-1. Document the exact command and output
-2. Include the code version (git log)
-3. Include CUDA and driver versions
-4. Include hardware (GPU, RAM)
-5. Create an issue with this information
-
----
-
-**DepthMuun (GFN v2)**
+That is usually enough to reproduce the issue without relying on vague “the suite failed” reports.

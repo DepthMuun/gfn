@@ -1,22 +1,15 @@
 """
-Euler Integrator Component — ISN v2.7.3
-=======================================
-Forward-Euler integration of the world flow.
+Forward-Euler integration of the ISN world flow.
 
 Dynamics:
     x_{t+1} = x_t + tanh(W x_t + b) + f_ext_t (+ noise)
 
-No velocity state. Single state vector. Equivalent to the original v2.7.2
-behaviour, exposed as a swappable component.
+This integrator uses a single state tensor and does not maintain a separate
+velocity state. Its tensor interface matches the earlier Euler-based physics
+path so existing callers can continue to use it unchanged.
 
 The companion C++ fast path ``world_forward_euler`` lives in
 ``gfn/realizations/isn/csrc/world_flow/world_flow.cpp``.
-
-Backward compatibility
-----------------------
-The constructor signature and the shape of returned tensors are kept
-identical to the v2.7.2 ``GFNPhysics`` Python fallback so existing training
-scripts and checkpoints continue to work unchanged.
 """
 
 from __future__ import annotations
@@ -42,7 +35,7 @@ class EulerIntegrator(nn.Module):
 
     Args:
         friction:  optional linear damping applied to ``x`` after each step
-                   (default 0.0 — preserves the v2.7.2 behaviour).
+                   (default 0.0 preserves the original Euler behaviour).
     """
 
     name = "euler"

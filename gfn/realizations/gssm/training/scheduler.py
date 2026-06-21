@@ -1,6 +1,5 @@
 """
-Schedulers — GFN V5
-Learning rate schedulers for GFN training.
+Learning-rate schedulers for GSSM training utilities.
 """
 
 import torch

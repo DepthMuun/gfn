@@ -1,7 +1,5 @@
 """
-ISN SSM Emitter — Modular V5
-==========================
-Decoder-style Emitter using an SSM backbone.
+Emitter built from stacked SSM-style layers followed by a token projection.
 """
 
 import torch

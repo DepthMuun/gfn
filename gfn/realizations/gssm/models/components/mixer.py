@@ -1,8 +1,5 @@
 """
-gfn/models/components/mixer.py — GFN V5
-Ported and unified from: gfn_old/nn/layers/flow/mixer.py
-
-FlowMixer: Unified mixer for ManifoldLayer.
+Mixing layers for multi-head manifold states.
 
 Available modes:
   'low_rank'  — [B, H, D] → [B, D]  via Low-Rank projection (partition)
@@ -20,7 +17,7 @@ from ...constants import TOPOLOGY_TORUS, TOPOLOGY_EUCLIDEAN
 
 class FlowMixer(nn.Module):
     """
-    Unified geodesic state mixer for ManifoldLayer V5.
+    Unified geodesic state mixer for `ManifoldLayer`.
 
     In 'low_rank' and 'attention' modes, collapses heads to single state [B, D].
     In 'ensemble' mode, preserves trajectory structure [B, H, D].
@@ -83,7 +80,7 @@ class FlowMixer(nn.Module):
         Args:
             x: [B, H, D] — position state per head
             v: [B, H, D] — velocity state per head (optional, uses x if None)
-            history: ignored (compat. legacy JacobiAttention)
+            history: optional unused input accepted for interface compatibility
 
         Returns:
             (x_out, v_out) — shapes according to mode:
@@ -232,5 +229,5 @@ class GeodesicAttentionMixer(nn.Module):
         return self.out_proj(x_mixed), self.out_proj(v_mixed)
 
 
-# Backward compatibility alias
+# Backward-compatible alias.
 ManifoldMixer = FlowMixer

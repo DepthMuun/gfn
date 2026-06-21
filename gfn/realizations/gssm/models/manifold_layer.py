@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class ManifoldLayer(nn.Module):
     """
-    GFN Manifold Layer with full feature parity with V4.
+    Manifold layer that integrates state updates on the configured geometry.
 
     Configuration via `PhysicsConfig`:
       topology.type             — TOPOLOGY_TORUS | TOPOLOGY_EUCLIDEAN
@@ -92,13 +92,9 @@ class ManifoldLayer(nn.Module):
         self.dynamics_type = resolved_dyn_type
 
         # ── Mixer (obligatorio, NO es plugin) ──────────────────────────────────
-        # BUG FIX: Removed duplicate mixer creation. The mixer parameter is already set in __init__.
-        # Original code incorrectly created a new FlowMixer here, overwriting the passed mixer.
         self.mixer_dim = self.heads * self.head_dim
-        # self.mixer = FlowMixer(self.mixer_dim, topology=self.topology)  # REMOVED: This was a duplicate
 
-        # ── Fractal Sub-Manifold (optional, now handled by fractal plugin) ─────
-        # Keep config reference for backward compatibility
+        # ── Fractal configuration used by optional plugins ──────────────────────
         self.fractal_enabled = getattr(self.config.fractal, 'enabled', False)
 
         # ── Plugin System ──────────────────────────────────────────────────────
@@ -244,9 +240,6 @@ class ManifoldLayer(nn.Module):
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
-    # Removed _apply_dynamics_x/v as they were using stateful _last_x
-    # Removed _fractal_step as it's now handled by fractal plugin
-
     def debug_state(self, x: torch.Tensor, v: torch.Tensor, label: str = "") -> None:
         """Utility for numerical health monitoring of layer state."""
         with torch.no_grad():
@@ -258,5 +251,5 @@ class ManifoldLayer(nn.Module):
                 logger.warning(f"NaN detected in Layer {self.layer_idx}")
 
 
-# Compatibility alias
+# Backward-compatible alias.
 MLayer = ManifoldLayer

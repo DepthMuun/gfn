@@ -1,7 +1,5 @@
 """
-Core Training Strategies — Modular V5
-==================================
-Standard BPTT, TBPTT, and STE.
+Core training strategies including full BPTT, truncated BPTT, and STE.
 """
 
 import torch

@@ -1,13 +1,13 @@
 """
-ISN v2.7.3 — Symplectic (Leapfrog / Yoshida) regression test suite.
+Regression tests for symplectic ISN integrators.
 
 Verifies:
-  1. Default constructor produces an Euler model (backward compatible).
+  1. Default constructor produces an Euler model.
   2. ``integrator='leapfrog'`` and ``integrator='yoshida'`` produce valid
      outputs and gradients without numerical issues.
   3. Leapfrog preserves energy (oscillates) while Euler drifts.
   4. Leapfrog remains stable for very long sequences (extrapolation test).
-  5. Backward compatibility: existing Euler checkpoints still load when the
+  5. Existing Euler checkpoints still load when the
      model is instantiated in Euler mode.
 """
 
@@ -32,12 +32,12 @@ from gfn.realizations.isn.physics.gfn import GFNPhysics  # noqa: E402
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Test 1 — Default constructor is backward compatible (Euler).
+# Test 1 — Default constructor uses Euler.
 # ──────────────────────────────────────────────────────────────────────────────
 
 def test_default_is_euler() -> bool:
     print(f"\n{'=' * 60}")
-    print(f"Test 1 — Default constructor is backward compatible (Euler)")
+    print(f"Test 1 — Default constructor uses Euler")
     print(f"{'=' * 60}")
     torch.manual_seed(0)
     m = GFNPhysics(d_model=16, d_embedding=32)
@@ -267,7 +267,7 @@ def test_euler_state_dict_compat() -> bool:
 # ──────────────────────────────────────────────────────────────────────────────
 
 def main() -> int:
-    print(f"\n[*] ISN v2.7.3 — Symplectic integrator regression suite")
+    print(f"\n[*] ISN symplectic integrator regression suite")
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"   Device: {device.upper()}")
 

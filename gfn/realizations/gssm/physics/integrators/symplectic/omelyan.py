@@ -1,7 +1,5 @@
 """
-OmelyanIntegrator — GFN V5
-Omelyan PEFRL (Position Extended Forest-Ruth Like) 4th-order symplectic integrator.
-Optimized for Hamiltonian systems with significantly better error constants.
+Omelyan PEFRL fourth-order symplectic integrator.
 """
 
 import torch

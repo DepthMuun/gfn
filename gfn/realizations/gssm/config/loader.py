@@ -1,7 +1,5 @@
 """
-config/loader.py — GFN V5
-Conversion of configuration dicts to typed PhysicsConfig.
-Support for nested overrides on existing configs.
+Helpers for converting nested dictionaries into typed physics configuration.
 """
 from typing import Dict, Any, Optional
 from .schema import (

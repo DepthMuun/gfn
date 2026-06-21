@@ -1,61 +1,172 @@
 # Dynamics Modes Reference
 
-The Dynamics subsystem in MANIFOLD regulates how state updates (proposals) from the physics engine are integrated into the persistent manifold state.
+This guide describes how GSSM merges an integrator proposal back into the persistent state.
 
-## Overview
+It covers the current registered dynamics family:
 
-Each `ManifoldLayer` processes head states through a `ManifoldMixer` to produce an **Absolute State Proposal**. The chosen **Dynamics Mode** then determines the specific mathematical operation used to transition from the `current_state` to the next state, utilizing this proposal.
+- `direct`
+- `residual`
+- `mix`
+- `gated`
+- `stochastic`
 
-## Available Modes
+## What A Dynamics Mode Does
 
-### 1. Direct Dynamics (`direct`)
-The simplest and often fastest mode for logic-intensive tasks.
-* **Operation**: `state_next = proposal` 
-* **Use Case**: Tasks requiring high-frequency state "flips" (e.g., XOR, Binary Parity).
-* **Pros**: Zero "momentum" barrier; state can change instantly.
-* **Cons**: Can be unstable if the physics signal is noisy.
+Inside a `ManifoldLayer`, the physics + integrator path produces proposals for position and velocity. The dynamics mode decides how those proposals become the next actual state.
 
-### 2. Residual Dynamics (`residual`)
-Provides smoother gradients and stable flow.
-* **Operation**: `state_next = state_curr + (proposal - state_curr)`
-* **Use Case**: Continuous flow optimization, multi-step geometric navigation.
-* **Pros**: Mathematically consistent with ODE/SDE solvers; preserves state continuity.
-* **Cons**: Slower to react to drastic signal changes than Direct mode.
+Conceptually:
 
-### 3. Mix Dynamics (`mix`)
-A configurable blend between retention and update.
-* **Operation**: `state_next = alpha * state_curr + (1 - alpha) * proposal`
-* **Use Case**: Deep manifolds where gradient vanishing is a concern.
-* **Parameters**: `alpha` (Retention factor, 0.0 to 1.0).
+```text
+proposal -> dynamics mode -> next state
+```
 
-### 4. Gated Dynamics (`gated`)
-A learnable, GRU-style gating mechanism.
-* **Operation**: `z = sigmoid(Linear([state_curr, proposal])); state_next = (1 - z) * state_curr + z * proposal`
-* **Use Case**: Complex sequential dependencies where the model must learn what to remember.
-* **Pros**: Maximum flexibility; content-aware state updates.
+This is separate from:
 
-### 5. Stochastic Dynamics (`stochastic`)
-Introduces controlled noise for exploration.
-* **Operation**: `state_next = proposal + sigma * epsilon`
-* **Use Case**: Global optimization, avoiding local minima.
-* **Parameters**: `sigma` (Noise intensity).
+- the embedding, which creates external force
+- the geometry, which creates curvature terms
+- the integrator, which numerically evolves the system
 
-## Selection Guide
+## Current Runtime Behavior
 
-| Task Type | Recommended Mode | Rationale |
-|-----------|------------------|-----------|
-| **Logical/Discrete** | `direct` | Immediate state transitions required for parity gates. |
-| **Physical/Motion** | `residual` | Smoother trajectories and physically consistent flow. |
-| **Long-Sequence** | `gated` | Selective state retention prevents forgetting. |
-| **Exploratory** | `stochastic` | Noise facilitates escaping geometric bottlenecks. |
+The registered modes live in `gfn/realizations/gssm/physics/dynamics/` and all inherit from `BaseDynamics`.
 
-## Technical Implementation
+Each mode also applies topology-aware normalization through the shared base helpers, so the exact behavior differs between toroidal position state and Euclidean tangent-space velocity state.
 
-Dynamics are implemented as modular classes inheriting from `BaseDynamics`. They are instantiated via the `get_dynamics` factory and used inside `ManifoldLayer.forward`:
+## `direct`
+
+### Meaning
+
+`direct` uses the proposal as the next state and then applies the shared normalization logic.
+
+### Mental Model
+
+```text
+next_state = normalize(proposal)
+```
+
+### When To Use It
+
+- simplest baseline
+- closest to "trust the integrator proposal"
+- good first choice when debugging a training script
+
+## `residual`
+
+### Meaning
+
+`residual` computes a residual from current state to proposal, normalizes that residual, scales it with a learnable parameter, and adds it back to the current state.
+
+### Mental Model
+
+```text
+residual = proposal - current
+next_state = current + learned_scale * normalize(residual)
+```
+
+On toroidal position state, the residual is computed through wrapped angular difference rather than naive subtraction.
+
+### When To Use It
+
+- when you want smoother updates than `direct`
+- when the model should keep more continuity between successive states
+
+## `mix`
+
+### Meaning
+
+`mix` learns an interpolation coefficient between current state and proposal, then applies an additional learnable change scale.
+
+### Mental Model
+
+```text
+interpolated = alpha * current + (1 - alpha) * proposal
+next_state = current + change_scale * normalize(interpolated - current)
+```
+
+On toroidal position state, interpolation is done with circular `sin/cos` blending rather than straight Euclidean averaging.
+
+### When To Use It
+
+- when you want a softer state transition than `direct`
+- when you want learned retention without the full gate network of `gated`
+
+## `gated`
+
+### Meaning
+
+`gated` learns a sigmoid gate from the concatenation of current state and proposal, then uses that gate to mix the two.
+
+### Mental Model
+
+```text
+g = sigmoid(W[current; proposal])
+next_state = normalize(g * proposal + (1 - g) * current)
+```
+
+### When To Use It
+
+- when the model should decide contextually how much to preserve
+- when the update policy should depend on the current content rather than on a single global mixing scalar
+
+## `stochastic`
+
+### Meaning
+
+`stochastic` adds learnable Gaussian noise to the proposal path before normalization.
+
+### Mental Model
+
+```text
+base = proposal or residual-style proposal
+next_state = normalize(base + sigma * noise)
+```
+
+The implementation keeps `sigma` positive with a softplus transform.
+
+### When To Use It
+
+- when you explicitly want exploration in the state update
+- when deterministic proposal merging collapses too aggressively
+
+## Position vs Velocity
+
+GSSM treats position and velocity differently:
+
+- position dynamics can be topology-aware, especially on torus
+- velocity dynamics live in tangent-space and are treated as Euclidean in the current runtime
+
+This matters because the same named dynamics mode may behave differently on `x` and `v` due to the shared normalization and topology helpers.
+
+## Selection Heuristics
+
+Start with these simple rules:
+
+| Goal | Suggested mode | Why |
+|---|---|---|
+| Stable baseline | `direct` | Smallest amount of extra moving parts |
+| Smoother carry-over | `residual` | Keeps explicit continuity with current state |
+| Learned interpolation | `mix` | Simpler than full gating |
+| Content-aware retention | `gated` | Gate depends on current state and proposal |
+| Exploration | `stochastic` | Adds controlled noise |
+
+## Minimal Example
 
 ```python
-# ManifoldLayer.forward snippet (simplified)
-x_proposal, v_proposal = self.mixer(x_heads, v_heads)
-x_next = self.dynamics_x(x_input, x_proposal)
-v_next = self.dynamics_v(v_input, v_proposal)
+import gfn
+
+model = gfn.create(
+    "gssm",
+    vocab_size=1024,
+    physics={
+        "dynamics": {
+            "type": "direct",
+        }
+    },
+)
 ```
+
+## Practical Advice
+
+- Change dynamics mode only after the base loss, readout, and target contract are already correct.
+- If you are debugging a task mismatch, `direct` is the easiest mode to reason about.
+- If you switch to toroidal supervision or identity readout, re-check whether the chosen dynamics mode is still giving you the right latent behavior.

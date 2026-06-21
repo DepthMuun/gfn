@@ -1,250 +1,229 @@
 # Geometry Reference
 
-## Overview
+This guide summarizes the geometry choices that the current GSSM runtime can build.
 
-Geometries define the metric and connection (Christoffel symbols) of the manifold on which the system operates. The choice of geometry affects what structures the model can learn and how the state evolves.
+For exact implementation details, use:
 
-## LowRankRiemannianGeometry
+- `technical/0_architecture/math/03_geometry.md`
+- `technical/0_architecture/math/geometry/`
+- `technical/runtime/00-effective-defaults.md`
 
-The system's main geometry, using low-rank factorization for efficiency.
+## How Geometry Is Selected
 
-### Characteristics
+The geometry factory uses two config keys:
 
-- Configurable rank to balance accuracy/speed
-- Optional trace normalization
-- Configurable curvature clamping
+- `physics.topology.type`
+- `physics.topology.riemannian_type`
 
-### Parameters
+Current runtime rule:
+
+- analytical topologies such as `torus`, `hyperbolic`, and `spherical` win by default
+- learned geometries such as `low_rank`, `reactive`, and `adaptive` only override an analytical topology when `riemannian_type` was explicitly requested
+
+This matters because the schema default still says `riemannian_type="reactive"`, but a fresh GSSM model with `topology.type="torus"` now instantiates torus geometry by default.
+
+## Effective Default Geometry
+
+For a fresh:
 
 ```python
-# Setup the config first
-physics_config = PhysicsConfig(
-    stability={'curvature_clamp': 3.0}
-)
+import gfn
 
-LowRankRiemannianGeometry(
-    dim=512,
-    physics_config=physics_config
-)
+model = gfn.create("gssm", vocab_size=256)
 ```
 
-### Typical Usage
+the effective geometry is:
+
+- topology: `torus`
+- geometry: analytical torus
+
+not a learned reactive geometry.
+
+## Geometry Contract
+
+The geometry module may return either:
+
+- `gamma`
+- `(gamma, mu)`
+
+where:
+
+- `gamma` is the Christoffel-like curvature term
+- `mu` is an optional friction contribution returned by the geometry
+
+The physics engine is responsible for interpreting that contract and combining friction consistently.
+
+## Main Geometry Families
+
+### Torus
+
+Use when periodic structure is a natural fit.
+
+Typical uses:
+
+- cyclic or angular targets
+- modulo-like structure
+- wrapped latent coordinates
+- toroidal losses or latent coordinate supervision
+
+Key runtime points:
+
+- torus is the effective default geometry
+- radii `R` and `r` are runtime-wired and can be learnable
+- `toroidal_curvature_scale` is now an active runtime knob
+- torus-aware readouts can use `sin/cos` feature expansion
+
+Typical config:
 
 ```python
-geometry = LowRankRiemannianGeometry(
-    dim=model.dim,
-    physics_config=model.physics_config
-)
-christoffel = geometry(velocity, position)
+physics = {
+    "topology": {
+        "type": "torus",
+        "R": 2.0,
+        "r": 1.0,
+        "learnable_R": True,
+        "learnable_r": True,
+    },
+    "stability": {
+        "toroidal_curvature_scale": 0.01,
+    },
+}
 ```
 
-### Accuracy vs Speed
+### Euclidean
 
-| Rank | Relative Accuracy | Relative Speed |
-|------|-------------------|-------------------|
-| 16 | 95% | 4x |
-| 32 | 98% | 2x |
-| 64 | 99.5% | 1x |
-| 128 | 99.9% | 0.5x |
+Use when you want the simplest flat-space baseline.
 
-## Hyperbolic Geometry
+Key runtime points:
 
-Implements geometry of hyperbolic space H^n.
+- no toroidal wrapping
+- no analytical torus curvature
+- useful when you want to remove periodic structure from the equation
 
-### Characteristics
-
-- Constant negative curvature
-- Appropriate for hierarchical structures
-- Analytical metric (no neural network required)
-
-### Metric
-
-The hyperbolic space metric approximation forces paths outwards:
-
-$g = \frac{4}{(1 - \|x\|^2)^2} I$
-
-Where $\|x\| < 1$. This metric "grows" near the edge of the unit disk.
-
-### Parameters
+Typical config:
 
 ```python
-HyperbolicGeometry(
-    dim=512,
-    physics_config=physics_config
-)
+physics = {
+    "topology": {
+        "type": "euclidean",
+    }
+}
 ```
 
-### Use Cases
+### Hyperbolic
 
-- Syntax trees
-- Taxonomies
-- Hierarchical graphs
-- Data with inclusion structure
+Use when the problem naturally benefits from negatively curved analytical geometry.
 
-### Limitations
+This is an analytical geometry choice, not just a conceptual recommendation. If you set `topology.type="hyperbolic"`, that analytical topology now wins by default unless you explicitly ask for a learned geometry override.
 
-- Requires embeddings to be inside the unit disk
-- The exponential map can overflow for points near the edge
-- Not appropriate for data without hierarchical structure
+### Spherical
 
-## ToroidalRiemannianGeometry
+Use when closed positive-curvature structure is a better match than a torus or flat space.
 
-Implements periodic boundaries for constrained topological paths.
+As with hyperbolic geometry, this is selected through `topology.type`.
 
-### Characteristics
+### Low-Rank
 
-- Periodic dimensions (angles)
-- Non-periodic dimensions (radii)
-- Curvature that changes sign
+Use when you want a learned Riemannian geometry rather than a fixed analytical topology.
 
-### Metric
+Key runtime points:
 
-For a point (Î¸â‚, Î¸â‚‚, râ‚, râ‚‚) in toroidal coordinates:
+- rank comes from `physics.topology.riemannian_rank`
+- low-rank geometry is learned
+- the runtime includes Python and optional CUDA paths for nearby low-rank operations
+- low-rank must be explicitly requested if you also declare an analytical topology
 
-g_ij = diag(1, 1, râ‚Â², râ‚‚Â²) for coordinates (Î¸â‚, Î¸â‚‚, râ‚, râ‚‚)
-
-### Parameters
+Typical config:
 
 ```python
-ToroidalGeometry(
-    dim=512,
-    n_periodic=2,        # Periodic dimensions
-    major_radius=2.0,    # Major torus radius
-    minor_radius=1.0     # Minor radius
-)
+physics = {
+    "topology": {
+        "type": "torus",
+        "riemannian_type": "low_rank",
+        "riemannian_rank": 32,
+    }
+}
 ```
 
-### Use Cases
+### Reactive
 
-- Cyclic time series
-- Angular coordinates
-- Data with periodic structure
-- Problems with rotational symmetries
+Use when you want a learned geometry path designed around reactive curvature behavior.
 
-### Limitations
+Key runtime point:
 
-- Only 2 dimensions are periodic by default
-- Requires preprocessing data into toroidal coordinates
-- The metric near the origin is nearly flat
+- `reactive` is no longer silently chosen over `torus` just because it appears as the schema default for `riemannian_type`
 
-## Analytical Geometries
+### Adaptive
 
-Uses predefined analytical formulas for strict boundary constraints without neural generation.
+Use when you want a learned geometry that adapts more explicitly with configuration-driven plasticity.
 
-### Available Metrics
+This is an experimental learned-geometry choice compared with the more straightforward analytical topologies.
 
-**EuclideanGeometry:**
+## Geometry Scope
+
+`physics.topology.geometry_scope` controls whether geometry is applied per head or on the full dimension:
+
+- `local`: default, per-head geometry
+- `global`: geometry sees the full model dimension per head path
+
+The current model factory uses this setting to decide the dimension passed into the geometry builder.
+
+## Selection Guide
+
+Use `torus` when:
+
+- the task has periodic structure
+- you want the current default, best-supported analytical path
+- you plan to use toroidal supervision or wrapped coordinates
+
+Use `euclidean` when:
+
+- you want the simplest non-periodic baseline
+- you need to isolate whether toroidal behavior is helping or hurting
+
+Use a learned geometry (`low_rank`, `reactive`, `adaptive`) when:
+
+- you explicitly want the geometry itself to be learned
+- you are prepared to tune more than the default analytical path usually requires
+
+## Minimal Examples
+
+### Default analytical torus
 
 ```python
-EuclideanGeometry(dim=512)
+import gfn
+
+model = gfn.create("gssm", vocab_size=1024)
 ```
 
-**SphericalGeometry:**
+### Explicit low-rank override
 
 ```python
-SphericalGeometry(dim=512)
-```
+import gfn
 
-**HyperbolicGeometry:**
-
-```python
-HyperbolicGeometry(dim=512)
-```
-
-## AdaptiveRiemannianGeometry
-
-Adjusts the metric based on input data.
-
-### Characteristics
-
-- Metric that changes with the state
-- Configurable plasticity
-- Curvature that emerges from data
-
-### Parameters
-
-```python
-AdaptiveRiemannianGeometry(
-    dim=512,
-    physics_config=physics_config
-)
-```
-
-### Dynamics
-
-Curvature adapts smoothly according to:
-
-$dK/dt = \text{plasticity} \cdot (\text{adaptation\_signal} - K)$
-
-The adaptation signal comes from the "energy" of the input data.
-
-### Use Cases
-
-- Data with unknown structure
-- Problems where geometry must emerge
-- Experimentation with learned geometries
-
-### Limitations
-
-- More parameters to tune
-- Can overfit geometry to noise
-- Slower convergence
-
-## ReactiveRiemannianGeometry
-
-Dynamic response of the metric to extreme system instability.
-
-### Characteristics
-
-- Curvature that responds to "forces" to brake runaway trajectories.
-- Implements Active Inference triggers based on kinetic energy limits.
-
-### Parameters
-
-```python
-ReactiveRiemannianGeometry(
-    dim=512,
-    physics_config=physics_config
-)
-```
-
-### Dynamics
-
-When curvature exceeds the configured capacity threshold from `physics_config`, a stabilizing force is automatically applied.
-
-## Geometry Comparison
-
-| Geometry | Trainable | Cost | Use Cases |
-|-----------|------------|-------|--------------|
-| LowRankRiemannian | Yes | Medium | Default Standard |
-| Hyperbolic | No | Low | Hierarchies |
-| ToroidalRiemannian| No | Low | Cyclic logic |
-| AdaptiveRiemannian| Yes | High | Emergent structure |
-| ReactiveRiemannian| Yes | Medium | Stability enforcement |
-
-## Geometry Selection
-
-For most tasks, `LowRankRiemannianGeometry` is the required baseline.
-
-Use `HyperbolicGeometry` if:
-- Data has clear hierarchical structure
-- The vocabulary has inclusion relationships
-
-Use `ToroidalRiemannianGeometry` if:
-- Data includes angular constraints
-- Target outputs depend on modulo arithmetic (XOR parity)
-
-## Default Configuration
-
-```python
-geometry = LowRankRiemannianGeometry(
-    dim=512,
-    physics_config=physics_config
+model = gfn.create(
+    "gssm",
+    vocab_size=1024,
+    physics={
+        "topology": {
+            "type": "torus",
+            "riemannian_type": "low_rank",
+            "riemannian_rank": 32,
+        }
+    },
 )
 ```
 
-This ensures a linear parameter scaling suitable for sequences over 100,000 steps deep.
+### Euclidean baseline
 
----
+```python
+import gfn
 
-**DepthMuun (GFN v2)**
+model = gfn.create(
+    "gssm",
+    vocab_size=1024,
+    physics={
+        "topology": {"type": "euclidean"},
+    },
+)
+```

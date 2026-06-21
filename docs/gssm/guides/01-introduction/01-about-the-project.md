@@ -1,35 +1,109 @@
-# About the DepthMuun (GFN v2) Project
+# About GSSM
 
-## What Manifold Is
+GSSM is the Geodesic State Space Model realization inside the `gfn` framework.
 
-The core architecture (formerly Manifold) is a generative modeling system that incorporates principles of differential geometry and Hamiltonian mechanics into its architecture. Unlike conventional neural networks that process information statically, it maintains and evolves a dynamic state that encodes contextual information throughout processing.
+Its central idea is simple:
 
-The core of the system is based on the idea that the latent space can be modeled as a Riemannian manifold, where transformation operations correspond to geodesic flows on that manifold. This perspective allows the model to explore the representation space in a structured way, following minimum-energy paths that preserve geometric properties of the space.
+- represent sequence state as position `x` plus velocity `v`
+- evolve that state on a configured manifold
+- use geometry, physics, and numerical integration as the state-transition mechanism
 
-## Project Motivation
+This gives GSSM a different structure from standard sequence models that only apply feed-forward updates in a flat latent space.
 
-Current language and sequence generation models operate on Euclidean vector spaces. This choice, while practical, ignores potentially useful geometric structure. Manifold explores the hypothesis that certain data properties can be modeled more efficiently if the representation space respects curvature and metric structure.
+## What The Runtime Actually Builds
 
-The current implementation arose from empirical observations during experiments with symplectic integrators. We found that explicitly maintaining the Hamiltonian structure of the system improved training stability and produced more consistent representations for structured reasoning tasks.
+A public creation call such as:
 
-## Core Components
+```python
+import gfn
 
-The system is organized into several interconnected components that work together to maintain and evolve the model state.
+model = gfn.create("gssm", vocab_size=32000)
+```
 
-The geometry component defines the manifold metric and computes the Christoffel symbols that determine how information flows over the space. This computation is expensive, so we provide low-rank approximate implementations that preserve qualitative properties at a fraction of the original cost.
+goes through the current GSSM factory path and assembles:
 
-The numerical integrator evolves the system state according to Hamiltonian equations of motion. We use second-order symplectic integrators (Leapfrog, Verlet) that preserve system invariants better than generic integrators. For differentiable operations, we implement custom versions with PyTorch autograd.
+- an embedding module
+- one or more manifold layers
+- a geometry instance
+- a physics engine
+- an integrator
+- a dynamics mode
+- a hook-driven readout
+- optional plugins such as checkpointing, adjoint, pooling, or lensing
 
-The loss functions combine standard likelihood terms with physical regularizers that reinforce geodesic flow properties. The balance between these terms determines how much the model respects the geometric structure versus how much it optimizes the specific task.
+The resulting forward contract is:
 
-## Current Development Status
+```python
+logits, (x_final, v_final), state_info = model(input_ids)
+```
 
-This development version represents a significant rewrite of the original codebase (v2.6.5) moving towards v2.7.2 under the DepthMuun branding. The main changes include a more modular architecture, better GPU support via custom CUDA kernels, and a more expressive configuration system.
+## Why Geometry Matters
 
-These changes also imply greater configuration complexity. The original version converged consistently because it had fewer hyperparameters and more restrictive default values. The current version requires careful tuning of multiple parameters to reproduce those results.
+Geometry is not just branding in GSSM. It affects:
 
-If you are starting with the project, we recommend reading the quick start guide first before experimenting with custom configurations.
+- how curvature-like terms are computed
+- how friction may be produced by the geometry
+- how positions are wrapped or constrained
+- how readout features are interpreted, especially on torus
 
----
+The current runtime distinguishes analytical topologies from learned geometries. A fresh model now defaults to analytical torus geometry rather than silently falling back to a learned `reactive` geometry.
 
-**DepthMuuns (Joaquin Sturtz)**
+## Why Integrators Matter
+
+GSSM evolves state with explicit numerical integrators.
+
+The currently exposed family includes:
+
+- `leapfrog`
+- `verlet`
+- `yoshida`
+- `forest_ruth`
+- `omelyan`
+- `rk4`
+- `heun`
+
+The effective default is `leapfrog`.
+
+This matters because timestep, friction, topology, and loss design interact. GSSM behavior is not determined by architecture alone.
+
+## Why Configuration Needs Care
+
+The codebase contains a few places where a raw schema default is not the same as the effective runtime default after normalization and factory logic.
+
+Examples:
+
+- top-level `rank` is declared as `32`, but the effective built value is often `16` unless you override it explicitly
+- `riemannian_type="reactive"` appears in the schema, but does not override `topology.type="torus"` unless explicitly requested
+- `velocity_saturation` is disabled by default even though older docs and constants can suggest otherwise
+
+That is why the technical runtime docs exist: they document what the current code path really builds.
+
+## Current Default Shape
+
+A fresh GSSM model currently resolves to something close to:
+
+- topology: `torus`
+- geometry: analytical torus
+- integrator: `leapfrog`
+- `base_dt = 0.1`
+- `friction = 0.01`
+- embedding mode: `linear`
+- readout type: `standard`
+
+These are good starting values, not universal recommendations for every task.
+
+## How To Approach GSSM
+
+If you are new to the project, the safest order is:
+
+1. Start with the public API and effective defaults.
+2. Make sure the task target matches the chosen readout.
+3. Change geometry or integrator only after the baseline path is correct.
+4. Add optional physics modules one at a time.
+
+## Where To Read Next
+
+- `guides/04-guides/01-quick-start-guide.md`
+- `guides/02-concepts-core/00-foundations.md`
+- `guides/03-reference/00-handbook.md`
+- `technical/runtime/00-effective-defaults.md`

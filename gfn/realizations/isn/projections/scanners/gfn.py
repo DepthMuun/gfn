@@ -1,7 +1,5 @@
 """
-ISN GFN Scanner — Modular V5
-==========================
-Tokens -> Impulses using GFN embedding logic.
+Scanner that maps token IDs to impulse vectors through learned embeddings.
 """
 
 import torch
@@ -13,7 +11,7 @@ from ...registry import scanners
 @scanners.register("gfn")
 class GFNScanner(nn.Module):
     """
-    Standard GFN scanner that embeds token IDs into the latent manifold.
+    Default scanner that embeds token IDs into the latent state pipeline.
     """
     def __init__(self, vocab_size: int, d_model: int, d_embedding: int, **kwargs):
         super().__init__()
