@@ -1,7 +1,7 @@
 """
 GSSM Training completo para ARC-AGI-2 con ToroidalLoss.
 
-Setup corregido basado en smoke_test_toroidal_one_task.py:
+Setup corregido basado en quicktest_gssm_toroidal.py:
   - Embedding: continuous + impulse_scale=5.0 (recalibrado)
   - Loss: toroidal angular distance (targets en [-pi/2, pi/2])
   - Forces construidas fresh en cada step (evita graph reuse)
@@ -15,8 +15,8 @@ Pipeline:
   4. Validation: mismo flujo sin grad, calcula pixel_acc y task_acc
 
 Uso:
-  python train_arc_agi2_gssm.py --data_path ../data/processed --epochs 20
-  python train_arc_agi2_gssm.py --data_path ../data/processed --config small --epochs 50
+  python train_2.py --data_path ../data/processed --epochs 20
+  python train_2.py --data_path ../data/processed --config small --epochs 50
 """
 import sys
 import math
@@ -55,54 +55,45 @@ from src.training.few_shot import (
 # 1) Configs
 # =============================================================================
 def get_tiny_config():
-    """Config base (estable) para ARC-AGI-2."""
+    """Config base (estable) para ARC-AGI-2 — lookup embedding + implicit readout 9000-dim + CE."""
     return {
         'vocab_size': 10,
         'dim': 64,
         'depth': 2,
         'heads': 4,
         'max_seq_len': 900,
-        'embedding_mode': 'continuous',
-        'continuous_input_dim': 900,
+        'embedding_mode': 'lookup',    # Estable: igual que math_bench
         'store_full_sequence': True,
         'physics': {
             'embedding': {
                 'type': 'functional',
-                'mode': 'continuous',
-                'coord_dim': 900,
-                'impulse_scale': 5.0,  # RECALIBRADO: 80.0 era para dim=8
+                'mode': 'lookup',      # Estable
+                'impulse_scale': 1.0,
             },
             'readout': {
-                'type': 'implicit',
-                'coord_dim': 16,
-                'out_dim': 900,
+                'type': 'implicit',    # 9000 logits por timestep → reshape [B, 900, 10] para CE
+                'coord_dim': 64,
+                'out_dim': 9000,       # 900 pixels × 10 colores
             },
             'topology': {
-                'type': 'torus',
-                'R': 3.0,
-                'r': 1.0,
-                'learnable_R': True,
-                'learnable_r': True,
+                'type': 'euclidean',   # Estable
             },
             'stability': {
-                'base_dt': 0.05,
+                'base_dt': 0.1,
                 'dt_min': 0.0001,
                 'dt_max': 0.2,
-                'friction': 2.0,
-                'velocity_saturation': 15.0,
+                'friction': 0.5,       # Estable
+                'velocity_saturation': 0.0,
                 'curvature_clamp': 1.0,
                 'integrator_type': 'leapfrog',
             },
             'active_inference': {
-                'enabled': True,
-                'hysteresis': {'enabled': False, 'strength': 0.1, 'decay': 0.9},
-                'curiosity': {'enabled': False},
-                'stochasticity': {'enabled': False},
+                'enabled': False,      # Estable
             },
         },
         'readout_type': 'implicit',
-        'readout_hidden_dim': 64,
-        'readout_out_dim': 900,
+        'readout_hidden_dim': 128,
+        'readout_out_dim': 9000,       # 900 pixels × 10 colores
     }
 
 
@@ -112,7 +103,7 @@ def get_small_config():
     cfg['dim'] = 96
     cfg['depth'] = 3
     cfg['heads'] = 6
-    cfg['physics']['stability']['base_dt'] = 0.04
+    cfg['physics']['stability']['base_dt'] = 0.08
     return cfg
 
 
@@ -122,9 +113,9 @@ def get_large_config():
     cfg['dim'] = 256
     cfg['depth'] = 4
     cfg['heads'] = 8
-    cfg['physics']['embedding']['impulse_scale'] = 3.5
-    cfg['physics']['stability']['base_dt'] = 0.02
-    cfg['physics']['stability']['dt_max'] = 0.08
+    cfg['physics']['embedding']['impulse_scale'] = 1.0
+    cfg['physics']['stability']['base_dt'] = 0.05
+    cfg['physics']['stability']['dt_max'] = 0.1
     cfg['physics']['stability']['integrator_type'] = 'adaptive'
     cfg['physics']['stability']['base_solver'] = 'leapfrog'
     cfg['physics']['stability']['adaptive_alpha'] = 0.1
@@ -151,12 +142,11 @@ def create_model(config_name: str = 'tiny', device: str = 'cpu'):
         heads=cfg['heads'],
         depth=cfg['depth'],
         max_seq_len=cfg['max_seq_len'],
-        embedding_mode=cfg['embedding_mode'],
-        continuous_input_dim=cfg['continuous_input_dim'],
+        embedding_mode=cfg['embedding_mode'],  # 'lookup'
         physics=cfg['physics'],
-        readout_type=cfg['readout_type'],
+        readout_type=cfg['readout_type'],       # 'implicit'
         readout_hidden_dim=cfg['readout_hidden_dim'],
-        readout_out_dim=cfg['readout_out_dim'],
+        readout_out_dim=cfg['readout_out_dim'], # 9000
         holographic=True,
         device=device,
     )
@@ -164,7 +154,7 @@ def create_model(config_name: str = 'tiny', device: str = 'cpu'):
 
 
 # =============================================================================
-# 3) Loss: toroidal angular distance
+# 3) Loss: Categorical Cross Entropy (lookup embedding, 10 colores)
 # =============================================================================
 VALUE_MAX = 9.0
 
@@ -179,30 +169,8 @@ def angle_to_value(angle: torch.Tensor) -> torch.Tensor:
     return angle * (VALUE_MAX / math.pi) + VALUE_MAX / 2.0
 
 
-def toroidal_arc_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-    """
-    Toroidal angular distance loss.
-    Both pred and target in [-pi, pi].
-    """
-    diff = pred - target
-    # Wrap to [-pi, pi]
-    diff_wrapped = torch.atan2(torch.sin(diff), torch.cos(diff))
-    return diff_wrapped.pow(2).mean()
-
-
-# =============================================================================
-# 4) Train / Val functions
-# =============================================================================
-def set_seed(seed: int):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-
-
 def prepare_pairs(batch: dict, device: str):
-    """Extrae train pairs y test del batch (incluye tamaños originales si están disponibles)."""
+    """Extrae train pairs y test del batch (incluye tamaños originales si disponibles)."""
     train_pairs = []
     for p in batch['train_pairs']:
         train_pairs.append({
@@ -222,43 +190,66 @@ def prepare_pairs(batch: dict, device: str):
 
 def compute_losses(
     predictions: list,
-    target_grids_angle: list,
+    target_grids: list,
     test_pred: torch.Tensor,
-    test_target_angle: torch.Tensor,
+    test_target: torch.Tensor,
     test_size: int,
     train_sizes: list,
     auxiliary_weight: float,
     device: str,
 ):
     """
-    Compute primary (test) + auxiliary (train pairs) toroidal losses.
+    Compute primary (test) + auxiliary (train pairs) Categorical Cross Entropy losses.
 
     Returns: (total_loss, primary_loss, aux_loss, pixel_acc)
     """
-    # Primary: test prediction
-    # Slice to actual size (rest is padding)
-    test_pred_angle = torch.tanh(test_pred[..., :test_size]) * (math.pi / 2)
-    primary = toroidal_arc_loss(test_pred_angle, test_target_angle[..., :test_size])
-
-    # Aux: train pairs
+    B = test_pred.shape[0]
+    test_logits = test_pred.reshape(B, 900, 10)  # [B, 900, 10]
+    
+    # Pad test target to 900 with -100 (ignore index)
+    test_target_flat = test_target.flatten()
+    if test_target_flat.numel() < 900:
+        test_target_padded = F.pad(test_target_flat, (0, 900 - test_target_flat.numel()), value=-100)
+    else:
+        test_target_padded = test_target_flat[:900]
+    test_target_padded = test_target_padded.unsqueeze(0).to(device) # [1, 900]
+    
+    # Primary loss
+    primary = F.cross_entropy(
+        test_logits.reshape(-1, 10), 
+        test_target_padded.reshape(-1).long(), 
+        ignore_index=-100
+    )
+    
+    # Aux loss
     aux_losses = []
-    for i, (pred, tgt) in enumerate(zip(predictions, target_grids_angle)):
-        size = train_sizes[i] if i < len(train_sizes) else tgt.shape[-1]
-        pred_slice = torch.tanh(pred[..., :size]) * (math.pi / 2)
-        tgt_slice = tgt[..., :size]
-        aux_losses.append(toroidal_arc_loss(pred_slice, tgt_slice))
+    for pred, tgt in zip(predictions, target_grids):
+        pred_logits = pred.reshape(B, 900, 10)
+        tgt_flat = tgt.flatten()
+        if tgt_flat.numel() < 900:
+            tgt_padded = F.pad(tgt_flat, (0, 900 - tgt_flat.numel()), value=-100)
+        else:
+            tgt_padded = tgt_flat[:900]
+        tgt_padded = tgt_padded.unsqueeze(0).to(device)
+        
+        aux_losses.append(F.cross_entropy(
+            pred_logits.reshape(-1, 10), 
+            tgt_padded.reshape(-1).long(), 
+            ignore_index=-100
+        ))
+        
     aux = torch.stack(aux_losses).mean() if aux_losses else torch.tensor(0.0, device=device)
-
     total = primary + auxiliary_weight * aux
-
-    # Pixel acc (debug)
+    
+    # Pixel accuracy: compute on valid pixels only (where target is not -100)
     with torch.no_grad():
-        pred_vals = (test_pred_angle.squeeze().cpu() / (math.pi / VALUE_MAX) + VALUE_MAX / 2.0)
-        pred_vals = pred_vals.clamp(0, VALUE_MAX).round().long()
-        target_vals = test_target_angle[..., :test_size].squeeze().cpu()
-        target_vals = (target_vals / (math.pi / VALUE_MAX) + VALUE_MAX / 2.0).round().long()
-        pixel_acc = (pred_vals == target_vals).float().mean().item()
-
+        pred_colors = torch.argmax(test_logits, dim=-1) # [B, 900]
+        valid_mask = (test_target_padded != -100)
+        if valid_mask.sum() > 0:
+            pixel_acc = (pred_colors[valid_mask] == test_target_padded[valid_mask]).float().mean().item()
+        else:
+            pixel_acc = 0.0
+            
     return total, primary, aux, pixel_acc
 
 
@@ -299,6 +290,8 @@ def train_epoch(
     num_inner_steps = 0
     num_tasks_completed = 0  # tasks that reached inner_max_acc (if set)
     num_train_tasks_seen = 0  # tasks (no inner steps) vistas
+    num_train_tasks_with_update = 0
+    train_failures = 0
     latest_live_val_metrics = None
     stop_training = False
     last_live_val_task_acc = None
@@ -310,15 +303,16 @@ def train_epoch(
         if 'test_output' not in batch:
             continue
 
-        num_train_tasks_seen += 1
-
         try:
             train_pairs, test_input, test_output, test_input_size, test_output_size = prepare_pairs(batch, device)
         except Exception as e:
+            train_failures = _log_task_issue('train/prepare', batch, f'{type(e).__name__}: {e}', train_failures)
             continue
 
         if test_output is None:
             continue
+
+        num_train_tasks_seen += 1
 
         # Tamaños reales (sin padding) si están disponibles
         if test_output_size is not None:
@@ -338,18 +332,19 @@ def train_epoch(
                 else:
                     train_sizes.append(out.shape[-1])
 
-        # Targets en angulos (computados una sola vez por task, sin padding)
+        # Targets enteros para Cross Entropy (−100 = ignorar en padding)
         test_out_grid = test_output
         if test_out_grid.dim() == 3:
             test_out_grid = test_out_grid[0]
         test_out_grid = test_out_grid[:test_h, :test_w]
-        test_target_flat = test_out_grid.flatten()
+        test_target_flat = test_out_grid.flatten().long()
         if test_target_flat.numel() < pad_to:
-            test_target_flat = F.pad(test_target_flat, (0, pad_to - test_target_flat.numel()), value=0)
-        test_target_angle = value_to_angle(test_target_flat.unsqueeze(0))
+            test_target_flat = F.pad(test_target_flat, (0, pad_to - test_target_flat.numel()), value=-100)
+        test_target_ints = test_target_flat.unsqueeze(0)  # [1, 900]
 
         # Inner loop: ver el mismo task K veces
         task_completed = False
+        task_had_update = False
         last_pixel_acc = 0.0
         last_loss = 0.0
 
@@ -364,6 +359,7 @@ def train_epoch(
                 )
             except Exception as e:
                 pbar.set_postfix({'error': f'forces: {str(e)[:30]}'})
+                train_failures = _log_task_issue('train/forces', batch, f'{type(e).__name__}: {e}', train_failures)
                 break
 
             # Forward
@@ -377,19 +373,23 @@ def train_epoch(
                     state_info = None
             except Exception as e:
                 pbar.set_postfix({'error': f'fwd: {str(e)[:30]}'})
+                train_failures = _log_task_issue('train/forward', batch, f'{type(e).__name__}: {e}', train_failures)
                 break
 
             if not torch.isfinite(logits).all():
                 pbar.set_postfix({'error': 'nonfinite_logits'})
+                train_failures = _log_task_issue('train/nonfinite', batch, 'non-finite logits', train_failures)
                 break
             if isinstance(state_info, dict):
                 x_final = state_info.get('x_final')
                 v_final = state_info.get('v_final')
                 if x_final is not None and not torch.isfinite(x_final).all():
                     pbar.set_postfix({'error': 'nonfinite_x'})
+                    train_failures = _log_task_issue('train/nonfinite', batch, 'non-finite x_final', train_failures)
                     break
                 if v_final is not None and not torch.isfinite(v_final).all():
                     pbar.set_postfix({'error': 'nonfinite_v'})
+                    train_failures = _log_task_issue('train/nonfinite', batch, 'non-finite v_final', train_failures)
                     break
 
             # Extract predictions
@@ -397,36 +397,42 @@ def train_epoch(
             train_preds = predictions[:-1]
             test_pred = predictions[-1]
 
-            # Target en angulos para los train pairs
-            target_grids_angle = []
+            # Targets enteros para los train pairs
+            target_grids_ints = []
             for g in target_grids:
-                if g.dim() == 1:
-                    if g.numel() < pad_to:
-                        g = F.pad(g, (0, pad_to - g.numel()), value=0)
-                    target_grids_angle.append(value_to_angle(g.unsqueeze(0)))
+                g_flat = g.flatten().long()
+                if g_flat.numel() < pad_to:
+                    g_flat = F.pad(g_flat, (0, pad_to - g_flat.numel()), value=-100)
                 else:
-                    target_grids_angle.append(value_to_angle(g))
+                    g_flat = g_flat[:pad_to]
+                target_grids_ints.append(g_flat.unsqueeze(0))  # [1, 900]
 
             # Loss
             try:
                 loss, primary, aux, pixel_acc = compute_losses(
-                    train_preds, target_grids_angle,
-                    test_pred, test_target_angle,
+                    train_preds, target_grids_ints,
+                    test_pred, test_target_ints,
                     test_size, train_sizes, auxiliary_weight, device
                 )
             except Exception as e:
                 pbar.set_postfix({'error': f'loss: {str(e)[:30]}'})
+                train_failures = _log_task_issue('train/loss', batch, f'{type(e).__name__}: {e}', train_failures)
                 break
 
             # NaN guard
             if torch.isnan(loss) or torch.isinf(loss):
                 pbar.set_postfix({'error': 'NaN'})
+                train_failures = _log_task_issue('train/nonfinite', batch, 'loss became NaN or Inf', train_failures)
                 break
 
-            loss.backward()
+            if hasattr(model, 'backward'):
+                model.backward(loss)
+            else:
+                loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=grad_clip)
             optimizer.step()
             scheduler.step()
+            task_had_update = True
 
             total_loss += loss.item()
             total_primary += primary.item()
@@ -455,6 +461,9 @@ def train_epoch(
         # Si el modelo alcanzo el umbral en algun inner step, lo contamos
         if task_completed and not (inner_max_acc > 0 and last_pixel_acc >= inner_max_acc):
             num_tasks_completed += 1
+
+        if task_had_update:
+            num_train_tasks_with_update += 1
 
         # Live val al FINAL de cada task (per-task) si corresponde.
         # No se evalua en cada inner step, solo cuando se termina la task.
@@ -491,9 +500,11 @@ def train_epoch(
         'train_primary': total_primary / max(num_batches, 1),
         'train_aux': total_aux / max(num_batches, 1),
         'train_pixel_acc': total_pixel_acc / max(num_batches, 1),
-        'num_train_tasks': num_batches // max(inner_steps, 1),
+        'num_train_tasks': num_train_tasks_seen,
+        'num_train_tasks_with_update': num_train_tasks_with_update,
         'num_inner_steps': num_inner_steps,
         'num_tasks_completed': num_tasks_completed,
+        'num_train_failures': train_failures,
         'live_val_metrics': latest_live_val_metrics,
         'early_stop_triggered': stop_training,
         'epoch': epoch,
@@ -525,6 +536,7 @@ def validate(
     total_loss = 0.0
     num_tasks = 0
     num_tasks_correct = 0
+    val_failures = 0
 
     pbar = tqdm(dataloader, desc=f"Val epoch {epoch}", leave=False)
     with torch.no_grad():
@@ -534,7 +546,8 @@ def validate(
 
             try:
                 train_pairs, test_input, test_output, test_input_size, test_output_size = prepare_pairs(batch, device)
-            except Exception:
+            except Exception as e:
+                val_failures = _log_task_issue('val/prepare', batch, f'{type(e).__name__}: {e}', val_failures)
                 continue
 
             if test_output is None:
@@ -563,7 +576,8 @@ def validate(
                 forces, pred_timesteps, target_grids = build_fewshot_forces(
                     model, train_pairs, test_input, device=device, test_input_size=test_input_size
                 )
-            except Exception:
+            except Exception as e:
+                val_failures = _log_task_issue('val/forces', batch, f'{type(e).__name__}: {e}', val_failures)
                 continue
 
             # Forward
@@ -573,7 +587,8 @@ def validate(
                     logits = out[0]
                 else:
                     logits = out
-            except Exception:
+            except Exception as e:
+                val_failures = _log_task_issue('val/forward', batch, f'{type(e).__name__}: {e}', val_failures)
                 continue
 
             predictions = extract_predictions(logits, pred_timesteps)
@@ -584,37 +599,38 @@ def validate(
             if test_out_grid.dim() == 3:
                 test_out_grid = test_out_grid[0]
             test_out_grid = test_out_grid[:test_h, :test_w]
-            test_target_flat = test_out_grid.flatten()
+            test_target_flat = test_out_grid.flatten().long()
             if test_target_flat.numel() < pad_to:
-                test_target_flat = F.pad(test_target_flat, (0, pad_to - test_target_flat.numel()), value=0)
-            test_target_angle = value_to_angle(test_target_flat.unsqueeze(0))
+                test_target_flat = F.pad(test_target_flat, (0, pad_to - test_target_flat.numel()), value=-100)
+            test_target_ints = test_target_flat.unsqueeze(0)  # [1, 900]
 
-            target_grids_angle = []
+            target_grids_ints = []
             for g in target_grids:
-                if g.dim() == 1:
-                    if g.numel() < pad_to:
-                        g = F.pad(g, (0, pad_to - g.numel()), value=0)
-                    target_grids_angle.append(value_to_angle(g.unsqueeze(0)))
+                g_flat = g.flatten().long()
+                if g_flat.numel() < pad_to:
+                    g_flat = F.pad(g_flat, (0, pad_to - g_flat.numel()), value=-100)
                 else:
-                    target_grids_angle.append(value_to_angle(g))
+                    g_flat = g_flat[:pad_to]
+                target_grids_ints.append(g_flat.unsqueeze(0))
 
             try:
                 loss, primary, aux, _ = compute_losses(
-                    predictions, target_grids_angle,
-                    test_pred, test_target_angle,
+                    predictions, target_grids_ints,
+                    test_pred, test_target_ints,
                     test_size, train_sizes, 0.0, device  # no aux in val
                 )
-            except Exception:
+            except Exception as e:
+                val_failures = _log_task_issue('val/loss', batch, f'{type(e).__name__}: {e}', val_failures)
                 continue
 
             total_loss += loss.item()
             num_tasks += 1
 
-            # ARC metrics: convertir angulos a enteros [0, 9]
+            # ARC metrics: argmax sobre logits categoricos [B, 900, 10]
             with torch.no_grad():
-                pred_angle_slice = torch.tanh(test_pred[..., :test_size]) * (math.pi / 2)
-                pred_vals = (pred_angle_slice.squeeze().cpu() / (math.pi / VALUE_MAX) + VALUE_MAX / 2.0)
-                pred_vals = pred_vals.clamp(0, VALUE_MAX).round().long().numpy()
+                pred_logits = test_pred.reshape(-1, 900, 10)  # [B, 900, 10]
+                pred_colors = torch.argmax(pred_logits, dim=-1)  # [B, 900]
+                pred_vals = pred_colors[0, :test_size].cpu().numpy()
                 pred_2d = pred_vals.reshape(test_h, test_w)
 
                 gt = test_output.cpu().numpy().astype(np.int64)
@@ -655,6 +671,7 @@ def validate(
         'val_size_accuracy': aggregated['size_accuracy'],
         'num_val_tasks': num_tasks,
         'num_val_tasks_correct': aggregated.get('tasks_correct', num_tasks_correct),
+        'num_val_failures': val_failures,
         'epoch': epoch,
     }
 
@@ -669,6 +686,25 @@ def validate(
 # =============================================================================
 # 5) Utils
 # =============================================================================
+def set_seed(seed: int):
+    import random
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+def _log_task_issue(tag: str, batch, msg: str, counter: int, max_print: int = 5) -> int:
+    counter += 1
+    if counter <= max_print:
+        task_id = batch.get('task_id', ['?'])[0] if isinstance(batch, dict) else '?'
+        print(f"  [WARN/{tag}] task={task_id}: {msg}")
+    elif counter == max_print + 1:
+        print(f"  [WARN/{tag}] (supressing further warnings...)")
+    return counter
+
+
 def save_checkpoint(model, optimizer, epoch, metrics, model_config, output_dir, is_best=False):
     ckpt = {
         'epoch': epoch,
@@ -745,6 +781,10 @@ def main():
     print(f"Early-stop val: {args.val_max_acc:.0%} task accuracy")
     print("=" * 60)
 
+    if args.batch_size != 1:
+        print(f"[WARN] ARC-AGI-2 requiere batch_size=1 por task; overriding {args.batch_size} -> 1")
+        args.batch_size = 1
+
     # Modelo
     print("\n[1/3] Creando modelo...")
     model = create_model(args.config, device=args.device)
@@ -775,11 +815,6 @@ def main():
     if val_loader:
         print(f"  Val tasks: {len(val_loader.dataset)}")
 
-    # Si el usuario pide early-stop por validation pero no define frecuencia,
-    # no forzamos nada: se valida al final de cada epoch. Eso evita disparar
-    # val dentro del inner loop y romper el flujo "per task" del usuario.
-    if val_loader and args.val_max_acc > 0 and args.val_every_n_tasks <= 0:
-        args.val_every_n_tasks = 1
     # Optimizer (dual-group, mismo patron que XOR que funciona)
     optimizer = make_gfn_optimizer(
         model, lr=args.lr,
@@ -821,7 +856,8 @@ def main():
             f"Train Loss: {train_metrics['train_loss']:.4f} "
             f"(pri={train_metrics['train_primary']:.4f}, aux={train_metrics['train_aux']:.4f}) | "
             f"Pixel Acc: {train_metrics['train_pixel_acc']:.2%} | "
-            f"Tasks: {train_metrics['num_train_tasks']} | "
+            f"Tasks: {train_metrics['num_train_tasks']} "
+            f"(updates={train_metrics['num_train_tasks_with_update']}, fail={train_metrics['num_train_failures']}) | "
             f"Inner: {train_metrics['num_inner_steps']} | "
             f"@100%: {train_metrics['num_tasks_completed']}"
         )
@@ -853,7 +889,8 @@ def main():
                     f"  Val   | Loss: {val_metrics['val_loss']:.4f} | "
                     f"Task Acc: {val_metrics['val_task_accuracy']:.2%} | "
                     f"Pixel Acc: {val_metrics['val_mean_pixel_accuracy']:.2%} | "
-                    f"Tasks: {val_metrics['num_val_tasks']}"
+                    f"Tasks: {val_metrics['num_val_tasks']} | "
+                    f"Fail: {val_metrics['num_val_failures']}"
                 )
 
                 is_best = val_metrics['val_task_accuracy'] > best_val_acc

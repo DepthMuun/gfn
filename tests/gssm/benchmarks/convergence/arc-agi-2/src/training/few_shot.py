@@ -36,7 +36,7 @@ def compute_forces(model, grid_flat: torch.Tensor, pad_to: int = 900) -> torch.T
 
     Args:
         model: GSSM model (BaseModel or wrapper)
-        grid_flat: [B, H*W] flattened grid values in [0, 9]
+        grid_flat: [B, H*W] flattened grid values in [0, 9] (int for lookup, float for continuous)
         pad_to: Target dimension (default 900 for 30x30 grid)
 
     Returns:
@@ -54,8 +54,22 @@ def compute_forces(model, grid_flat: torch.Tensor, pad_to: int = 900) -> torch.T
         grid_flat = torch.nn.functional.pad(grid_flat, (0, pad_size), value=0)
     elif grid_flat.shape[-1] > pad_to:
         grid_flat = grid_flat[..., :pad_to]
-    # continuous_input expects [B, T, D_in] where T=1 for a single grid
-    forces = embedding(continuous_input=grid_flat.unsqueeze(1))  # [B, 1, D]
+
+    # Detect embedding mode: lookup expects integer token indices, continuous expects floats
+    emb_mode = getattr(embedding, 'mode', None)
+    if emb_mode is None:
+        # Try to infer from physics config stored on the embedding
+        emb_mode = getattr(embedding, '_mode', 'continuous')
+
+    if emb_mode == 'lookup':
+        # Lookup: pass [B, T] integer indices, one per grid cell as a sequence
+        tokens = grid_flat.long()  # [B, 900]
+        forces = embedding(input_ids=tokens)  # [B, T, D]
+        # Collapse the sequence into a single force vector by mean-pooling
+        forces = forces.mean(dim=1, keepdim=True)  # [B, 1, D]
+    else:
+        # Continuous: pass [B, 1, D_in] float tensor
+        forces = embedding(continuous_input=grid_flat.unsqueeze(1))  # [B, 1, D]
     return forces
 
 
