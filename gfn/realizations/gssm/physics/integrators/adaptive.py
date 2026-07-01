@@ -1,5 +1,5 @@
 """
-AdaptiveIntegrator — GFN V5
+AdaptiveIntegrator
 Dyanmic time-stepping solver based on local geometry curvature and acceleration.
 Wraps a base integrator and modulates dt per step.
 """

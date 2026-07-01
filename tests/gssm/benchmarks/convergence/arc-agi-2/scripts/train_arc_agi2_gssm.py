@@ -25,6 +25,8 @@ import argparse
 import random
 import time
 from pathlib import Path
+from typing import Optional
+
 
 # Paths
 HERE = Path(__file__).resolve().parent
@@ -747,6 +749,11 @@ def parse_args():
     p.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu')
     p.add_argument('--seed', type=int, default=42)
     p.add_argument('--save_every', type=int, default=1)
+    # New summary options
+    p.add_argument('--summary', action='store_true',
+                   help='Mostrar un resumen del último checkpoint en output_dir y salir')
+    p.add_argument('--summary_file', type=str, default=None,
+                   help='Archivo donde guardar el resumen (opcional)')
     return p.parse_args()
 
 

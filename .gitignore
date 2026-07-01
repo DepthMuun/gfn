@@ -61,6 +61,7 @@ checkpoints/*.pth
 !checkpoints/**/config.yaml
 !checkpoints/**/train.txt
 results/
+outputs/
 
 # Results
 # results/
