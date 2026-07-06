@@ -36,7 +36,7 @@ def compute_forces(model, grid_flat: torch.Tensor, pad_to: int = 900) -> torch.T
 
     Args:
         model: GSSM model (BaseModel or wrapper)
-        grid_flat: [B, H*W] flattened grid values in [0, 9]
+        grid_flat: [B, H*W] flattened grid values in [0, 9] (int for lookup, float for continuous)
         pad_to: Target dimension (default 900 for 30x30 grid)
 
     Returns:
@@ -54,16 +54,46 @@ def compute_forces(model, grid_flat: torch.Tensor, pad_to: int = 900) -> torch.T
         grid_flat = torch.nn.functional.pad(grid_flat, (0, pad_size), value=0)
     elif grid_flat.shape[-1] > pad_to:
         grid_flat = grid_flat[..., :pad_to]
-    # continuous_input expects [B, T, D_in] where T=1 for a single grid
-    forces = embedding(continuous_input=grid_flat.unsqueeze(1))  # [B, 1, D]
+
+    # Detect embedding mode: lookup expects integer token indices, continuous expects floats
+    emb_mode = getattr(embedding, 'mode', None)
+    if emb_mode is None:
+        # Try to infer from physics config stored on the embedding
+        emb_mode = getattr(embedding, '_mode', 'continuous')
+
+    if emb_mode == 'lookup':
+        # Lookup: pass [B, T] integer indices, one per grid cell as a sequence
+        tokens = grid_flat.long()  # [B, 900]
+        forces = embedding(input_ids=tokens)  # [B, T, D]
+        # Collapse the sequence into a single force vector by mean-pooling
+        forces = forces.mean(dim=1, keepdim=True)  # [B, 1, D]
+    else:
+        # Continuous: pass [B, 1, D_in] float tensor
+        forces = embedding(continuous_input=grid_flat.unsqueeze(1))  # [B, 1, D]
     return forces
+
+
+def _crop_and_flatten_grid(grid: torch.Tensor, size: Optional[Tuple[int, int]]) -> torch.Tensor:
+    if grid.dim() == 2:
+        if size is not None:
+            h, w = int(size[0]), int(size[1])
+            grid = grid[:h, :w]
+        return grid.flatten()
+    if grid.dim() == 1:
+        if size is not None:
+            h, w = int(size[0]), int(size[1])
+            n = h * w
+            grid = grid[:n]
+        return grid
+    return grid.reshape(-1)
 
 
 def build_fewshot_forces(
     model,
     train_pairs: List[Dict],
     test_input: torch.Tensor,
-    device: str = 'cpu'
+    device: str = 'cpu',
+    test_input_size: Optional[Tuple[int, int]] = None,
 ) -> Tuple[torch.Tensor, List[int], List[torch.Tensor]]:
     """
     Build the force sequence for few-shot learning.
@@ -91,10 +121,8 @@ def build_fewshot_forces(
     for i, pair in enumerate(train_pairs):
         # Input force
         input_grid = pair['input'].to(device)
-        if input_grid.dim() == 2:
-            input_flat = input_grid.flatten().unsqueeze(0)  # [1, H*W]
-        else:
-            input_flat = input_grid.unsqueeze(0)  # [1, H*W]
+        input_flat_1d = _crop_and_flatten_grid(input_grid, pair.get('input_size'))
+        input_flat = input_flat_1d.unsqueeze(0)
 
         input_forces = compute_forces(model, input_flat)  # [1, 1, D]
         force_list.append(input_forces.squeeze(1))  # [1, D]
@@ -104,10 +132,7 @@ def build_fewshot_forces(
         prediction_timesteps.append(input_timestep)
 
         output_grid = pair['output'].to(device)
-        if output_grid.dim() == 2:
-            output_flat = output_grid.flatten().to(device)  # [H*W]
-        else:
-            output_flat = output_grid.to(device)  # [H*W]
+        output_flat = _crop_and_flatten_grid(output_grid, pair.get('output_size')).to(device)
         target_grids.append(output_flat)
 
         # Output force (as context for the model to learn the transformation)
@@ -116,10 +141,8 @@ def build_fewshot_forces(
 
     # Test input force
     test_grid = test_input.to(device)
-    if test_grid.dim() == 2:
-        test_flat = test_grid.flatten().unsqueeze(0)  # [1, H*W]
-    else:
-        test_flat = test_grid.unsqueeze(0)  # [1, H*W]
+    test_flat_1d = _crop_and_flatten_grid(test_grid, test_input_size)
+    test_flat = test_flat_1d.unsqueeze(0)
 
     test_forces = compute_forces(model, test_flat)  # [1, 1, D]
     force_list.append(test_forces.squeeze(1))  # [1, D]

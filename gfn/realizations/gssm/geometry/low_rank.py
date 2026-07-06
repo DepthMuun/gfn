@@ -1,7 +1,5 @@
 """
-LowRankRiemannianGeometry — GFN V5
-Computes Christoffel symbols via a low-rank decomposition.
-Migrated from gfn/geo/riemannian/low_rank_geometry.py
+Low-rank geometry that computes Christoffel responses from learned factors.
 """
 
 import torch
@@ -158,7 +156,7 @@ class LowRankRiemannianGeometry(BaseGeometry):
         else:
             v_flat = v
             x_flat = x
-        B, H, HD = None, None, v_flat.shape[-1]
+            B, H, HD = None, None, v_flat.shape[-1]
         R = self.rank
         
         # Check if we can take the fast CUDA path
@@ -209,7 +207,10 @@ class LowRankRiemannianGeometry(BaseGeometry):
         # Restore original shape if we reshaped
         if B is not None:
             gamma = gamma.view(original_shape)
-            mu = mu.view(original_shape)
+            if mu.numel() > 1:
+                mu = mu.view(original_shape)
+            else:
+                mu = mu.expand(original_shape)
 
         # CONTRACT: always return (gamma_pure, mu) so engine has single authority over friction
         return gamma, mu
@@ -273,7 +274,7 @@ class PaperLowRankRiemannianGeometry(LowRankRiemannianGeometry):
         else:
             v_flat = v
             x_flat = x
-        B, H, HD = None, None, v_flat.shape[-1]
+            B, H, HD = None, None, v_flat.shape[-1]
         R = self.rank
 
         use_cuda_fused = (
@@ -317,7 +318,10 @@ class PaperLowRankRiemannianGeometry(LowRankRiemannianGeometry):
 
         if B is not None:
             gamma = gamma.view(original_shape)
-            mu = mu.view(original_shape)
+            if mu.numel() > 1:
+                mu = mu.view(original_shape)
+            else:
+                mu = mu.expand(original_shape)
 
         # CONTRACT: Always return (gamma_pure, mu) for unified PhysicsEngine handling.
         return gamma, mu

@@ -1,265 +1,202 @@
-# Integrators - Mathematical Foundation
+# Integrators
 
-## Overview
+This document describes the **current integrator runtime** used by GSSM.
 
-Integrators solve the Hamiltonian system to compute the next state (x, v) from the current state and acceleration. They are numerical methods for solving ODEs.
+The authoritative files are:
 
----
+- `gfn/realizations/gssm/physics/integrators/base.py`
+- `gfn/realizations/gssm/physics/integrators/factory.py`
+- `gfn/realizations/gssm/physics/integrators/symplectic/`
+- `gfn/realizations/gssm/physics/integrators/runge_kutta/`
+- `gfn/realizations/gssm/physics/integrators/adaptive.py`
 
-## 1. Hamiltonian System
+## Factory Behavior
 
-The state evolution follows:
+The integrator factory currently reads:
 
-$$\frac{dx}{dt} = v$$
-$$\frac{dv}{dt} = a_{net}(x, v, F)$$
+- `config.stability.integrator_type`
 
-This is a system of first-order ODEs that can be written as:
+and defaults to:
 
-$$\dot{z} = f(z)$$
+- `leapfrog`
 
-Where $z = (x, v)$ is the phase space state.
+If the requested key is unknown, it falls back to `leapfrog`.
 
----
+This is the current effective runtime default, so the docs should not claim `yoshida` or another solver as the default.
 
-## 2. Symplectic Integrators
+## Base Integrator Contract
 
-Symplectic integrators preserve the symplectic structure of phase space, leading to better energy conservation over long simulations.
+All current integrators inherit from `BaseIntegrator`.
 
-### 2.1 Leapfrog (Velocity Verlet)
+That base class provides three important behaviors:
 
-**Order**: 2nd order
-**File**: `physics/integrators/symplectic/leapfrog.py`
+- velocity saturation or clamping,
+- torus-aware position wrapping,
+- access to physics-engine acceleration and friction helpers.
 
-**Algorithm**:
+### Velocity saturation
 
-```
-# Step 1: Half-step velocity
-v_half = v + 0.5 * dt * a(x, v, F)
+In the current runtime this belongs to the **integrator layer**, not the engine.
 
-# Step 2: Full-step position  
-x_new = x + dt * v_half
+If:
 
-# Step 3: Compute new acceleration
-a_new = compute_acceleration(x_new, v_half, F)
+- `stability.velocity_saturation > 0`
 
-# Step 4: Full-step velocity
-v_new = v_half + 0.5 * dt * a_new
-```
+then the base integrator uses differentiable tanh saturation:
 
-**Mathematical Form**:
-
-$$v_{n+1/2} = v_n + \frac{\Delta t}{2} a(x_n, v_n)$$
-
-$$x_{n+1} = x_n + \Delta t \cdot v_{n+1/2}$$
-
-$$v_{n+1} = v_{n+1/2} + \frac{\Delta t}{2} a(x_{n+1}, v_{n+1/2})$$
-
-**Properties**:
-- Time-reversible
-- Energy-preserving (symplectic)
-- Simple and fast
-- **Recommended for training**
-
-### 2.2 Verlet Integrator
-
-**Order**: 2nd order
-**File**: `physics/integrators/symplectic/verlet.py`
-
-**Algorithm**:
-
-```
-x_new = 2*x - x_prev + dt^2 * a(x, v, F)
-v_new = (x_new - x_prev) / (2*dt)
+```text
+v_sat = tanh(v / sat) * sat
 ```
 
-**Mathematical Form**:
+Otherwise it falls back to hard clamping.
 
-$$x_{n+1} = 2x_n - x_{n-1} + \Delta t^2 \cdot a(x_n)$$
+### Topology resolution
 
-$$v_n = \frac{x_{n+1} - x_{n-1}}{2\Delta t}$$
+For torus:
 
-### 2.3 Yoshida Integrator
-
-**Order**: 4th order
-**File**: `physics/integrators/symplectic/yoshida.py`
-
-**Algorithm**:
-
-Uses optimized coefficients for higher accuracy:
-
-```
-c1 = c4 =  1/(2 - 2^(1/3))
-c2 = c3 = (1 - 2^(1/3))/(2 - 2^(1/3))
-d1 = d3 =  1/(2 - 2^(1/3))
-d2 = -(2^(1/3))/(2 - 2^(1/3))
-
-# Sequence of half-steps
-v += c1 * d1 * dt * a(x, v)
-x += c1 * d1 * dt * v
-v += c2 * d2 * dt * a(x, v)
-x += c2 * d2 * dt * v
-v += c3 * d2 * dt * a(x, v)
-x += c3 * d2 * dt * v
-v += c4 * d1 * dt * a(x, v)
+```text
+x -> atan2(sin(x), cos(x))
 ```
 
-**Properties**:
-- 4th order accuracy (smaller error)
-- More expensive (3× leapfrog)
-- Good for long simulations
+For Euclidean:
 
-### 2.4 Forest-Ruth Integrator
+- identity
 
-**Order**: 4th order
-**File**: `physics/integrators/symplectic/forest_ruth.py`
+So topology wrapping is currently standardized at the integrator helper level as well.
 
-**Algorithm**:
+## Available Integrators In The Current Factory
 
-```
-θ = 1/(2 - 2^(1/3))
+The current factory explicitly imports and registers:
 
-v += θ * dt/2 * a(x, v)
-x += θ * dt * v
-v += (1-θ) * dt/2 * a(x, v)
-x += (1-2θ) * dt * v
-v += (1-θ) * dt/2 * a(x, v)
-x += θ * dt * v
-v += θ * dt/2 * a(x, v)
-```
+- `leapfrog`
+- `verlet`
+- `yoshida`
+- `forest_ruth`
+- `omelyan`
+- `heun`
+- `rk4`
+- `adaptive`
 
-### 2.5 Omelyan Integrator
+## `leapfrog`
 
-**Order**: 2nd order (optimized)
-**File**: `physics/integrators/symplectic/omelyan.py`
+`LeapfrogIntegrator` is the current default and the most important training path.
 
-**Algorithm**:
+Its runtime behavior is slightly more sophisticated than the textbook one because it also resolves friction explicitly during the split update.
 
-```
-λ = 0.1932...  # Optimized parameter
+The slow Python fallback effectively does:
 
-v += (1-2λ) * dt/2 * a(x, v)
-x += λ * dt * v
-v += λ * dt * a(x, v)
-x += (1-2λ) * dt * v
-v += λ * dt * a(x, v)
-x += λ * dt * v
-v += (1-2λ) * dt/2 * a(x, v)
-```
+1. resolve friction at the current state,
+2. compute acceleration,
+3. perform a half-step velocity update,
+4. clamp velocity,
+5. drift position and wrap topology,
+6. recompute friction and acceleration,
+7. average the two acceleration estimates,
+8. finish the velocity update,
+9. clamp again.
 
----
+So the current leapfrog path is not a pure frictionless textbook Störmer-Verlet implementation; it is a symplectic-style solver adapted to the engine's explicit damping path.
 
-## 3. Runge-Kutta Methods
+### CUDA fast path
 
-Standard ODE solvers (not symplectic).
+For specific low-rank CUDA-compatible cases, leapfrog can switch to a fused kernel:
 
-### 3.1 RK4 (Runge-Kutta 4th Order)
+- low-rank geometry,
+- CUDA available,
+- external force present,
+- tensors on CUDA.
 
-**Order**: 4th order
-**File**: `physics/integrators/runge_kutta/rk4.py`
+Otherwise it falls back to the Python implementation.
 
-**Algorithm**:
+## `adaptive`
 
-```
-k1 = a(x, v, F)
+The current adaptive integrator is **not** an embedded error-estimator RK solver.
 
-k2 = a(x + dt/2 * v, v + dt/2 * k1, F)
+Instead, it:
 
-k3 = a(x + dt/2 * v + dt^2/4 * k1, v + dt/2 * k2, F)
+1. computes local acceleration norm,
+2. sets
 
-k4 = a(x + dt * v + dt^2 * k2, v + dt * k3, F)
-
-v_new = v + dt/6 * (k1 + 2*k2 + 2*k3 + k4)
-x_new = x + dt * v + dt^2/6 * (k1 + k2 + k3)
+```text
+dt_eff = base_dt / (1 + alpha * ||accel||)
 ```
 
-**Mathematical Form**:
+3. clamps `dt_eff` to `[dt_min, base_dt]`,
+4. uses the mean effective timestep across the batch,
+5. delegates the actual step to a base solver.
 
-$$v_{n+1} = v_n + \frac{\Delta t}{6}(k_1 + 2k_2 + 2k_3 + k_4)$$
+The underlying base solver is configured by:
 
-Where:
-- $k_1 = a(x_n, v_n)$
-- $k_2 = a(x_n + \frac{\Delta t}{2}v_n, v_n + \frac{\Delta t}{2}k_1)$
-- $k_3 = a(x_n + \frac{\Delta t}{2}v_n + \frac{\Delta t^2}{4}k_1, v_n + \frac{\Delta t}{2}k_2)$
-- $k_4 = a(x_n + \Delta t v_n + \Delta t^2 k_2, v_n + \Delta t k_3)$
+- `stability.base_solver`
 
-**Properties**:
-- High accuracy
-- Not symplectic (energy drifts)
-- More expensive than leapfrog
+and defaults to:
 
-### 3.2 Heun Integrator
+- `verlet`
 
-**Order**: 2nd order
-**File**: `physics/integrators/runge_kutta/heun.py`
+So this adaptive path is best understood as a **dt modulation wrapper** around another solver, not as a fully separate high-order adaptive solver family.
 
-**Algorithm**:
+## Other Integrators
 
-```
-# Predictor
-x_pred = x + dt * v
-v_pred = v + dt * a(x, v, F)
+The factory registers additional symplectic and Runge-Kutta integrators:
 
-# Corrector
-v_new = v + dt/2 * (a(x, v, F) + a(x_pred, v_pred, F))
-x_new = x + dt/2 * (v + v_pred)
-```
+- `verlet`
+- `yoshida`
+- `forest_ruth`
+- `omelyan`
+- `heun`
+- `rk4`
 
----
+These remain valid runtime options, but the most important docs for day-to-day behavior should anchor around:
 
-## 4. Adaptive Integrator
+- `leapfrog` as the current default,
+- `adaptive` as the timestep wrapper path.
 
-**File**: `physics/integrators/adaptive.py`
+## Relationship To Dynamic Time Plugin
 
-Automatically adjusts timestep based on error estimate.
+The `DynamicTimePlugin` and the `adaptive` integrator are different mechanisms.
 
-**Algorithm**:
+- `adaptive` changes `dt` from acceleration magnitude at solver level,
+- `DynamicTimePlugin` changes `dt` through learned per-head gating before `integrator.step(...)`.
 
-```
-dt_eff = dt
-for step in range(max_attempts):
-    # Take step with dt_eff
-    x1, v1 = step(x, v, dt_eff)
-    
-    # Take two half-steps
-    x2, v2 = step(x, v, dt_eff/2)
-    x2, v2 = step(x2, v2, dt_eff/2)
-    
-    # Estimate error
-    error = ||x1 - x2|| + ||v1 - v2||
-    
-    if error < tolerance:
-        break
-    
-    dt_eff = dt_eff * min(max_factor, safety * (tolerance/error)^(1/order))
+They can interact, so docs should not merge them into one concept.
 
-return x2, v2
-```
+## Practical Guidance
 
----
+Use `leapfrog` when:
 
-## 5. Comparison Summary
+- you want the standard runtime path,
+- you want the most battle-tested default,
+- you care about stable geometry-aware training.
 
-| Integrator | Order | Symplectic | Cost | Stability |
-|------------|-------|------------|------|-----------|
-| leapfrog | 2nd | ✅ | 1× | Best |
-| verlet | 2nd | ✅ | 1× | Good |
-| omelyan | 2nd | ✅ | ~1.5× | Good |
-| heun | 2nd | ❌ | ~1.5× | Moderate |
-| rk4 | 4th | ❌ | ~4× | Good |
-| yoshida | 4th | ✅ | ~3× | Excellent |
-| forest_ruth | 4th | ✅ | ~3× | Excellent |
-| adaptive | Variable | ❌ | Variable | Good |
+Use `adaptive` when:
 
----
+- you explicitly want timestep shrinkage in high-acceleration regions,
+- you are comfortable with a base-solver wrapper rather than a pure standalone solver.
 
-## 6. Selection Guidelines
+Use the higher-order symplectic solvers when:
 
-- **Training**: Use `leapfrog` (most stable)
-- **Long sequences**: Use `yoshida` or `forest_ruth`
-- **Quick experiments**: Use `heun` or `rk4`
-- **Variable precision**: Use `adaptive`
+- you want more expensive long-horizon trajectories,
+- you are intentionally trading cost for trajectory quality.
 
----
+Use RK-style solvers when:
 
-*File: technical/0_architecture/math/02_integrators.md*
-*Last Updated: 2026-04-02*
+- you are experimenting with non-symplectic alternatives,
+- you do not need the default symplectic bias of the main runtime path.
+
+## What This Document Should Not Claim
+
+It would be inaccurate to claim that:
+
+- `yoshida` is the default integrator,
+- adaptive integration uses the classical two-half-step error-estimation scheme shown in many textbooks,
+- velocity saturation is a physics-engine responsibility.
+
+Those claims do not match the current implementation.
+
+## Runtime Cross-References
+
+- `gfn/realizations/gssm/physics/integrators/base.py`
+- `gfn/realizations/gssm/physics/integrators/factory.py`
+- `gfn/realizations/gssm/physics/integrators/symplectic/leapfrog.py`
+- `gfn/realizations/gssm/physics/integrators/adaptive.py`
+- `docs/gssm/guides/03-reference/03-integrators.md`

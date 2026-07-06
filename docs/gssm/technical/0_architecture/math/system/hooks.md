@@ -1,238 +1,287 @@
 # Hooks System
 
-## What are Hooks?
+This document describes the **current HookManager-based lifecycle** used by `ManifoldModel`.
 
-Hooks are injection points in the model's forward pass where external code can execute. They allow extending the model's behavior without modifying its core code.
+It is important to distinguish two extension systems in the current runtime:
 
-Think of hooks as: "Event listeners for the model's lifecycle."
+1. model-level hooks managed by `HookManager`,
+2. layer-level plugins attached directly to `ManifoldLayer.plugins`.
 
----
+They are related, but they are not the same mechanism.
 
-## The Hook Lifecycle
+## What Hooks Are
 
-### Available Hooks
+`HookManager` stores named callback lists and lets model components inject logic into the forward pass without rewriting the whole outer loop.
 
-| Hook Name | When Triggered | Purpose |
-|-----------|----------------|---------|
-| `pre_forward` | Before forward() starts | Setup, preprocessing |
-| `state_init` | Initializing (x, v) | Custom state initialization |
-| `on_batch_start` | New batch begins | Batch-level setup |
-| `on_timestep_start` | Before each sequence position | Modify forces, adjust dt |
-| `on_layer_start` | Before each layer | Inject layer-specific logic |
-| `on_layer_end` | After each layer | Post-processing, logging |
-| `on_timestep_end` | After each position | Readout, collect outputs |
-| `on_batch_end` | Batch complete | Cleanup, metrics |
-| `wrap_evolution` | Wrap _evolve_sequence | Custom integration schemes |
+At runtime:
 
----
+- callbacks are registered by name,
+- `trigger(...)` executes all callbacks in registration order,
+- non-`None` return values are collected into a list.
 
-## How Hooks Work
+## Hook Names Defined By `HookManager`
 
-### Registration
+The current manager defines these hook slots:
 
-Plugins register callbacks at specific hook points:
+| Hook Name | Defined in manager | Triggered by current model path | Purpose |
+|-----------|--------------------|----------------------------------|---------|
+| `pre_forward` | yes | no in current `BaseModel.forward()` | reserved slot, currently unused by the main forward path |
+| `state_init` | yes | yes | override initial `(x, v)` |
+| `wrap_evolution` | yes | yes | replace or wrap `_evolve_sequence()` |
+| `on_batch_start` | yes | yes | batch-level setup |
+| `on_timestep_start` | yes | yes | inspect or modify force before layer stack |
+| `on_layer_start` | yes | yes | inject layer kwargs or observe pre-layer state |
+| `on_layer_end` | yes | yes | inspect post-layer state |
+| `on_timestep_end` | yes | yes | produce logits or collect timestep outputs |
+| `on_batch_end` | yes | yes | cleanup or final plugin reporting |
 
-```
-Plugin.register_hooks(manager):
-    manager.register("on_timestep_end", self.readout)
-```
+Important current detail:
 
-### Triggering
+- `pre_forward` exists in the manager but is not triggered by the current `BaseModel.forward()` implementation.
 
-During forward pass, the model triggers hooks:
+## Where Hooks Are Triggered
 
-```
-model.forward():
-    self.hooks.trigger("pre_forward")
-    for t in sequence:
-        self.hooks.trigger("on_timestep_start", x, v, force)
-        for layer in layers:
-            self.hooks.trigger("on_layer_start", layer, x, v)
-            x, v = layer(x, v, force)
-            self.hooks.trigger("on_layer_end", layer, x, v)
-        logits = self.hooks.trigger("on_timestep_end", x, v)
-```
+### In `BaseModel.forward()`
 
-### Execution
+The current runtime triggers:
 
-When triggered:
-1. All registered callbacks execute
-2. Results are collected in a list
-3. Return values can modify behavior
+- `on_batch_start`
+- `state_init`
+- `on_batch_end`
 
----
+### In `BaseModel._evolve_sequence()`
 
-## Hook Types
+The current runtime triggers:
 
-### 1. Informational Hooks
+- `on_timestep_start`
+- `on_layer_start`
+- `on_layer_end`
+- `on_timestep_end`
+- `wrap_evolution`
 
-**Purpose**: Notify that something happened.
+### In the adjoint wrapper
 
-**Examples**: `on_batch_start`, `on_batch_end`
+If the optional adjoint plugin is active, the wrapped evolution path reproduces:
 
-**Return**: Ignored (used for side effects like logging)
+- `on_timestep_start`
+- `on_layer_start`
+- `on_layer_end`
+- `on_timestep_end`
 
-### 2. Transformation Hooks
+inside its ODE-style evolution wrapper.
 
-**Purpose**: Modify inputs/outputs.
+## How Registration Works
 
-**Examples**: `on_timestep_start` (modifies force), `on_layer_end` (modifies state)
+Plugins register callbacks through:
 
-**Pattern**:
-```
-hook_result = trigger("on_timestep_start", x, v, force)
-if hook_result:
-    force = force + hook_result[0]
+```python
+def register_hooks(self, manager):
+    manager.register("on_timestep_end", self.on_timestep_end)
 ```
 
-### 3. Production Hooks
+The readout system is the main example:
 
-**Purpose**: Generate outputs.
+- `ReadoutPlugin.register_hooks(...)`
+- registers on `on_timestep_end`
+- returns a tensor of logits from the current latent state
 
-**Examples**: `on_timestep_end` (readout produces logits)
+## How Results Are Used
 
-**Pattern**:
+### `state_init`
+
+`state_init` can replace the default learned initial state:
+
+```python
+init_res = self.hooks.trigger("state_init", batch_size=batch_size)
+if init_res:
+    x, v = init_res[-1]
 ```
-logits_list = trigger("on_timestep_end", x, v)
-for logits in logits_list:
-    outputs.append(logits)
+
+The last returned value wins.
+
+### `on_timestep_start`
+
+This hook can modify the force used at the current timestep.
+
+The current runtime accepts:
+
+- a tensor, which is added to the force,
+- a dict containing `"force"`, which replaces the current force.
+
+### `on_layer_start`
+
+This hook is mainly used to mutate `layer_kwargs` before calling the layer.
+
+The runtime passes:
+
+- `layer`
+- `layer_kwargs`
+- `x`
+- `v`
+
+### `on_layer_end`
+
+This hook is observational in the current model loop. The runtime triggers it with:
+
+- `layer`
+- `x`
+- `v`
+- `extra_info`
+
+but does not directly use returned values to mutate state.
+
+### `on_timestep_end`
+
+This is the main output-production hook.
+
+The base loop does:
+
+```python
+step_res = self.hooks.trigger("on_timestep_end", x=local_x, v=local_v)
+for r in step_res:
+    if isinstance(r, torch.Tensor):
+        l_logits.append(r)
 ```
 
-### 4. Wrapping Hooks
+So any callback that returns a tensor at this stage can contribute timestep outputs.
 
-**Purpose**: Replace entire functions.
+### `wrap_evolution`
 
-**Examples**: `wrap_evolution` (custom integration loop)
+This hook can replace the whole sequence evolution function.
 
-**Pattern**:
-```
-wrapped = trigger("wrap_evolution", evolution_fn)
+Current main use:
+
+- `AdjointPlugin`
+
+The model takes the last returned wrapper:
+
+```python
+wrapped = self.hooks.trigger("wrap_evolution", evolution_fn=evolve_fn)
 if wrapped:
-    evolution_fn = wrapped[-1]
-result = evolution_fn(x, v, ...)
+    evolve_fn = wrapped[-1]
 ```
 
----
+## Hooks vs Layer Plugins
 
-## Common Use Cases
+This distinction is critical for the current codebase.
 
-### Readout via Hooks
+### HookManager plugins
 
-**Plugin**: `CategoricalReadout`
+These are model-level lifecycle extensions, such as:
 
-**Hook**: `on_timestep_end`
+- readout plugin,
+- adjoint plugin,
+- pooling plugin,
+- checkpointing plugin,
+- lensing plugin.
 
-**Behavior**:
-- After each timestep, projects state to vocabulary
-- Collects logits for output
+They interact with `ManifoldModel.hooks`.
 
-### Dynamic Time via Hooks
+### Layer plugins
 
-**Plugin**: `DynamicTimePlugin`
+These are attached directly to `ManifoldLayer.plugins` and do **not** use `HookManager`.
 
-**Hook**: `on_timestep_start` (via pre_integrate)
+Current examples:
 
-**Behavior**:
-- Adjusts dt per head based on state
-- Called before integrator step
+- `DynamicTimePlugin`
+- `FractalPlugin`
 
-### Fractal via Hooks
+They expose methods such as:
 
-**Plugin**: `FractalPlugin`
+- `pre_integrate`
+- `post_integrate`
+- `finalize`
 
-**Hook**: `on_layer_end` (via finalize)
+and are called manually inside `ManifoldLayer.forward()`.
 
-**Behavior**:
-- Adds micro-manifold refinement
-- Called after layer completes
+Important current detail:
 
----
+- the `LayerPlugin` base class also defines `pre_mix` and `post_mix`,
+- but the current `ManifoldLayer.forward()` does not call those methods.
 
-## Hook Priority
+## Common Current Use Cases
 
-### Execution Order
+### Readout
 
-Hooks execute in registration order:
+`ReadoutPlugin` registers `on_timestep_end` and converts the current latent state into:
 
-```
-manager.register("hook", callback_a)  # First
-manager.register("hook", callback_b)  # Second
+- categorical logits,
+- implicit readout output,
+- or identity output.
 
-trigger("hook"):
-    # Executes: callback_a, then callback_b
-```
+### Adjoint evolution wrapping
 
-### Multiple Results
+`AdjointPlugin` registers `wrap_evolution` if `torchdiffeq` adjoint support is importable.
 
-When multiple hooks return values:
+Important current implementation detail:
 
-```
-results = trigger("on_timestep_end")
-# results = [logits_from_plugin_a, logits_from_plugin_b]
-```
+- the plugin is gated on `odeint_adjoint` availability,
+- but inside the wrapper it currently calls `torchdiffeq.odeint` standard integration for the actual trajectory solve.
 
----
+So the runtime behavior should be described as:
 
-## Benefits of Hooks
+- optional ODE-wrapped evolution path,
+- implemented through the adjoint plugin interface,
+- not a guaranteed pure adjoint-memory path in every environment.
 
-### 1. Extensibility
+### State initialization
 
-Add functionality without modifying core code:
-```
-# New feature? Just write a plugin!
-class MyPlugin(Plugin):
-    def register_hooks(self, manager):
-        manager.register("on_timestep_end", my_logic)
-```
+Custom initialization logic can be injected through `state_init`.
 
-### 2. Composability
+This is the cleanest hook for:
 
-Multiple plugins work together:
-- DynamicTimePlugin adjusts dt
-- FractalPlugin adds refinement
-- ReadoutPlugin produces outputs
+- persistent state warm starts,
+- controlled initialization experiments,
+- custom learned priors.
 
-### 3. Testing
+## Execution Order
 
-Mock specific behaviors:
-```
-manager.register("on_timestep_start", mock_force)
+Callbacks execute in registration order.
+
+```python
+manager.register("on_timestep_end", callback_a)
+manager.register("on_timestep_end", callback_b)
 ```
 
-### 4. Debugging
+This yields:
 
-Inject logging at any point:
+```text
+callback_a -> callback_b
 ```
-manager.register("on_layer_end", print_state)
-```
 
----
+The model usually uses the collected list directly or applies "last one wins" logic depending on the hook.
 
-## When to Use Hooks
+## What Hooks Do Not Do
 
-**Use hooks when:**
-- Adding orthogonal features (don't modify core)
-- Need to observe model behavior
-- Want to modify behavior conditionally
-- Building modular extensions
+Hooks are not a full replacement for core architecture changes.
 
-**Don't use hooks when:**
-- Feature requires core changes anyway
-- Overhead is unacceptable
-- Debugging is needed (use direct code)
+In the current runtime they do **not** automatically:
 
----
+- rewrite the layer integration algorithm,
+- mutate layer output on `on_layer_end`,
+- replace layer plugin behavior,
+- make `pre_forward` active in the base path.
 
-## Comparison with Direct Code
+## Practical Guidance
 
-| Aspect | Direct Code | Hooks |
-|--------|-------------|-------|
-| Performance | Faster | Slight overhead |
-| Modularity | Tight coupling | Loose coupling |
-| Extensibility | Hard | Easy |
-| Debugging | Straightforward | Indirection |
+Use hooks when:
 
----
+- you want model-level extensibility,
+- you want timestep outputs such as logits or pooled summaries,
+- you want to wrap the outer evolution loop,
+- you want custom state initialization.
 
-*File: technical/0_architecture/math/system/hooks.md*
-*Last Updated: 2026-04-02*
+Use layer plugins when:
+
+- the intervention belongs inside a single layer,
+- you need to alter `dt`, post-integrator state, or layer finalization,
+- the change is naturally expressed as `pre_integrate` / `post_integrate` / `finalize`.
+
+## Runtime Cross-References
+
+- `gfn/realizations/gssm/models/hooks.py`
+- `gfn/realizations/gssm/models/base.py`
+- `gfn/realizations/gssm/models/components/readout.py`
+- `gfn/realizations/gssm/models/components/adjoint.py`
+- `gfn/realizations/gssm/models/plugins/__init__.py`
+- `gfn/realizations/gssm/models/manifold_layer.py`

@@ -1,211 +1,121 @@
-# Curiosity - Mathematical Foundation
+# Curiosity
 
-## Overview
+This document describes the **current `GeometricCuriosityForce` runtime**.
 
-Curiosity provides an intrinsic motivation force that encourages exploration by pushing the system away from high-density states (batch center), promoting diverse state coverage.
+The authoritative code is:
 
----
+- `gfn/realizations/gssm/physics/components/curiosity.py`
+- `gfn/realizations/gssm/physics/engine.py`
 
-## 1. Geometric Curiosity Force
+## What It Does
 
-### Purpose
+The current curiosity module adds a deterministic repulsive force away from the batch center.
 
-- Escape local density clusters
-- Promote state space exploration
-- Prevent mode collapse
+Its current role is:
 
-### Core Idea
+- encourage exploration,
+- push states away from dense aggregates,
+- reduce collapse toward a shared latent center.
 
-Repel from the batch "center of mass":
+It is not a full density-estimation system; the current implementation explicitly uses the batch center as a simple attractor proxy.
 
-$$F_{curiosity} \propto \frac{(x - \bar{x})}{\|x - \bar{x}\|^2}$$
+## Core Runtime Path
 
-Where $\bar{x}$ is the batch center.
+The current forward path is:
 
----
+1. compute a batch center,
+2. compute the direction away from that center,
+3. scale force inversely with squared distance,
+4. clamp the resulting force to keep it bounded.
 
-## 2. Toroidal Geometry
+## Toroidal Behavior
 
-### Batch Center
+When `topology == torus`, the module uses:
 
-For toroidal manifolds, we use circular mean:
+- circular mean through `atan2(mean(sin), mean(cos))`,
+- wrapped angular differences through `atan2(sin(d), cos(d))`.
 
-$$\bar{x}_{torus} = \arctan_2\left(\frac{1}{N}\sum_i \sin(x_i), \frac{1}{N}\sum_i \cos(x_i)\right)$$
+So the torus path is topology-aware and uses circular rather than Euclidean averaging.
 
-Where:
-- $\arctan_2(y, x)$ is the two-argument arctangent
-- $N$ is batch size
+## Euclidean Behavior
 
-### Escape Direction
+When topology is not toroidal, the module uses:
 
-$$d = x - \bar{x}_{torus}$$
+- ordinary batch mean,
+- raw Euclidean direction away from that mean.
 
-$$d_{geo} = \arctan_2(\sin(d), \cos(d))$$
+## Magnitude Rule
 
-The $\arctan_2(\sin, \cos)$ wraps the angular difference correctly.
+The current implementation computes:
 
-### Implementation
-
-```python
-sin_x = torch.sin(x)
-cos_x = torch.cos(x)
-batch_center = torch.atan2(sin_x.mean(dim=0), cos_x.mean(dim=0))
-direction = x - batch_center
-direction = torch.atan2(torch.sin(direction), torch.cos(direction))
+```text
+dist_sq = sum(direction^2) + 1e-6
+repulsion_mag = strength / dist_sq
+force = direction / sqrt(dist_sq) * repulsion_mag
 ```
 
----
+Then it clamps force to:
 
-## 3. Euclidean Geometry
-
-### Batch Center
-
-Simple arithmetic mean:
-
-$$\bar{x}_{euclidean} = \frac{1}{N}\sum_i x_i$$
-
-### Escape Direction
-
-$$d = x - \bar{x}_{euclidean}$$
-
-### Implementation
-
-```python
-batch_center = x.mean(dim=0)
-direction = x - batch_center
+```text
+[-5.0, 5.0]
 ```
 
----
+So the live runtime behavior is a bounded inverse-square-style repulsion.
 
-## 4. Repulsion Magnitude
+## Engine Integration
 
-### Formula
+The physics engine adds curiosity when:
 
-From `GeometricCuriosityForce.forward()`:
+- the curiosity config is enabled,
+- and `curiosity_module` has been instantiated.
 
-$$\|F_{curiosity}\| = \frac{\lambda}{\|d\|^2 + \epsilon}$$
+Then:
 
-Where:
-- $\lambda$ = `strength` (default: 0.1)
-- $\|d\|^2$ = squared distance to center
-- $\epsilon$ = 1e-6 (numerical stability)
-
-### Complete Force
-
-$$F_{curiosity} = \frac{d}{\|d\|} \cdot \frac{\lambda}{\|d\|^2 + \epsilon}$$
-
-Or written differently:
-
-$$F_{curiosity} = \lambda \cdot \frac{d}{\|d\|^3 + \epsilon'}$$
-
-Where $\epsilon' = \epsilon \cdot \|d\|$.
-
-### In Code
-
-```python
-dist_sq = (direction ** 2).sum(dim=-1, keepdim=True) + 1e-6
-repulsion_mag = self.strength / dist_sq
-force = (direction / (dist_sq ** 0.5 + 1e-8)) * repulsion_mag
+```text
+net_accel += curiosity_module(x, v, **kwargs)
 ```
 
----
+Important current detail:
 
-## 5. Force Clamping
+- `v` is part of the signature for API consistency,
+- but the current curiosity computation is driven by `x` and topology, not velocity dynamics directly.
 
-### Maximum Force
+## Configuration Reality
 
-To prevent instability:
+The schema currently exposes:
 
-$$F_{clamped} = \text{clamp}(F_{curiosity}, -5.0, 5.0)$$
+- `enabled`
+- `strength`
+- `decay`
 
-This limits the maximum curiosity force to prevent runaway dynamics.
+Important current caveat:
 
----
+- `strength` is actively used,
+- `decay` is stored on the module but is not used in the current `forward()` implementation.
 
-## 6. Configuration
+So the docs should not imply that curiosity currently decays over time just because the config field exists.
 
-```python
-physics = {
-    'active_inference': {
-        'curiosity': {
-            'enabled': True,
-            'strength': 0.1,    # Repulsion magnitude
-            'decay': 0.99       # Not used in current implementation
-        }
-    }
-}
-```
+## Practical Interpretation
 
-### Parameter Effects
+The current curiosity module is best understood as:
 
-| Parameter | Symbol | Default | Effect |
-|-----------|--------|---------|--------|
-| `strength` | $\lambda$ | 0.1 | Repulsion force scale |
-| `decay` | - | 0.99 | Reserved for future use |
+- deterministic exploration pressure,
+- topology-aware center repulsion,
+- lighter-weight and more structured than random stochasticity,
+- but still relatively simple compared with a true learned exploration model.
 
----
+## What This Document Should Not Claim
 
-## 7. Physical Interpretation
+It would be inaccurate to claim that:
 
-### Analogies
+- curiosity is driven by a full density model in the current runtime,
+- `decay` actively changes the force over time in the current implementation,
+- curiosity fundamentally depends on velocity in the present formula.
 
-| Concept | Physics | GSSM |
-|---------|---------|------|
-| Like charges | Coulomb repulsion | $F \propto 1/r^2$ |
-| Diffusion | Brownian motion | Spread from center |
-| Entropy | $S = k \ln \Omega$ | Increase state diversity |
+Those claims do not match the code.
 
-### Behavior
+## Runtime Cross-References
 
-- Near center ($r \to 0$): Strong repulsion
-- Far from center ($r \to \infty$): Weak repulsion
-- Isotropic: Same magnitude in all directions
-
----
-
-## 8. Comparison with Stochasticity
-
-| Property | Curiosity | Stochasticity |
-|----------|-----------|---------------|
-| Direction | Deterministic | Random |
-| Source | Batch statistics | Random sampling |
-| Purpose | Exploration | Noise injection |
-| Gradient | Preserves structure | Disrupts structure |
-| Physics | Coulomb-like | Thermal-like |
-
----
-
-## 9. Integration with Physics Engine
-
-```python
-# In PhysicsEngine.compute_acceleration()
-
-if self.curiosity_module is not None:
-    curiosity_force = self.curiosity_module(x, v)
-    net_accel = net_accel + curiosity_force
-```
-
-Added to net acceleration just like stochastic forces.
-
----
-
-## 10. Use Cases
-
-1. **Mode collapse prevention**: Spread representations
-2. **Exploration**: Discover new regions of state space
-3. **Diversity**: Increase batch diversity
-4. **Clustering**: Counter-act excessive clustering
-
----
-
-## 11. Limitations
-
-- Batch-dependent: Requires batch size > 1
-- Computation: Needs mean computation each step
-- Stability: Strong repulsion near center (clamped)
-- Topology-aware: Different behavior on torus vs euclidean
-
----
-
-*File: technical/0_architecture/math/07_curiosity.md*
-*Last Updated: 2026-04-02*
+- `gfn/realizations/gssm/physics/components/curiosity.py`
+- `gfn/realizations/gssm/physics/engine.py`
+- `docs/gssm/technical/0_architecture/math/06_stochasticity.md`

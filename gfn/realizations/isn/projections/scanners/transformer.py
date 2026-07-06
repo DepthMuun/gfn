@@ -1,7 +1,5 @@
 """
-ISN Transformer Scanner — Modular V5
-================================
-Encoder-style Scanner using causal self-attention.
+Transformer-based scanner using causal self-attention.
 """
 
 import torch

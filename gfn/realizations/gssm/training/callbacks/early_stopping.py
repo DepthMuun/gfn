@@ -1,6 +1,5 @@
 """
-EarlyStoppingCallback — GFN V5
-Detiene el entrenamiento si la métrica monitoreada no mejora.
+Early-stopping callback based on lack of metric improvement.
 """
 
 from typing import Dict

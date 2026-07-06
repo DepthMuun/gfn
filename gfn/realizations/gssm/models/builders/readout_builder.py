@@ -2,11 +2,14 @@
 gfn/realizations/gssm/models/builders/readout_builder.py
 Builder for readout components.
 """
+import logging
 import torch.nn as nn
 from typing import Any
 
 from . import ComponentBuilder, MODEL_BUILDER_REGISTRY
 from ..components.readout import CategoricalReadout, ReadoutPlugin, IdentityReadout, ImplicitReadout
+
+logger = logging.getLogger(__name__)
 
 
 class ReadoutBuilder(ComponentBuilder):
@@ -29,10 +32,12 @@ class ReadoutBuilder(ComponentBuilder):
             readout = self._build_implicit_readout()
         elif readout_type == 'identity':
             readout = IdentityReadout()
-        elif readout_type == 'standard' and self.config.holographic:
-            # Legacy behavior: holographic + standard → identity (backward compat)
-            readout = IdentityReadout()
         else:
+            if readout_type == 'standard' and self.config.holographic:
+                logger.warning(
+                    "Config uses holographic=True with readout.type='standard'. "
+                    "This no longer implies IdentityReadout; set readout.type='identity' explicitly."
+                )
             readout = CategoricalReadout(
                 self.dim_total, self.config.vocab_size, topology_type=self.topology
             )

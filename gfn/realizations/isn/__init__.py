@@ -1,23 +1,21 @@
 """
-Inertial State Network (ISN) — Modular V5
-=======================================
-Portable, modular, and extensible implementation of ISN.
+Public package entrypoint for the Inertial State Network realization.
 """
 
-# 1. Initialize Registries and Interfaces
+# 1. Initialize registries and interfaces
 from . import registry
 from . import interfaces
 
-# 2. Import and Register all Components (Triggers decorators)
+# 2. Import and register all components
 from . import physics
 from . import projections
 from . import training
 
-# 3. Expose Public API
+# 3. Expose public API
 from .api import create, save, load
 from .models.model import Model
 
-# Register with central realization registry
+# Register with the central realization registry when available.
 try:
     from gfn import api as central_api
     from . import api as isn_api

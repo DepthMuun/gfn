@@ -1,7 +1,5 @@
 """
-gfn/api.py — GFN V5
-Simplified public interface and high-level orchestration.
-Centralizes model creation, loading and evaluation.
+Public API for model creation, loading, saving, and lightweight evaluation.
 """
 
 import torch
@@ -20,11 +18,11 @@ Manifold = ManifoldModel
 Trainer = GFNTrainer
 
 def create(*args, **kwargs):
-    """Factory for Manifold models (V5)."""
+    """Factory for manifold models."""
     return ModelFactory.create(*args, **kwargs)
 
 def loss(config, **kwargs):
-    """Factory for loss functions (V5)."""
+    """Factory for loss functions."""
     return LossFactory.create(config, **kwargs)
 
 def save(model: nn.Module, path: str):

@@ -1,194 +1,136 @@
-# Stochasticity - Mathematical Foundation
+# Stochasticity
 
-## Overview
+This document describes the **current stochastic-force runtime**.
 
-Stochasticity introduces random forces into the dynamics, simulating Langevin dynamics and providing exploration/noise injection for robust training.
+The authoritative code is:
 
----
+- `gfn/realizations/gssm/physics/components/stochasticity.py`
+- `gfn/realizations/gssm/physics/engine.py`
 
-## 1. Langevin Dynamics
+## What Exists In The Current Runtime
 
-### Physical Background
+The engine can attach one stochastic module through:
 
-The Langevin equation describes Brownian motion with friction:
+- `BrownianForce`
+- `OUDynamicsForce`
 
-$$m \frac{dv}{dt} = -\gamma v + F_{ext} + \xi(t)$$
+based on:
 
-Where:
-- $m$ is mass
-- $\gamma$ is friction coefficient
-- $F_{ext}$ is external force
-- $\xi(t)$ is random noise with $\langle \xi(t) \rangle = 0$ and $\langle \xi(t)\xi(t') \rangle = 2\gamma k_B T \delta(t-t')$
+- `active_inference.stochasticity.enabled`
+- `active_inference.stochasticity.type`
 
-In GSSM, we simplify to:
+The engine only adds stochastic force when:
 
-$$\frac{dv}{dt} = a_{net} + F_{stochastic}$$
+- a stochastic module exists,
+- and `dt` is passed to `compute_acceleration(...)`.
 
----
+That `dt` requirement is important and should be explicit in the docs.
 
-## 2. Brownian Force
+## `BrownianForce`
 
-### Formula
+`BrownianForce` returns:
 
-From `BrownianForce.forward()`:
-
-$$F_{brownian} = \sigma \cdot \frac{1}{\sqrt{dt}} \cdot \mathcal{N}(0, 1)$$
-
-Where:
-- $\sigma$ is the noise magnitude parameter
-- $dt$ is the integration timestep
-- $\mathcal{N}(0, 1)$ is standard normal random noise
-
-### Scaling
-
-The $\frac{1}{\sqrt{dt}}$ scaling ensures that when integrated:
-
-$$\int_0^{dt} F_{brownian} \, dt = \sigma \cdot \sqrt{dt} \cdot \mathcal{N}(0, 1)$$
-
-This follows the Itô calculus scaling where Brownian increments scale as $\sqrt{dt}$.
-
-### Variance
-
-$$\text{Var}(F_{brownian}) = \frac{\sigma^2}{dt}$$
-
-After integration:
-
-$$\text{Var}(\Delta x) = \sigma^2 \cdot dt$$
-
----
-
-## 3. Ornstein-Uhlenbeck (OU) Force
-
-### Purpose
-
-Adds mean-reverting noise for smooth, correlated exploration (colored noise instead of white noise).
-
-### Discrete Update
-
-From `OUDynamicsForce.forward()`:
-
-$$n_{t+1} = n_t + \theta(\mu - n_t)dt + \sigma \frac{1}{\sqrt{dt}} \mathcal{N}(0, 1)$$
-
-Where:
-- $n_t$ is the OU state (stored as `_prev_noise`)
-- $\theta$ is mean reversion speed
-- $\mu$ is mean reversion level
-- $\sigma$ is noise magnitude
-
-### Continuous Form
-
-The OU process solves:
-
-$$dn = -\theta(n - \mu)dt + \sigma dW$$
-
-With solution:
-
-$$n(t) = n_0 e^{-\theta t} + \mu(1 - e^{-\theta t}) + \sigma \int_0^t e^{-\theta(t-s)} dW(s)$$
-
-### Mean and Variance
-
-$$\mathbb{E}[n(t)] = n_0 e^{-\theta t} + \mu(1 - e^{-\theta t})$$
-
-$$\text{Var}[n(t)] = \frac{\sigma^2}{2\theta}(1 - e^{-2\theta t})$$
-
-As $t \to \infty$:
-- Mean → $\mu$
-- Variance → $\frac{\sigma^2}{2\theta}$
-
----
-
-## 4. Configuration
-
-```python
-physics = {
-    'active_inference': {
-        'stochasticity': {
-            'enabled': True,
-            'type': 'brownian',    # or 'ou'
-            'sigma': 0.01,       # Noise magnitude
-            'theta': 0.15,       # OU: mean reversion speed
-            'mu': 0.0            # OU: mean reversion level
-        }
-    }
-}
+```text
+noise = randn_like(v) * sigma * dt^(-1/2)
 ```
 
-### Parameter Effects
+with `dt` clamped to a safe minimum.
 
-| Parameter | Brownian | OU | Effect |
-|-----------|----------|-----|--------|
-| `sigma` | Noise mag | Noise mag | Overall noise scale |
-| `theta` | N/A | Reversion | Higher = faster mean return |
-| `mu` | N/A | Target | Target mean for OU |
+Important current runtime details:
 
----
+- invalid or non-positive `dt` yields zero force,
+- `x` is accepted for API compatibility but not used in the actual computation.
 
-## 5. Temperature Analogy
+So the current Brownian path is:
 
-### Effective Temperature
+- isotropic,
+- instantaneous,
+- white-noise-like,
+- scaled so the integrated effect behaves like `sqrt(dt)`.
 
-The noise magnitude relates to an effective temperature:
+## `OUDynamicsForce`
 
-$$T_{eff} \propto \frac{\sigma^2}{2\gamma}$$
+`OUDynamicsForce` keeps internal state in:
 
-Where $\gamma$ is the friction coefficient.
+- `_prev_noise`
 
-Higher $\sigma$ = Higher temperature = More exploration
+and updates it with:
 
-### Use in Training
-
-- **Low temperature** (small $\sigma$): Fine-tuning, exploitation
-- **High temperature** (large $\sigma$): Exploration, escaping local minima
-- **Annealing**: Start high, decrease over time
-
----
-
-## 6. Integration with Physics Engine
-
-```python
-# In PhysicsEngine.compute_acceleration()
-
-if self.stochasticity_module is not None and dt is not None:
-    stoch_force = self.stochasticity_module(x, v, dt)
-    net_accel = net_accel + stoch_force
+```text
+next_noise = prev_noise
+           + theta * (mu - prev_noise) * dt
+           + sigma * dt^(-1/2) * randn
 ```
 
-The stochastic force is added to the net acceleration before integration.
+Important current detail:
 
----
+- despite the OU interpretation, the code still uses the same `dt^(-1/2)` scaling convention as the Brownian implementation because the output is treated as a force-like term added to acceleration.
 
-## 7. Comparison: Brownian vs OU
+It also exposes:
 
-| Property | Brownian | OU |
-|----------|----------|-----|
-| Correlation | Independent | Autocorrelated |
-| Mean | 0 | $\mu$ |
-| Variance | $\sigma^2/dt$ | $\sigma^2/(2\theta)$ |
-| Smoothness | Noisy | Smooth |
-| Use case | Exploration | Smooth dynamics |
+- `reset()`
 
----
+to clear the stored OU state.
 
-## 8. Numerical Safety
+## Engine Integration
 
-### dt Clamping
+In the current engine path:
 
-```python
-safe_dt = max(dt, 1e-8)
+```text
+if stochasticity_module is not None and dt is not None:
+    net_accel += stochasticity_module(x, v, dt)
 ```
 
-Prevents division by zero in the $\frac{1}{\sqrt{dt}}$ term.
+So stochasticity is:
 
-### Invalid dt Handling
+- additive,
+- optional,
+- timestep-dependent,
+- and absent if the caller does not supply `dt`.
 
-```python
-if dt <= 0:
-    return zeros_like(v)
-```
+## Configuration Reality
 
-Returns zero force if dt is invalid.
+The schema currently exposes:
 
----
+- `enabled`
+- `type`
+- `sigma`
+- `theta`
+- `mu`
 
-*File: technical/0_architecture/math/06_stochasticity.md*
-*Last Updated: 2026-04-02*
+These are all meaningfully used by the current stochasticity path.
+
+`theta` and `mu` matter only for:
+
+- `type == "ou"`
+
+## Practical Interpretation
+
+Use Brownian stochasticity when:
+
+- you want simple isotropic exploration noise.
+
+Use OU stochasticity when:
+
+- you want correlated noise with internal temporal state.
+
+Important current caveat:
+
+- both are still force-like perturbations added inside the physics engine,
+- not standalone diffusion solvers outside the main acceleration path.
+
+## What This Document Should Not Claim
+
+It would be inaccurate to claim that:
+
+- stochasticity is active even when `dt` is omitted,
+- the engine always uses stochasticity whenever the config subtree exists,
+- OU noise is stateless in the current implementation.
+
+Those claims do not match the runtime.
+
+## Runtime Cross-References
+
+- `gfn/realizations/gssm/physics/components/stochasticity.py`
+- `gfn/realizations/gssm/physics/engine.py`
+- `docs/gssm/technical/0_architecture/math/01_physics_engine.md`

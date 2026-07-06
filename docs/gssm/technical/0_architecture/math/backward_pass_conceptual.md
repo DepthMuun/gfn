@@ -1,251 +1,166 @@
 # Backward Pass - Conceptual Explanation
 
-## What is the Backward Pass?
+This document explains the **current gradient story** of GSSM at a conceptual level.
 
-The backward pass is the process of computing gradients of the loss with respect to all model parameters. It enables learning through gradient descent optimization.
+For exact runtime behavior, the authoritative sources are:
 
----
+- `gfn/realizations/gssm/models/base.py`
+- `gfn/realizations/gssm/models/components/adjoint.py`
+- [10_backward_pass.md](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/0_architecture/math/10_backward_pass.md)
 
-## Overview
+## High-Level Picture
 
-PyTorch automatically computes gradients using **automatic differentiation (autograd)**. The backward pass follows the reverse of the forward pass, applying the chain rule at each step.
+In the current runtime, gradients normally flow through standard PyTorch autograd over:
 
-$$
-\frac{\partial L}{\partial \theta} = \frac{\partial L}{\partial \text{output}} \cdot \frac{\partial \text{output}}{\partial \text{state}} \cdot ... \cdot \frac{\partial \text{layer}_1}{\partial \theta}$$
+- embedding or manual force input,
+- manifold-layer evolution,
+- timestep-end readout hooks,
+- final loss computation.
 
----
+So the default conceptual story is:
 
-## The Chain Rule
+```text
+loss -> logits -> timestep-end hook outputs -> layer evolution -> forces/state -> parameters
+```
 
-### Basic Principle
+## Default Backward Path
 
-If $y = f(g(x))$, then:
+Without optional plugins, `BaseModel._evolve_sequence()` executes an ordinary differentiable Python loop.
 
-$$\frac{\partial y}{\partial x} = \frac{\partial y}{\partial g} \cdot \frac{\partial g}{\partial x}$$
+That means gradients flow through:
 
-### Extended to Neural Networks
+- every layer call,
+- every mixer,
+- every dynamics module,
+- every integrator step,
+- every physics-engine acceleration call,
+- any differentiable hook-produced readout tensors.
 
-For a sequence of operations $f_L \circ f_{L-1} \circ ... \circ f_1$:
+The runtime does not implement a special handwritten backward pass for the default path.
 
-$$\frac{\partial L}{\partial x_0} = \frac{\partial L}{\partial f_L} \cdot \frac{\partial f_L}{\partial f_{L-1}} \cdot ... \cdot \frac{\partial f_1}{\partial x_0}$$
+## Hook-Driven Readout Gradients
 
-Gradients flow backward from loss to input.
+Because logits are usually collected from:
 
----
+- `on_timestep_end`
 
-## Gradient Flow Through GSSM
+the backward path conceptually includes:
 
-### 1. Output Layer (Readout)
+- gradients from the readout hook outputs,
+- back into the current `x` and `v`,
+- then through the timestep and layer history.
 
-**Forward**: $\text{logits} = W_{readout} \cdot \text{encode}(x_{final}) + b_{readout}$
+So the readout is part of the differentiable graph, but its exact structure depends on the hooked module that produced the tensor.
 
-**Gradients**:
-$$\frac{\partial L}{\partial W_{readout}} = \frac{\partial L}{\partial \text{logits}} \cdot x_{final}^T$$
-$$\frac{\partial L}{\partial x_{final}} = W_{readout}^T \cdot \frac{\partial L}{\partial \text{logits}}$$
+## State Evolution Gradients
 
-Gradients flow from logits back to final manifold state.
+Conceptually, gradients backpropagate through:
 
----
+1. timestep-end readout,
+2. the layer stack for that timestep,
+3. previous timesteps through recurrent state reuse,
+4. the initial state or provided continuation state.
 
-### 2. State Evolution (Backward Through Time)
+This is the closest conceptual analogue to backpropagation through time in the current runtime.
 
-For each layer traversed in reverse:
+## Layer-Level Gradient Flow
 
-#### Dynamics Routing
+Inside a manifold layer, the main differentiable blocks are:
 
-**Residual Dynamics**:
-$$x_{new} = x + \sigma(s) \cdot (x_{mixed} - x)$$
+- plugin pre-integrate transforms,
+- integrator step,
+- plugin post-integrate transforms,
+- mixer,
+- dynamics routing,
+- topology wrap,
+- plugin finalize transforms.
 
-**Gradient**:
-$$\frac{\partial L}{\partial x} = \frac{\partial L}{\partial x_{new}} \cdot (1 - \sigma(s) + \sigma'(s)(x_{mixed}-x))$$
+Important current caveat:
 
-The gradient splits between current state and mixed state.
+- topology wrap for torus uses differentiable `atan2(sin(x), cos(x))`,
+- but some runtime safety operations such as hard clamp fallback can create non-smooth behavior when saturation is not in the differentiable tanh mode.
 
-#### Mixer
+## Physics-Engine Gradient Flow
 
-**Forward**: Linear transformation across heads
-$$x_{mixed} = W_{mix} \cdot x_{stepped} + b_{mix}$$
+Conceptually, gradients flow through:
 
-**Gradients**:
-$$\frac{\partial L}{\partial W_{mix}} = \frac{\partial L}{\partial x_{mixed}} \cdot x_{stepped}^T$$
-$$\frac{\partial L}{\partial x_{stepped}} = W_{mix}^T \cdot \frac{\partial L}{\partial x_{mixed}}$$
+- geometry curvature terms,
+- friction handling,
+- external force addition,
+- optional auxiliary modules such as hysteresis, stochasticity, curiosity, or singularity gates when active.
 
-#### Integrator
+Important current caveat:
 
-**Forward** (Leapfrog example):
-$$v_{half} = v + \frac{\Delta t}{2} \cdot a(x, v)$$
-$$x_{new} = x + \Delta t \cdot v_{half}$$
+- not every optional physics module is active in every path,
+- and some components require extra state or inputs to matter at runtime.
 
-**Gradients** flow through:
-1. Position updates (differentiable)
-2. Velocity updates (differentiable)
-3. Acceleration computation (through PhysicsEngine)
+So the safest doc language is:
 
----
+- gradients flow through whichever physics modules are actually instantiated and invoked in the current model path.
 
-### 3. Physics Engine
+## Initial State And Force Parameters
 
-**Forward**:
-$$a = -\Gamma(x, v) + F - \mu v$$
+In the current default initialization path:
 
-**Gradients**:
+- `x0` and `v0` are learnable parameters,
+- `x` receives optional random perturbation from `initial_spread`,
+- gradients still flow back to the underlying learned parameters through the differentiable graph.
 
-#### Through Christoffel Symbols
-$$\frac{\partial a}{\partial x} = -\frac{\partial \Gamma}{\partial x}$$
+If force comes from embeddings:
 
-Geometry computes derivatives of connection coefficients.
+- gradients flow into embedding parameters through the force sequence.
 
-#### Through Friction
-$$\frac{\partial a}{\partial v} = -\mu$$
+If force comes from `force_manual`:
 
-Constant gradient for velocity damping.
+- gradients flow into that tensor if it requires grad,
+- but not into the embedding path because it was bypassed.
 
-#### Through External Force
-$$\frac{\partial a}{\partial F} = 1$$
+## Adjoint Path
 
-Direct gradient flow to force (embedding).
+The current runtime does include an optional adjoint plugin:
 
----
+- built by `AdjointBuilder`,
+- registered through `model.hooks`,
+- attached to `wrap_evolution`.
 
-### 4. Auxiliary Components
+Important current caveat:
 
-#### Hysteresis
+- the implementation currently imports `odeint_adjoint` if available, but inside the wrapper it calls `torchdiffeq.odeint` directly for the actual sequence solve,
+- the plugin also fixes `method='euler'` to match the discrete-step interpretation.
 
-**Forward**:
-$$F_{ghost} = W \cdot \tanh(b + h)$$
-$$h_{new} = (1-\alpha)h + \alpha v$$
+So the most faithful statement is:
 
-**Gradients**:
-$$\frac{\partial L}{\partial h} = \frac{\partial L}{\partial F_{ghost}} \cdot W \cdot \text{sech}^2(b+h) + \frac{\partial L}{\partial h_{new}} \cdot (1-\alpha)$$
+- there is an adjoint-style optional evolution wrapper in the runtime,
+- but the current implementation should not be documented as a pure canonical `odeint_adjoint` path with no caveats.
 
-Gradients flow through recurrent state update.
+## Checkpointing And Wrapped Evolution
 
-#### Stochasticity
+Because `BaseModel._evolve_sequence()` exposes:
 
-**Forward**:
-$$F_{stoch} = \sigma \cdot dt^{-1/2} \cdot \mathcal{N}(0,1)$$
+- `wrap_evolution`
 
-**Gradients**:
-- Through random sample: **blocked** (sampling is non-differentiable)
-- Through $\sigma$: $\frac{\partial L}{\partial \sigma} = \frac{\partial L}{\partial F_{stoch}} \cdot dt^{-1/2} \cdot \mathcal{N}(0,1)$
+other memory-oriented or evolution-wrapping plugins can also alter the backward path indirectly by changing how the forward graph is constructed.
 
-Only parameters get gradients, not the random noise itself.
+So the backward story is partly hook-configurable, not only hardcoded.
 
-#### Curiosity
+## Practical Failure Modes
 
-**Forward**:
-$$F_{curiosity} = \lambda \cdot \frac{d}{\|d\|^2}$$
+The most realistic conceptual failure modes are:
 
-**Gradients** flow through:
-- Strength parameter: $\frac{\partial L}{\partial \lambda}$
-- Direction computation: $\frac{\partial L}{\partial d} \cdot \frac{\partial d}{\partial x}$
+- vanishing gradients across long evolution horizons,
+- exploding gradients under large timesteps or weak velocity control,
+- topology or saturation interactions that make optimization rougher,
+- memory pressure when full trajectories are stored.
 
----
+These are runtime-shaped issues, not just abstract neural-network pathologies.
 
-### 5. Initial State and Embedding
+## What This Document Should Not Claim
 
-#### Initial State (x0, v0)
+It would be inaccurate to claim that:
 
-**Forward**:
-$$x = x_0 + \epsilon \cdot \mathcal{N}(0, 1)$$
+- GSSM always uses a custom handwritten backward solver,
+- the adjoint path is always active,
+- the current adjoint implementation is a perfect one-to-one `odeint_adjoint` path,
+- gradients always flow through every optional physics module regardless of config.
 
-**Gradients**:
-$$\frac{\partial L}{\partial x_0} = \frac{\partial L}{\partial x}$$
-
-Gradients flow directly to learnable initial state parameters.
-
-#### Embedding
-
-**Forward**:
-$$F = W_{embed}[t]$$
-
-**Gradients**:
-$$\frac{\partial L}{\partial W_{embed}[t_i]} = \frac{\partial L}{\partial F_i}$$
-
-Each token's embedding vector receives gradient from its force contribution.
-
----
-
-## Gradient Accumulation
-
-### Through Multiple Steps
-
-For sequence of $S$ timesteps and $L$ layers:
-
-$$\frac{\partial L}{\partial \theta} = \sum_{s=1}^S \sum_{\ell=1}^L \frac{\partial L_s}{\partial \text{layer}_\ell} \cdot \frac{\partial \text{layer}_\ell}{\partial \theta}$$
-
-Gradients from all positions and layers accumulate.
-
-### Through Time (BPTT)
-
-For autoregressive state:
-
-$$\frac{\partial L}{\partial x_t} = \frac{\partial L}{\partial x_{t+1}} \cdot \frac{\partial x_{t+1}}{\partial x_t}$$
-
-Gradients flow backward through the sequence (similar to RNNs).
-
----
-
-## Gradient Properties
-
-### Vanishing Gradients
-
-**Symptom**: Gradients become very small ($< 10^{-8}$)
-
-**Causes**:
-- Long sequences (many gradient multiplications)
-- Small initial spread (near-zero initialization)
-- High friction (damps gradients)
-
-**Solutions**:
-- Increase `initial_spread` to 0.1-0.5
-- Use residual connections (better gradient flow)
-- Gradient clipping (prevents extreme values)
-
-### Exploding Gradients
-
-**Symptom**: Gradients become very large ($> 1000$)
-
-**Causes**:
-- Large time steps without proper scaling
-- Velocity saturation disabled
-- Long unrolled sequences
-
-**Solutions**:
-- Reduce `dt` to 0.05
-- Enable `velocity_saturation`
-- Use gradient clipping (max_norm = 1.0)
-
----
-
-## Trainable Parameters
-
-| Parameter | Gradient Source | Update Rule |
-|-----------|-----------------|-------------|
-| $W_{embed}$ | Token forces | $\Delta W = -\eta \cdot \frac{\partial L}{\partial F}$ |
-| $x_0, v_0$ | State evolution | $\Delta x_0 = -\eta \cdot \frac{\partial L}{\partial x}$ |
-| $W_{mixer}$ | Head mixing | $\Delta W = -\eta \cdot \frac{\partial L}{\partial x_{mixed}}$ |
-| $\sigma_{residual}$ | Residual dynamics | $\Delta \sigma = -\eta \cdot \frac{\partial L}{\partial x_{new}} \cdot \sigma'(s)(x_{mixed}-x)$ |
-| $W_{gate}$ | Gated dynamics | $\Delta W = -\eta \cdot \frac{\partial L}{\partial x_{new}} \cdot g(1-g) \cdot [x; x_{mixed}]$ |
-| $\mu$ (friction) | Physics engine | $\Delta \mu = -\eta \cdot \frac{\partial L}{\partial a} \cdot (-v)$ |
-| $W_{hysteresis}$ | Ghost force | $\Delta W = -\eta \cdot \frac{\partial L}{\partial F_{ghost}} \cdot \tanh(b+h)$ |
-| $\sigma$ (stochastic) | Noise magnitude | $\Delta \sigma = -\eta \cdot \frac{\partial L}{\partial F_{stoch}} \cdot dt^{-1/2} \cdot \mathcal{N}(0,1)$ |
-
----
-
-## Mathematical Summary
-
-### Complete Gradient Computation
-
-$$\nabla_\theta L = \underbrace{\frac{\partial L}{\partial \text{logits}}}_{\text{Output}} \cdot \underbrace{\frac{\partial \text{logits}}{\partial x_{final}}}_{\text{Readout}} \cdot \prod_{\ell=L}^1 \underbrace{\frac{\partial x_\ell}{\partial x_{\ell-1}}}_{\text{Layer } \ell} \cdot \underbrace{\frac{\partial x_0}{\partial \theta}}_{\text{Initialization}}$$
-
-Where each layer gradient includes:
-- Dynamics routing
-- Head mixing
-- Integration step
-- Physics engine computation
-
----
-
-*File: technical/0_architecture/math/backward_pass_conceptual.md*
-*Last Updated: 2026-04-02*
+Those claims do not match the current runtime.

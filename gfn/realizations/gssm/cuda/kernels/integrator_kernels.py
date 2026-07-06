@@ -1,73 +1,171 @@
 """
-Integrator Kernels — GFN V5
+Integrator Kernels — GFN V5 (Improved)
 Unified entry points for numerical integration with hardware dispatching.
+
+Changes vs original:
+  - Fixed W_k reshape: was incorrectly mean-pooling over R dimension (information loss).
+    Now passes full [H, D, R] tensor matching the C++ leapfrog_fwd signature.
+  - Removed Python `for _ in range(steps)` loop — C++ kernel already loops internally.
+  - Added DEBUG_SYNC environment flag for explicit synchronisation during profiling.
 """
 
+import os
 import torch
-from typing import Optional, Tuple, Any, Callable
+from typing import Optional, Tuple, Any
 from ...cuda import is_cuda_active
 
+# Set DEBUG_SYNC=1 to add explicit cuda.synchronize() for profiling
+_DEBUG_SYNC = os.environ.get("GFN_DEBUG_SYNC", "0") == "1"
+
 # Lazy imports for CUDA kernels
-_euler_fused = None
-_rk4_fused = None
 _leapfrog_fused = None
+_yoshida_fused  = None
 
 def _get_cuda_integrators():
-    global _euler_fused, _rk4_fused, _leapfrog_fused
-    if _euler_fused is None:
+    global _leapfrog_fused, _yoshida_fused
+    if _leapfrog_fused is None:
         try:
-            from ...cuda.ops import euler_fused, rk4_fused, leapfrog_fused
-            _euler_fused = euler_fused
-            _rk4_fused = rk4_fused
+            from ...cuda.ops import leapfrog_fused, yoshida_fused
             _leapfrog_fused = leapfrog_fused
+            _yoshida_fused  = yoshida_fused
         except ImportError:
             pass
-    return _euler_fused, _rk4_fused, _leapfrog_fused
+    return _leapfrog_fused, _yoshida_fused
+
 
 def unified_leapfrog_step(
-    x: torch.Tensor, 
-    v: torch.Tensor, 
+    x: torch.Tensor,
+    v: torch.Tensor,
     force: Optional[torch.Tensor],
     U: torch.Tensor,
     W: torch.Tensor,
     dt: float,
     steps: int = 1,
     **kwargs
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Unified Leapfrog integration step."""
-    if is_cuda_active(v):
-        _, _, f_leapfrog = _get_cuda_integrators()
-        if f_leapfrog is not None:
-            try:
-                # Prep parameters for CUDA kernel
-                topo_id = kwargs.get('topology_id', 0)
-                R = kwargs.get('R', 2.0)
-                r = kwargs.get('r', 1.0)
-                H = x.shape[1] if x.dim() == 3 else 1
-                
-                # U, W transformations
-                if U.dim() == 2:
-                    # [D, R] -> [1, R, D] -> [H, R, D]
-                    U_k = U.T.unsqueeze(0).expand(H, -1, -1).contiguous()
-                else:
-                    # [H, D, R] -> [H, R, D]
-                    U_k = U.transpose(1, 2).contiguous()
-                    
-                if W.dim() == 2:
-                    # [D, R] -> [1, R] -> [H, R]
-                    # Use mean instead of sum to preserve effective force scale
-                    W_k = W.mean(dim=0).unsqueeze(0).expand(H, -1).contiguous()
-                else:
-                    # [H, D, R] -> [H, R]
-                    W_k = W.abs().mean(dim=1).contiguous()
-                
-                cx, cv = x, v
-                for _ in range(steps):
-                    cx, cv = f_leapfrog(U_k, W_k, cx, cv, force, float(dt), int(topo_id), float(R), float(r), 0.0)
-                return cx, cv
-            except Exception:
-                pass
+) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor]]:
+    """
+    Unified Leapfrog integration step.
 
-    # Python fallback is handled by the higher-level Integrator classes in gfn/integrators/
-    # This unified layer is primarily for hardware acceleration.
-    return None, None # Signal fallback
+    Dispatches to the compiled C++ / CUDA kernel (leapfrog_fwd) when available.
+    The kernel already loops `steps` internally — no Python-level loop needed.
+    Returns (None, None) to signal fallback if the kernel is unavailable.
+    """
+    if not is_cuda_active(v):
+        return None, None
+
+    f_leapfrog, _ = _get_cuda_integrators()
+    if f_leapfrog is None:
+        return None, None
+
+    try:
+        # ── Prepare tensors ────────────────────────────────────────────────
+        # Ensure contiguous layout expected by C++ kernel
+        x_c = x.contiguous()
+        v_c = v.contiguous()
+
+        # U: [H, D, R]  — pass directly (kernel expects this layout)
+        if U.dim() == 2:
+            # [D, R] → [1, D, R]
+            U_k = U.unsqueeze(0).contiguous()
+        else:
+            U_k = U.contiguous()  # already [H, D, R]
+
+        # W: [H, D, R]  — FIXED: do NOT mean-pool (that loses rank information)
+        if W.dim() == 2:
+            # [D, R] → [1, D, R]
+            W_k = W.unsqueeze(0).contiguous()
+        else:
+            W_k = W.contiguous()  # already [H, D, R]
+
+        # Physics kwargs with defaults
+        clamp_val        = float(kwargs.get("clamp_val",        5.0))
+        friction         = float(kwargs.get("friction",         0.0))
+        vel_fric_scale   = float(kwargs.get("vel_fric_scale",   0.0))
+        vel_sat          = float(kwargs.get("vel_sat",          0.0))
+        sing_thresh      = float(kwargs.get("sing_thresh",      0.0))
+        sing_strength    = float(kwargs.get("sing_strength",    0.0))
+        enable_trace_norm = bool(kwargs.get("enable_trace_norm", True))
+        is_paper_version  = bool(kwargs.get("is_paper_version",  False))
+
+        # Optional gate tensors (friction gating)
+        gate_w = kwargs.get("gate_w", torch.empty(0, device=x.device, dtype=x.dtype))
+        gate_b = kwargs.get("gate_b", torch.empty(0, device=x.device, dtype=x.dtype))
+
+        dt_tensor = torch.tensor(dt, dtype=x_c.dtype, device=x_c.device)
+
+        # ── Single C++ call — kernel loops `steps` internally ─────────────
+        result = f_leapfrog(
+            x_c, v_c, U_k, W_k, force,
+            dt_tensor, steps,
+            clamp_val, friction, vel_fric_scale, vel_sat,
+            gate_w, gate_b,
+            sing_thresh, sing_strength,
+            enable_trace_norm, is_paper_version,
+        )
+
+        if _DEBUG_SYNC:
+            torch.cuda.synchronize()
+
+        return result[0], result[1]
+
+    except Exception:
+        return None, None
+
+
+def unified_yoshida_step(
+    x: torch.Tensor,
+    v: torch.Tensor,
+    force: Optional[torch.Tensor],
+    U: torch.Tensor,
+    W: torch.Tensor,
+    dt: float,
+    steps: int = 1,
+    **kwargs
+) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor]]:
+    """
+    Unified Yoshida 4th-order integration step.
+    Mirrors unified_leapfrog_step with the yoshida_fwd kernel.
+    """
+    if not is_cuda_active(v):
+        return None, None
+
+    _, f_yoshida = _get_cuda_integrators()
+    if f_yoshida is None:
+        return None, None
+
+    try:
+        x_c = x.contiguous()
+        v_c = v.contiguous()
+        U_k = U.unsqueeze(0).contiguous() if U.dim() == 2 else U.contiguous()
+        W_k = W.unsqueeze(0).contiguous() if W.dim() == 2 else W.contiguous()
+
+        clamp_val        = float(kwargs.get("clamp_val",        5.0))
+        friction         = float(kwargs.get("friction",         0.0))
+        vel_fric_scale   = float(kwargs.get("vel_fric_scale",   0.0))
+        vel_sat          = float(kwargs.get("vel_sat",          0.0))
+        sing_thresh      = float(kwargs.get("sing_thresh",      0.0))
+        sing_strength    = float(kwargs.get("sing_strength",    0.0))
+        enable_trace_norm = bool(kwargs.get("enable_trace_norm", True))
+        is_paper_version  = bool(kwargs.get("is_paper_version",  False))
+
+        gate_w = kwargs.get("gate_w", torch.empty(0, device=x.device, dtype=x.dtype))
+        gate_b = kwargs.get("gate_b", torch.empty(0, device=x.device, dtype=x.dtype))
+
+        dt_tensor = torch.tensor(dt, dtype=x_c.dtype, device=x_c.device)
+
+        result = f_yoshida(
+            x_c, v_c, U_k, W_k, force,
+            dt_tensor, steps,
+            clamp_val, friction, vel_fric_scale, vel_sat,
+            gate_w, gate_b,
+            sing_thresh, sing_strength,
+            enable_trace_norm, is_paper_version,
+        )
+
+        if _DEBUG_SYNC:
+            torch.cuda.synchronize()
+
+        return result[0], result[1]
+
+    except Exception:
+        return None, None

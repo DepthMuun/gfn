@@ -24,7 +24,7 @@ graph LR
 ## Core Components
 
 1.  **Scanner**: Projects discrete tokens into the geometric manifold as "impulses"—kinetic entries that perturb the world state.
-2.  **World Engine**: The heart of the simulation. It evolves the persistent world state based on incoming impulses and internal physics (e.g., Hamiltonian flow).
+2.  **World Engine**: The heart of the simulation. It evolves the persistent world state based on incoming impulses and internal physics. In the default `GFNPhysics` backend, the integrator is configurable.
 3.  **Emitter**: Materializes the raw emissions from the latent world into discrete outcomes (e.g., probability distributions for the next token).
 
 ## Getting Started
@@ -37,10 +37,18 @@ pip install gfn
 
 ### 2. High-Level Usage
 ```python
-from gfn.realizations.isn import Model, create_default_isn
+from gfn import isn
 
-# Create a model with default components
-model = create_default_isn(vocab_size=50000, d_model=256)
+# Create an ISN model through the public shortcut
+model = isn.create(vocab_size=50000, d_model=256)
+
+# Optional: choose the default world's integrator explicitly
+symplectic_model = isn.create(
+    vocab_size=50000,
+    d_model=256,
+    world="gfn",
+    world_kwargs={"integrator": "leapfrog"},
+)
 
 # Forward pass (Full sequence)
 output = model(input_ids)
@@ -50,8 +58,10 @@ logits = output['logits'] # [batch, seq, vocab]
 generated, info = model.generate(prompt_ids, max_length=100)
 ```
 
+`import gfn` with `gfn.create("isn", ...)` is also valid through the unified factory, but `from gfn import isn` keeps the examples shorter while staying on the public API.
+
 ## Further Reading
 
 - [Architecture & Physics](architecture.md) - How the internal world works.
 - [Usage Guide](usage.md) - Detailed API and state handling.
-- [Training Guide](training.md) - Losses, curriculums, and optimization.
+- [Training Guide](training.md) - Strategies, losses, and optimization.

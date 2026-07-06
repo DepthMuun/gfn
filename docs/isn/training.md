@@ -1,56 +1,59 @@
 # ISN Training Guide
 
-Training an **Inertial State Network (ISN)** requires a departure from standard Cross-Entropy regimens. Because ISN is a physical simulation, we supervise not just the *output* but the *integrity* of the internal world.
+Training an **Inertial State Network (ISN)** uses the modular trainer in `gfn.realizations.isn.training.trainer`. The current runtime supports standard supervised token training plus optional auxiliary terms tied to the latent world outputs.
 
 ## The Multi-Dimensional Loss
 
-The `ISNTrainer` uses a composite loss function (`MultiDimensionalLoss`) that balances several objectives:
+The trainer constructs a `MultiDimensionalLoss` instance. Its full interface includes multiple terms:
 
 $$ \mathcal{L} = \lambda_1 \mathcal{L}_{outcome} + \lambda_2 \mathcal{L}_{coherence} + \lambda_3 \mathcal{L}_{efficiency} + \dots $$
 
 1.  **Outcome Loss ($ \mathcal{L}_{outcome} $)**: Standard Cross-Entropy between predicted logits and target tokens.
-2.  **Coherence Loss ($ \mathcal{L}_{coherence} $)**: Penalizes non-physical state transitions and ensures that entities stay within their manifold bounds.
-3.  **Grounding Loss ($ \mathcal{L}_{grounding} $)**: Measures the alignment between the latent world properties and verified symbolic facts.
-4.  **Validity Loss ($ \mathcal{L}_{validity} $)**: Checks if the **Conservation Laws** (e.g., type or parity preservation) are respected post-interaction.
-5.  **Emergence Loss ($ \mathcal{L}_{emergence} $)**: Supervises the creation of new entities from multi-entity interactions.
-6.  **Efficiency Loss ($ \mathcal{L}_{efficiency} $)**: Penalizes state drift and excessive complexity (Least Action Principle).
+2.  **Coherence Loss ($ \mathcal{L}_{coherence} $)**: Uses the reported `world_coherence` score.
+3.  **Grounding Loss ($ \mathcal{L}_{grounding} $)**: Available in the loss module, but only becomes meaningful if richer `world_states` metadata is provided.
+4.  **Validity Loss ($ \mathcal{L}_{validity} $)**: Present in the loss interface, currently lightweight.
+5.  **Emergence Loss ($ \mathcal{L}_{emergence} $)**: Present in the loss interface, currently lightweight.
+6.  **Efficiency Loss ($ \mathcal{L}_{efficiency} $)**: Present in the loss interface, currently lightweight.
 
-## Curriculum Learning
+Important runtime note:
 
-ISN models benefit significantly from weight curriculum. In the early stages of training, we prioritize **Coherence** (learning the physics); in later stages, we prioritize **Outcome** (learning the task).
+- the default `Trainer.validate()` path uses `MultiDimensionalLoss`,
+- the training loss actually depends on the selected backpropagation strategy,
+- the `adjoint` strategy currently computes plain cross-entropy in its `compute_loss()` implementation.
 
-Example configuration:
-```json
-"curriculum": {
-    "phase_1": {
-        "epochs": [0, 10],
-        "lambda_weights": {
-            "lambda_outcome": 0.1,
-            "lambda_coherence": 1.0,
-            "lambda_efficiency": 0.5
-        }
-    },
-    "phase_2": {
-        "epochs": [10, 50],
-        "lambda_weights": {
-            "lambda_outcome": 1.0,
-            "lambda_coherence": 0.5,
-            "lambda_efficiency": 0.1
-        }
-    }
-}
+So, today, the most reliable statement is that ISN training is **strategy-driven**, with `MultiDimensionalLoss` available as the general validation/composite criterion.
+
+## Trainer API
+
+The runtime trainer class is `Trainer`, not `ISNTrainer`:
+
+```python
+from gfn.realizations.isn.training.trainer import Trainer
+
+trainer = Trainer(
+    model=model,
+    optimizer=optimizer,
+    config=config,
+    device=device,
+    checkpoint_dir="./checkpoints",
+)
+
+trainer.train(train_loader, val_loader, num_epochs=50)
 ```
 
 ## Stability & Optimization
 
-- **Gradient Clipping**: Essential for maintaining symplectic stability. Recommended value: `1.0`.
-- **Integrator Choice**: Use `GFNWorld` (Leapfrog) for standard training. High-precision tasks may require `PEFRL`.
-- **Adjoint Method**: Support for `torchdiffeq`-style adjoint backprop is available for $O(1)$ memory training on extremely long sequences.
+- **Gradient Clipping**: Supported directly by `Trainer` through `config["training"]["gradient_clip"]`. The implementation defaults to `1.0`.
+- **Backprop Strategy**: Selected through `config["training"]["backprop_strategy"]` and resolved from the ISN strategy registry.
+- **Adjoint Method**: Available as `backprop_strategy="adjoint"`. It requires `torchdiffeq` and wraps the world engine with an adjoint ODE solve.
+- **Integrator Choice**: When the model uses `GFNPhysics`, the world integrator can be selected independently through `world_kwargs={"integrator": "euler" | "leapfrog" | "yoshida"}`.
 
 ## Checkpoint Management
 
-The `Trainer` automatically saves the best model based on validation loss.
+`Trainer` saves `best_model.pt` whenever validation loss improves:
+
 ```python
 trainer.train(train_loader, val_loader, num_epochs=50)
 ```
-Checkpoints include the model state, optimizer state, and the exact `config` used for reproducibility.
+
+At the moment, the built-in save path stores the model weights for the best checkpoint. If you need optimizer state or richer experiment metadata, that should be handled explicitly by the surrounding training script.

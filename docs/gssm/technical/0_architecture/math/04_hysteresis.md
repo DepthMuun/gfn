@@ -1,215 +1,158 @@
-# Hysteresis - Mathematical Foundation
+# Hysteresis
 
-## Overview
+This document describes the **current `HysteresisModule` runtime**.
 
-Hysteresis provides a "memory" mechanism through ghost forces that persist across timesteps, allowing the model to remember previous states.
+The authoritative code is:
 
----
+- `gfn/realizations/gssm/physics/components/hysteresis.py`
+- `gfn/realizations/gssm/physics/engine.py`
 
-## 1. Physical Analogy
+## What It Does
 
-In physics, hysteresis occurs when the output of a system depends on its history. A classic example is magnetic hysteresis:
+The hysteresis module provides a stateful memory signal that can inject a ghost force into the physics engine.
 
-```
-B = μ(H + M)
-```
+In the current runtime:
 
-Where the magnetization M depends on the history of the magnetic field H.
+- the engine owns the module if hysteresis is enabled,
+- the module stores state across timesteps,
+- the engine can reset that state between batches through `reset_hysteresis()`.
 
----
+## Current Runtime Contract
 
-## 2. Hysteresis in GSSM
+The main forward path is:
 
-### Purpose
-
-- Remember previous states without explicit memory
-- Create "ghost forces" that guide current dynamics
-- Enable path-dependent behavior
-
-### Configuration
-
-```python
-physics = {
-    'hysteresis': {
-        'enabled': True,
-        'ghost_force': True,
-        'hyst_decay': 0.1,
-        'hyst_update_w': 1.0,
-        'hyst_update_b': 0.0,
-        'hyst_readout_w': 1.0,
-        'hyst_readout_b': 0.0
-    }
-}
+```text
+state <- update_state(state, x, v, topo_id)
+ghost_force <- get_ghost_force(state)
+return ghost_force
 ```
 
----
+The physics engine then adds that ghost force into the net acceleration.
 
-## 3. State Update Equation
+## State Representation
 
-### Hidden State
+The module stores:
 
-The hysteresis maintains a hidden state $h_t$ that evolves:
+- `state`
+- `last_x`
+- `last_v`
 
-$$h_t = (1 - \alpha) \cdot h_{t-1} + \alpha \cdot v_t$$
+as registered buffers.
 
-Where:
-- $h_t$ is the hysteresis state at time t
-- $v_t$ is the velocity at time t
-- $\alpha$ is the decay rate (`hyst_decay`)
+Important current detail:
 
-### In Code
+- this is true stateful runtime memory, not a purely stateless transformation of the current input.
 
-```python
-# From HysteresisModule
-def forward(self, x, v, topo_id):
-    # Update hysteresis state
-    self.h_state = (1 - self.decay) * self.h_state + self.decay * v
-    
-    # Compute ghost force
-    ghost = self.readout(self.h_state)
-    return ghost
+## Feature Extraction
+
+The update uses position-dependent features plus velocity.
+
+For torus:
+
+- features are `[sin(x), cos(x)]`
+
+For Euclidean:
+
+- features are `[x, 0]`
+
+Then velocity is concatenated, so the update input is:
+
+```text
+[x_feat, v]
 ```
 
----
+This is why the update weight shape is based on `dim * 3`.
 
-## 4. Ghost Force Computation
+## State Update
 
-### Formula
+The current update path is:
 
-$$F_{ghost} = W \cdot \tanh(b + h_t)$$
-
-Where:
-- $W$ is the weight matrix (`hyst_readout_w`)
-- $b$ is the bias (`hyst_readout_b`)
-- $h_t$ is the hysteresis state
-- $\tanh$ provides saturation (prevents explosion)
-
-### Components
-
-```python
-# Linear projection
-h_proj = self.h_state @ self.weight + self.bias
-
-# Non-linear activation
-ghost = self.weight_scale * torch.tanh(h_proj)
+```text
+update = tanh(W_update * [x_feat, v] + b_update)
+state_next = state_prev * decay + update
 ```
 
----
+Important current caveat:
 
-## 5. Update Rule
+- the decay actually used inside `update_state(...)` defaults to `DEFAULT_HYSTERESIS_DECAY = 0.95`,
+- the engine path does not currently pass `config.hyst_decay` into `update_state(...)`.
 
-### Weight Update
+So although the schema still exposes `hyst_decay`, the present runtime path does not wire that config value into the actual update call.
 
-The hysteresis module can also update its own weights based on velocity:
+## Ghost Force Readout
 
-$$W_{new} = W_{old} + \eta \cdot v \cdot \text{error}$$
+The current ghost-force path is:
 
-Where:
-- $\eta$ is `hyst_update_w`
-- error is a learning signal
-
-### Bias Update
-
-$$b_{new} = b_{old} + \eta_b \cdot \text{error}$$
-
-With $\eta_b$ = `hyst_update_b`
-
----
-
-## 6. Topology Awareness
-
-### Topo ID
-
-The hysteresis can be topology-aware:
-
-```python
-# Different behavior for different topologies
-if topo_id == 1:  # Torus
-    # Use angular dynamics
-else:  # Euclidean
-    # Use linear dynamics
+```text
+force = state @ readout_w^T + readout_b
+ghost_force = force * GHOST_FORCE_SCALE
 ```
 
----
+where:
 
-## 7. Complete Forward Pass
+- `GHOST_FORCE_SCALE` is currently `0.1`.
 
-```python
-class HysteresisModule(nn.Module):
-    def __init__(self, config, dim, heads):
-        self.decay = config.hyst_decay
-        self.update_w = config.hyst_update_w
-        self.update_b = config.hyst_update_b
-        self.readout_w = config.hyst_readout_w
-        self.readout_b = config.hyst_readout_b
-        
-        # Hidden state
-        self.h_state = None
-        
-        # Learnable parameters
-        self.weight = nn.Parameter(torch.randn(dim, dim) * 0.01)
-        self.bias = nn.Parameter(torch.zeros(dim))
-        
-    def forward(self, x, v, topo_id):
-        # Initialize state if needed
-        if self.h_state is None:
-            self.h_state = torch.zeros_like(v)
-        
-        # Update hysteresis state
-        self.h_state = (1 - self.decay) * self.h_state + self.decay * v
-        
-        # Compute ghost force
-        ghost = torch.tanh(self.h_state @ self.weight + self.bias)
-        ghost = ghost * self.readout_w + self.readout_b
-        
-        return ghost
-```
+If `ghost_force_enabled` is false, the module returns zero ghost force.
 
----
+## Configuration Reality
 
-## 8. Parameter Summary
+The schema currently exposes:
 
-| Parameter | Symbol | Default | Effect |
-|-----------|--------|---------|--------|
-| `enabled` | - | False | Enable hysteresis |
-| `ghost_force` | - | True | Use ghost force |
-| `hyst_decay` | $\alpha$ | 0.1 | Memory decay rate |
-| `hyst_update_w` | $\eta_W$ | 1.0 | Weight update rate |
-| `hyst_update_b` | $\eta_b$ | 0.0 | Bias update rate |
-| `hyst_readout_w` | $W_{scale}$ | 1.0 | Ghost force scale |
-| `hyst_readout_b` | $b_{scale}$ | 0.0 | Ghost force bias |
+- `enabled`
+- `ghost_force`
+- `hyst_decay`
+- `hyst_update_w`
+- `hyst_update_b`
+- `hyst_readout_w`
+- `hyst_readout_b`
 
----
+Important current caveat:
 
-## 9. Behavior Examples
+- in the runtime path validated here, only `enabled` and `ghost_force` are actually used by `HysteresisModule.from_config(...)`,
+- the other hysteresis config knobs are still present in schema but are not wired into the current module construction path.
 
-### High Decay (α = 0.9)
+So the docs should not pretend those values are all actively controlling the module today.
 
-- Remembers recent states strongly
-- Short-term memory
-- Fast adaptation
+## Topology Awareness
 
-### Low Decay (α = 0.01)
+The module is topology-aware through:
 
-- Remembers distant states
-- Long-term memory
-- Slow adaptation
+- `topo_id = 1` for torus
+- `topo_id = 0` for Euclidean
 
-### Decay = 0
+This affects feature extraction, not a completely different module implementation.
 
-- No memory (state doesn't update)
-- Static ghost force
+## Reset Behavior
 
----
+The engine exposes:
 
-## 10. Use Cases
+- `reset_hysteresis()`
 
-1. **Sequence modeling**: Remember previous tokens
-2. **Autoregressive generation**: Maintain context
-3. **Temporal patterns**: Capture long-range dependencies
-4. **Path-dependent logic**: Tasks where order matters
+and `BaseModel.forward()` currently calls that reset logic across layers at batch start to avoid state bleed between unrelated batches.
 
----
+That is an important runtime behavior and one of the reasons the hysteresis state should be understood as sequence memory, not as global persistent memory across all training batches.
 
-*File: technical/0_architecture/math/04_hysteresis.md*
-*Last Updated: 2026-04-02*
+## Practical Interpretation
+
+The current hysteresis module is best understood as:
+
+- stateful latent memory,
+- updated from geometry-aware features plus velocity,
+- read out as a small ghost-force correction,
+- reset between unrelated batches by the model lifecycle.
+
+## What This Document Should Not Claim
+
+It would be inaccurate to claim that:
+
+- `hyst_decay` from the schema is definitely driving the update in the current engine path,
+- the module updates its own weights online from `hyst_update_w` or `hyst_update_b`,
+- the ghost force is the raw readout with no fixed scale factor.
+
+Those claims do not match the current runtime.
+
+## Runtime Cross-References
+
+- `gfn/realizations/gssm/physics/components/hysteresis.py`
+- `gfn/realizations/gssm/physics/engine.py`
+- `gfn/realizations/gssm/models/base.py`

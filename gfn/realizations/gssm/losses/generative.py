@@ -1,6 +1,5 @@
 """
-ManifoldGenerativeLoss — GFN V5
-Generative loss for the Manifold model.
+Generative loss wrapper for categorical, continuous, and toroidal output modes.
 
 ARCHITECTURE: The model can use different output strategies:
 1. Holographic: The final state is used directly as logits
@@ -27,7 +26,7 @@ from ..constants import EPS
 @register_loss('generative')
 class ManifoldGenerativeLoss(BaseLoss):
     """
-    Generative loss for GFN V5.
+    Generative loss for manifold readout outputs.
     
     Handles multiple manifold output modes:
     - 'nll':      CrossEntropy over projected logits

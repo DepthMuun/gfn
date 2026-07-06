@@ -1,7 +1,5 @@
 """
-HyperRiemannianGeometry — GFN V5
-Context-dependent (gated) Christoffel symbols.
-Migrated from gfn/geo/topological/hyperbolic_geometry.py
+Position-conditioned low-rank geometry with gated Christoffel factors.
 """
 
 import torch

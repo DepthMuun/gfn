@@ -1,6 +1,5 @@
 """
-gfn/math/geometry.py — GFN V5
-Base functions for Riemannian geometry and distances.
+Distance and wrapping helpers for Euclidean and toroidal coordinates.
 """
 import torch
 

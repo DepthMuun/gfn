@@ -1,8 +1,5 @@
 """
-Friction Components — GFN V5
-=============================
-Modular friction/damping components for manifold physics.
-Provides both static and learned friction gates.
+Static and learned friction gates for manifold dynamics.
 """
 
 import torch

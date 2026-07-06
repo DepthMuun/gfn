@@ -1,90 +1,93 @@
 # Forest-Ruth Integrator
 
-## What is it?
+This document describes the **current `ForestRuthIntegrator` implementation**.
 
-The Forest-Ruth integrator is a fourth-order symplectic method developed by Etienne Forest and Ronald Ruth in 1990. Like Yoshida, it achieves higher accuracy through composition of lower-order steps, but uses different coefficient values optimized for specific properties.
+The authoritative code is:
 
----
+- `gfn/realizations/gssm/physics/integrators/symplectic/forest_ruth.py`
 
-## The Algorithm
+## What It Is In The Current Runtime
 
-Forest-Ruth uses a symmetric composition of three drift-kick pairs.
+`ForestRuthIntegrator` is a fourth-order symplectic solver implemented as:
 
-### Coefficients
+- drift with `c1`, kick with `d1`,
+- drift with `c2`, kick with `d2`,
+- drift with `c3`, kick with `d3`,
+- final drift with `c4`.
 
-$$\theta = \frac{1}{2 - 2^{1/3}} \approx 1.3512$$
+Like the other current symplectic integrators, it also uses:
 
-Position coefficients:
-$$c_1 = c_4 = \frac{\theta}{2}$$
-$$c_2 = c_3 = \frac{1 - \theta}{2}$$
+- topology resolution through the shared base helper,
+- velocity clamping through the shared base helper.
 
-Velocity coefficients:
-$$d_1 = d_3 = \theta$$
-$$d_2 = 1 - 2\theta$$
+## Coefficients Used By The Code
 
-### Step Sequence
+The runtime sets:
 
-#### First Drift
-$$x_1 = x_n + c_1 \cdot \Delta t \cdot v_n$$
+```text
+theta = 1.3512071919596576
 
-#### First Kick
-$$v_1 = v_n + d_1 \cdot \Delta t \cdot a(x_1)$$
+c1 = c4 = theta / 2
+c2 = c3 = (1 - theta) / 2
+d1 = d3 = theta
+d2 = 1 - 2 * theta
+```
 
-#### Second Drift
-$$x_2 = x_1 + c_2 \cdot \Delta t \cdot v_1$$
+Those are the exact values used in the current implementation.
 
-#### Second Kick
-$$v_2 = v_1 + d_2 \cdot \Delta t \cdot a(x_2)$$
+## Current Step Pattern
 
-#### Third Drift
-$$x_3 = x_2 + c_3 \cdot \Delta t \cdot v_2$$
+For each step, the code performs:
 
-#### Third Kick
-$$v_3 = v_2 + d_3 \cdot \Delta t \cdot a(x_3)$$
+1. drift, wrap topology,
+2. evaluate acceleration,
+3. kick, clamp velocity,
+4. repeat across the three sub-steps,
+5. finish with a final drift and topology wrap.
 
-#### Final Drift
-$$x_{n+1} = x_3 + c_4 \cdot \Delta t \cdot v_3$$
-$$v_{n+1} = v_3$$
+So the runtime behavior is best described as:
 
----
+- fourth-order symplectic,
+- topology-aware,
+- velocity-saturation-aware.
 
-## Properties
+## Relationship To Yoshida
 
-| Property | Value |
-|----------|-------|
-| **Order** | 4th order |
-| **Symplectic** | Yes |
-| **Force evaluations** | 3 per step |
-| **Symmetric** | Yes (time-reversible) |
-| **Cost** | ~3× Leapfrog |
+Forest-Ruth and Yoshida are both fourth-order symplectic schemes, but in the current repo:
 
----
+- they are separate implementations,
+- they use different coefficients,
+- Yoshida has an optional fused CUDA path for low-rank geometries,
+- Forest-Ruth currently does not expose that extra fast path here.
 
-## Comparison with Yoshida
+So the docs should not present them as fully interchangeable implementation-wise, even if they are closely related mathematically.
 
-| Aspect | Yoshida | Forest-Ruth |
-|--------|---------|-------------|
-| Coefficients | Different derivation | Different derivation |
-| Accuracy | Same order (4th) | Same order (4th) |
-| Performance | Equivalent | Equivalent |
-| Choice | Preference | Preference |
+## When To Use It
 
-Both are fourth-order symplectic integrators with 3 force evaluations per step. They differ only in the specific coefficient values.
+Use Forest-Ruth when:
 
----
+- you want a fourth-order symplectic alternative,
+- you want to compare higher-order symplectic schemes,
+- you accept higher cost than the leapfrog default.
 
-## When to Use
+It is less likely to be the first choice when:
 
-**Use Forest-Ruth when:**
-- You need 4th order accuracy
-- You want an alternative to Yoshida coefficients
-- Long-term energy conservation is critical
+- you want the default path,
+- you specifically want Yoshida's runtime specialization,
+- you prioritize simpler and cheaper training.
 
-**Equivalent to Yoshida:**
-- Both achieve same accuracy
-- Choose based on preference or testing
+## What This Document Should Not Claim
 
----
+It would be inaccurate to claim that:
 
-*File: technical/0_architecture/math/integrators/forest_ruth.md*
-*Last Updated: 2026-04-02*
+- Forest-Ruth is the default integrator,
+- it has the same runtime specialization as Yoshida,
+- the current implementation is just a symbolic description without shared topology or velocity helpers.
+
+Those claims do not match the code.
+
+## Runtime Cross-References
+
+- `gfn/realizations/gssm/physics/integrators/symplectic/forest_ruth.py`
+- `gfn/realizations/gssm/physics/integrators/base.py`
+- `docs/gssm/technical/0_architecture/math/integrators/yoshida.md`

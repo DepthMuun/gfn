@@ -1,0 +1,30 @@
+# Modular TGFN (UnifiedGFN) Configuration
+model:
+  name: "unified_gfn_arc"
+  encoder_type: "hierarchical"
+  encoder_config:
+    d_embedding: 64
+    d_world: 64
+    d_local: 64
+    vocab_size: 10
+    dropout: 0.1
+  attention_type: "geodesic"
+  attention_config:
+    d_model: 128
+    num_heads: 4
+    dropout: 0.1
+    temperature: 1.0
+    use_bias: true
+    curvature: 1.0
+  predictor_type: "jepa"
+  predictor_config:
+    state_dim: 128
+    hidden_dim: 128
+    dropout: 0.1
+    momentum: 0.99
+  heads_config:
+    policy:
+      type: "linear"
+      output_dim: 9000
+  model_config:
+    persistent_state: false

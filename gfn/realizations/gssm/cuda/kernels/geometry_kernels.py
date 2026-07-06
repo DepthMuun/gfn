@@ -1,99 +1,154 @@
 """
-Geometry Kernels — GFN V5
+Geometry Kernels — GFN V5 (Improved)
 Unified entry points for geometric computations with hardware dispatching.
+
+Changes vs original:
+  - Fixed tensor layout: removed erroneous transpose(1,2) that mismatched C++ kernel.
+    C++ low_rank_christoffel_fwd expects v:[B,H,D], U:[H,D,R], W:[H,D,R] directly.
+  - Added enable_trace_norm and is_paper_version kwargs pass-through.
+  - Added toroidal_wrap helper that dispatches to the new standalone CUDA kernel.
+  - Fallback PyTorch path preserved and corrected for the fixed layout.
 """
 
 import torch
-from typing import Optional, Tuple, Union, Any
-from ...registry import GEOMETRY_REGISTRY
+from typing import Optional, Any
 from ...cuda import is_cuda_active
 
-# Lazy import for CUDA ops to avoid loading if not available
-_christoffel_cuda = None
+# Lazy import
+_low_rank_fwd = None
+_toroidal_wrap = None
 
 def _get_cuda_ops():
-    global _christoffel_cuda
-    if _christoffel_cuda is None:
+    global _low_rank_fwd, _toroidal_wrap
+    if _low_rank_fwd is None:
         try:
-            from ...cuda.ops import christoffel_cuda_fwd
-            _christoffel_cuda = christoffel_cuda_fwd
-        except ImportError:
+            from ...cuda.ops import low_rank_christoffel_fwd, toroidal_wrap_fwd
+            _low_rank_fwd  = low_rank_christoffel_fwd
+            _toroidal_wrap = toroidal_wrap_fwd
+        except (ImportError, AttributeError):
             pass
-    return _christoffel_cuda
+    return _low_rank_fwd, _toroidal_wrap
+
 
 def unified_christoffel_fwd(
-    x: torch.Tensor, 
-    v: torch.Tensor, 
-    U: torch.Tensor, 
-    W: torch.Tensor, 
+    x: torch.Tensor,
+    v: torch.Tensor,
+    U: torch.Tensor,
+    W: torch.Tensor,
     clamp_val: float = 5.0,
-    **kwargs: Any
+    **kwargs: Any,
 ) -> torch.Tensor:
     """
     Unified forward pass for Christoffel symbols.
-    Dispatches to CUDA kernel if available and on GPU, otherwise falls back to PyTorch.
+
+    Expected tensor layouts (same as C++ kernel):
+      v : [B, H, D]  or  [B, D]
+      U : [H, D, R]  or  [D, R]
+      W : [H, D, R]  or  [D, R]
+
+    Dispatches to the compiled CUDA kernel when available, otherwise
+    falls back to pure PyTorch.
     """
-    if is_cuda_active(v):
-        cuda_op = _get_cuda_ops()
-        if cuda_op is not None:
-            try:
-                return _run_cuda_christoffel(x, v, U, W, clamp_val, cuda_op, **kwargs)
-            except Exception as e:
-                # print(f"[Dispatcher] CUDA Error: {e}. Falling back.")
-                pass
-    
-    return _run_pytorch_christoffel(x, v, U, W, clamp_val, **kwargs)
+    cuda_fwd, _ = _get_cuda_ops()
 
-def _run_cuda_christoffel(x, v, U, W, clamp_val, cuda_op, **kwargs):
-    # Kernel expects Head-Aware tensors [B, H, HD]
-    # Check if x,v are [B, D] or [B, H, HD]
-    if v.dim() == 2:
-        x_k, v_k = x.unsqueeze(1), v.unsqueeze(1)
-    else:
-        x_k, v_k = x, v
-        
-    # U, W handling (assuming LowRank format)
-    # This logic matches the legacy kernel expectations
-    # W_k handling (ensuring rank-R is preserved per output dimension)
-    if U.dim() == 3:
-        U_k = U.transpose(1, 2).contiguous() # [H, R, HD]
-        W_k = W.transpose(1, 2).contiguous() # [H, R, HD]
-    else:
-        U_k = U.T.unsqueeze(0).contiguous() # [1, R, HD]
-        W_k = W.T.unsqueeze(0).contiguous() # [1, R, HD]
+    if is_cuda_active(v) and cuda_fwd is not None:
+        try:
+            enable_trace_norm = bool(kwargs.get("enable_trace_norm", True))
+            is_paper_version  = bool(kwargs.get("is_paper_version",  False))
+            return _run_cuda_christoffel(v, U, W, clamp_val,
+                                         enable_trace_norm, is_paper_version,
+                                         cuda_fwd)
+        except Exception:
+            pass  # fall through to PyTorch
 
-    # Execute CUDA kernel
-    gamma = cuda_op(U_k, W_k, x_k, v_k, 0, 2.0, 1.0, 0.0) 
-    
-    if v.dim() == 2:
-        gamma = gamma.squeeze(1)
-    
-    return clamp_val * torch.tanh(gamma / clamp_val)
+    return _run_pytorch_christoffel(v, U, W, clamp_val, **kwargs)
 
-def _run_pytorch_christoffel(x, v, U, W, clamp_val, **kwargs):
-    # Multi-head PyTorch fallback
+
+def _run_cuda_christoffel(
+    v: torch.Tensor,
+    U: torch.Tensor,
+    W: torch.Tensor,
+    clamp_val: float,
+    enable_trace_norm: bool,
+    is_paper_version: bool,
+    cuda_op,
+) -> torch.Tensor:
+    """
+    Calls low_rank_christoffel_fwd with the correct [B, H, D] + [H, D, R] layout.
+    The C++ kernel does NOT want an extra transpose — removed the erroneous one.
+    """
+    # Ensure 3-D batch dim: [B, D] → [B, 1, D]
+    squeeze = v.dim() == 2
+    v_k = v.unsqueeze(1).contiguous() if squeeze else v.contiguous()
+
+    # Ensure head dim in U, W: [D, R] → [1, D, R]
+    U_k = U.unsqueeze(0).contiguous() if U.dim() == 2 else U.contiguous()
+    W_k = W.unsqueeze(0).contiguous() if W.dim() == 2 else W.contiguous()
+
+    gamma = cuda_op(v_k, U_k, W_k, clamp_val, enable_trace_norm, is_paper_version)
+
+    return gamma.squeeze(1) if squeeze else gamma
+
+
+def _run_pytorch_christoffel(
+    v: torch.Tensor,
+    U: torch.Tensor,
+    W: torch.Tensor,
+    clamp_val: float,
+    **kwargs: Any,
+) -> torch.Tensor:
+    """Pure PyTorch fallback, corrected for [B, H, D] / [H, D, R] layout."""
+    enable_trace_norm = bool(kwargs.get("enable_trace_norm", True))
+    is_paper_version  = bool(kwargs.get("is_paper_version",  False))
+
     if v.dim() == 3:
-        B, H, HD = v.shape
-        # Flatten batch and heads to use efficient matmuls
-        v_flat = v.reshape(B * H, HD)
+        # [B, H, D] × [H, D, R] → [B, H, R]
+        B, H, D = v.shape
         if U.dim() == 3:
-            # U: [H, HD, R], W: [H, R, HD]
-            # Need to apply per-head
-            proj = torch.bmm(v.transpose(0, 1), U).transpose(0, 1) # [B, H, R]
-            sq = proj * proj
-            W_t = W.transpose(-1, -2)
-            gamma = torch.bmm(sq.transpose(0, 1), W_t).transpose(0, 1) # [B, H, HD]
+            v_h  = v.permute(1, 0, 2)              # [H, B, D]
+            vr_h = torch.bmm(v_h, U)               # [H, B, R]
+            vr   = vr_h.permute(1, 0, 2)           # [B, H, R]
         else:
-            # Shared U, W across heads
-            proj = torch.matmul(v_flat, U) # [B*H, R]
-            sq = proj * proj
-            gamma_flat = torch.matmul(sq, W.t()) # [B*H, HD]
-            gamma = gamma_flat.view(B, H, HD)
+            # Shared U across heads
+            vr = torch.matmul(v.reshape(B * H, D), U).view(B, H, -1)
+
+        sq = vr.pow(2)
+        if is_paper_version:
+            sq = sq / (1.0 + torch.norm(vr, 2, -1, True))
+
+        if W.dim() == 3:
+            sq_h    = sq.permute(1, 0, 2)          # [H, B, R]
+            gamma_h = torch.bmm(sq_h, W.transpose(-1, -2))  # [H, B, D]
+            gamma   = gamma_h.permute(1, 0, 2)     # [B, H, D]
+        else:
+            gamma = torch.matmul(sq.reshape(B * H, -1), W.t()).view(B, H, D)
+
     else:
         # Single head [B, D]
-        proj = torch.matmul(v, U[0] if U.dim() == 3 else U)
-        sq = proj * proj
-        W_t = (W[0] if W.dim() == 3 else W).t()
-        gamma = torch.matmul(sq, W_t)
-    
+        U_ = U[0] if U.dim() == 3 else U
+        W_ = W[0] if W.dim() == 3 else W
+        vr    = torch.matmul(v, U_)
+        sq    = vr.pow(2)
+        if is_paper_version:
+            sq = sq / (1.0 + torch.norm(vr, 2, -1, True))
+        gamma = torch.matmul(sq, W_.t())
+
+    if enable_trace_norm:
+        gamma = gamma - gamma.mean(-1, keepdim=True)
+
     return clamp_val * torch.tanh(gamma / clamp_val)
+
+
+def unified_toroidal_wrap(x: torch.Tensor) -> torch.Tensor:
+    """
+    Fast toroidal wrap: x → [-π, π)
+    Uses the standalone CUDA kernel when available (float4 vectorised),
+    otherwise falls back to torch.remainder.
+    """
+    _, cuda_wrap = _get_cuda_ops()
+    if is_cuda_active(x) and cuda_wrap is not None:
+        try:
+            return cuda_wrap(x.contiguous())
+        except Exception:
+            pass
+    return torch.remainder(x + 3.141592653589793, 6.283185307179586) - 3.141592653589793

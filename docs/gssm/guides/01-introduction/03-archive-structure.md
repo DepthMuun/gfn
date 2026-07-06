@@ -1,97 +1,160 @@
 # File Structure
 
-## Root Directory
+This guide maps the current repository structure in broad strokes so you can find the parts that matter for GSSM work.
 
-The root directory contains configuration files and project metadata. LICENSE contains the terms of use for the code. README.md provides a quick overview of the project. requirements.txt lists all Python dependencies. STRUCTURE.md is a legacy document describing the original structure.
+It is intentionally practical. It does not try to describe every historical directory or every experimental artifact as if all of them were equally current.
 
-Build files (SConstruct, compile.bat) are for users who manually compile CUDA kernels. Most users can ignore these files.
+## Repository Root
 
-The dist directory contains distributed builds of the project. The .whl files are installable Python wheels. The .tar.gz files are source code for manual installation.
+At the root of the repository you will find:
 
-## gfn/ Directory
+- project metadata such as `README.md`, `LICENSE`, `pyproject.toml`
+- the main Python package under `gfn/`
+- documentation under `docs/`
+- tests under `tests/`
+- some config material under `configs/`
 
-This is the main source code directory. gfn/__init__.py exports the main classes and functions for external use.
+For most GSSM work, the directories that matter are `gfn/`, `docs/`, and `tests/`.
 
-gfn/constants.py defines all numeric constants in the system. Any parameter changes should be made here or in the YAML configuration files.
+## `gfn/`
 
-gfn/exceptions.py defines project-specific exceptions for error handling.
+This is the Python package root.
 
-## gfn/ Subdirectories
+Important top-level files include:
 
-The code is organized into subdirectories by functionality. This organization makes navigation and code maintenance easier.
+- `gfn/__init__.py`
+- `gfn/api.py`
+- `gfn/constants.py`
+- `gfn/errors.py`
 
-The core/ directory contains the main Manifold class and the adjoint system for differentiation. The manifold.py file defines the public class that users instantiate. adjoint.py implements automatic differentiation for integrator operations.
+This layer exposes the public API used by docs such as:
 
-The cuda/ directory contains custom CUDA kernels and their Python wrappers. autograd.py defines differentiable functions that call CUDA kernels. cuda_kernels.cpp is the C++ code for the kernels. core.py and ops.py are low-level wrappers.
+```python
+import gfn
 
-The geometry/ directory contains metric implementations and Christoffel symbol computation. lowrank.py is the main low-rank implementation. hyper.py defines hyperbolic geometry. toroidal.py defines toroidal geometry. adaptive.py and hierarchical.py implement adaptive variants.
+model = gfn.create("gssm", vocab_size=256)
+```
 
-The integrators/ directory contains numerical integrator implementations. symplectic/ includes symplectic integrators (leapfrog, verlet, yoshida, forest_ruth). runge_kutta/ includes generic Rungeâ€“Kutta integrators (euler, heun, rk4, dormand_prince).
+## `gfn/realizations/`
 
-The losses/ directory contains loss functions. hamiltonian.py implements the energy conservation term. geodesic.py implements geodesic regularization. combined.py combines multiple loss terms.
+This is where the concrete model families live.
 
-The layers/ directory contains custom neural layers. base.py defines the base layer. fractal.py implements fractal composition. gating.py implements activation gates.
+Current major realizations include:
 
-The embeddings/ directory contains embedding initializations. siren.py implements SIREN for implicit embeddings. implicit.py and functional.py include other initializations.
+- `gfn/realizations/gssm/`
+- `gfn/realizations/isn/`
 
-The utils/ directory contains miscellaneous utilities. visualization.py contains plotting functions. scan.py implements parallel scan. safety.py includes stability checks.
+If you are working on GSSM, this is the main code tree you will read.
 
-## configs/ Directory
+## `gfn/realizations/gssm/`
 
-configs/ contains YAML configuration files for different experiments and hardware.
+The GSSM realization is organized by subsystem.
 
-configs/model/ contains model architecture configurations (gfn_small, gfn_medium, gfn_large). Each file defines dimension, depth, number of heads, and other structural parameters.
+### Main runtime areas
 
-configs/training/ contains training configurations (learning rate, batch size, number of steps). experiment_medium.yaml is the standard configuration for experiments.
+- `config/`: schema, loader, normalizer, validator, serialization
+- `geometry/`: analytical and learned geometries
+- `physics/`: engine, dynamics, integrators, normalization
+- `models/`: base model, manifold model, manifold layer, builders, components, plugins
+- `losses/`: generative, physics, toroidal, detection, regularization
+- `training/`: optimizer, metrics, trainer, scheduler, callbacks
+- `utils/`: lower-level helpers and diagnostics
 
-configs/hardware/ contains GPU-specific optimizations (gtx_1650, rtx_4090). They adjust batch size and precision based on hardware capacity.
+### Supporting areas
 
-configs/demos/ contains configurations for specific demos (copy task, sorting, wikitext).
+- `cuda/`: Python-side CUDA helpers
+- `csrc/`: native and CUDA extension sources
+- `core/`: internal state/types helpers
+- `data/`: dataset and transform utilities
+- `interfaces/`: shared protocols and interfaces
+- `math/`: math helpers used by the realization
 
-## demos/ Directory
+## `docs/`
 
-demos/ contains example scripts for different tasks.
+The documentation tree currently includes:
 
-demos/sorting/ contains sorting experiments. train_sorting.py trains a model to learn sequence sorting. Variants (train_hyper_sorting.py, train_inf_sorting.py) use alternative configurations.
+- `docs/gssm/`
+- `docs/isn/`
+- `docs/dev/`
 
-demos/tinystories/ contains training on the TinyStories dataset. This dataset is useful for quick tests because it is small but demonstrates text generation capabilities.
+Within `docs/gssm/`, the current intended split is:
 
-demos/wikitext/ contains training on Wikitext for more serious benchmarks.
+- `guides/`: user-facing conceptual and practical docs
+- `technical/`: runtime-aligned implementation docs
+- `00_papers/`: research and idea notes
 
-## tests/ Directory
+If you want current runtime truth, prefer `docs/gssm/technical/` plus the code itself.
 
-tests/ contains tests organized by type.
+## `tests/`
 
-tests/unit/ contains unit tests for individual components. test_geometry.py verifies Christoffel symbol computation. test_integrators.py verifies integrator correctness.
+The GSSM tests are mainly under:
 
-tests/architecture/ contains architecture tests. test_differentiability.py verifies that all operations are differentiable. test_learning_dynamics.py monitors training metrics.
+- `tests/gssm/health/`
+- `tests/gssm/benchmarks/`
 
-tests/cuda/ contains GPU-specific tests. verify_cuda_autograd.py verifies CUDA autograd correctness.
+### `tests/gssm/health/`
 
-tests/diagnostics/ contains diagnostic tools. conservation_audit.py verifies energy preservation. parity_probe.py verifies Python/CUDA parity.
+This is the best current place for correctness-oriented checks:
 
-tests/benchmarks/ contains benchmarking scripts. benchmark_performance.py measures throughput. benchmark_precision_stability.py verifies numerical stability.
+- unit tests
+- integration tests
+- component compatibility checks
 
-## docs/ Directory
+### `tests/gssm/benchmarks/`
 
-docs/ contains all project documentation.
+This is the broader experiment and benchmarking area:
 
-docs/00_papers/ contains research papers that underpin the design. Specific papers address different theoretical aspects.
+- `convergence/`
+- `matrix/`
+- `physics/`
+- `stress/`
+- `baselines/`
 
-docs/00_AUDITS/ contains technical code audits and stability analysis.
+Use it for runtime experiments, task-oriented checks, and comparative runs.
 
-docs/00_HISTORY/ contains historical documentation of breakthroughs and technical decisions.
+## `configs/`
+
+There is some configuration material in the repository, but the most important config logic for GSSM is in code under:
+
+- `gfn/realizations/gssm/config/schema.py`
+- `gfn/realizations/gssm/config/loader.py`
+- `gfn/realizations/gssm/config/normalizer.py`
+
+So for GSSM, do not assume repository YAML folders are the main source of truth for defaults.
+
+## How To Navigate Efficiently
+
+If you are debugging behavior, read in this order:
+
+1. `gfn/realizations/gssm/config/`
+2. `gfn/realizations/gssm/models/factory.py`
+3. `gfn/realizations/gssm/models/base.py`
+4. `gfn/realizations/gssm/models/manifold_layer.py`
+5. `gfn/realizations/gssm/physics/engine.py`
+6. the matching geometry, loss, or integrator module
+
+If you are debugging docs, read in this order:
+
+1. current guide
+2. matching `technical/` document
+3. corresponding runtime file
 
 ## Naming Conventions
 
-Python files use snake_case (lowercase with underscores). Classes use PascalCase (capitalized words).
+The current tree broadly follows:
 
-Configuration files use kebab-case (lowercase with hyphens) for compatibility with command-line tools.
+- Python modules: `snake_case`
+- classes: `PascalCase`
+- tests: usually `test_*.py`
+- ordered documentation: numeric prefixes such as `00-`, `01-`, `02-`
 
-Tests use the test_ prefix followed by the component name they test.
+## Practical Warning
 
-Documentation files use the NN-descriptive-name.md format to facilitate ordering.
+Some directories still include older experimental or historical material.
 
----
+When in doubt, treat these as the current GSSM anchors:
 
-**DepthMuuns (Joaquin Sturtz)**
+- `gfn/realizations/gssm/`
+- `docs/gssm/technical/`
+- `tests/gssm/health/`
+- `tests/gssm/benchmarks/`

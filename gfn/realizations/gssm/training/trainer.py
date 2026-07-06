@@ -1,7 +1,5 @@
 """
-GFNTrainer — GFN V5
-Complete trainer with callback, scheduler, and metrics support.
-Replaces/enriches the existing basic trainer.
+Trainer with callback, scheduler, and metric support for GSSM models.
 """
 
 import torch
@@ -17,7 +15,7 @@ from .metrics import compute_metrics
 
 class GFNTrainer:
     """
-    Standard trainer for GFN.
+    Standard trainer for GSSM.
 
     Supports:
     - Callbacks: checkpoint, early stopping, logger

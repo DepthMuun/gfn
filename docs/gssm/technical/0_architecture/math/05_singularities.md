@@ -1,180 +1,121 @@
-# Singularities - Mathematical Foundation
+# Singularities
 
-## Overview
+This document describes the **current singularity-handling runtime**.
 
-Singularity handling prevents numerical explosions when the metric tensor approaches singular values (determinant → 0), which occurs in regions of extreme curvature.
+The authoritative code is:
 
----
+- `gfn/realizations/gssm/physics/components/singularities.py`
+- `gfn/realizations/gssm/physics/engine.py`
 
-## 1. Singularity Detection
+## What Exists In The Current Runtime
 
-### Metric Tensor Analysis
+There are two related components:
 
-A singularity is detected when the metric tensor becomes degenerate:
+- `SingularityGate`
+- `SingularityDetector`
 
-$$\det(g_{ij}) \approx 0 \quad \text{or} \quad \lambda_{min}(g_{ij}) \approx 0$$
+The engine path currently uses:
 
-Where:
-- $\det(g_{ij})$ is the determinant of the metric
-- $\lambda_{min}$ is the smallest eigenvalue
+- `SingularityGate`
 
-### Detection Formula
+not the full detector workflow by default.
 
-From `SingularityDetector`:
+That distinction matters because older docs tended to describe the detector logic as if it were always active in the main acceleration path.
 
-$$s_{measure} = \min(|\det(g)|, |\lambda_{min}|)$$
+## `SingularityGate`
 
-$$is\_singular = \mathbb{1}(s_{measure} < \epsilon_{threshold})$$
+`SingularityGate` is the main runtime damping mechanism.
 
-Where $\mathbb{1}$ is the indicator function and $\epsilon_{threshold}$ = `singularity.threshold` (default: 1e-4).
+It computes:
 
----
-
-## 2. Singularity Gating
-
-### Purpose
-
-Smoothly damp velocity and force as the metric approaches singularity.
-
-### Gate Function
-
-From `SingularityGate.forward()`:
-
-$$g = \sigma(s \cdot (d - \tau))$$
-
-Where:
-- $\sigma(x) = \frac{1}{1 + e^{-x}}$ is the sigmoid function
-- $s$ = `slope` (strength × 20.0)
-- $d$ = distance to singularity = $|metric\_component|$
-- $\tau$ = `threshold`
-
-### Behavior
-
-- When $d \gg \tau$: gate → 1 (no damping)
-- When $d \approx \tau$: gate → 0.5 (partial damping)
-- When $d \ll \tau$: gate → 0 (full damping)
-
----
-
-## 3. Velocity Damping
-
-### Formula
-
-$$v_{damped} = v \cdot g$$
-
-Where $g$ is the gate value from above.
-
-### Implementation
-
-```python
-def damp_velocity(self, v, metric_component):
-    gate = self.forward(None, None, metric_component)
-    return v * gate
+```text
+gate = sigmoid(slope * (abs(metric_component) - threshold))
 ```
 
----
+and can apply that gate to:
 
-## 4. Force Damping
+- velocity through `damp_velocity(...)`
+- force through `damp_force(...)`
 
-### Formula
+So the live runtime singularity behavior is primarily a smooth sigmoid damping gate around a supplied scalar metric measure.
 
-$$F_{damped} = F \cdot g$$
+## Engine Usage
 
-Same gate applied to external forces.
+Inside `ManifoldPhysicsEngine.compute_acceleration(...)`, singularity damping only happens when:
 
-### Implementation
+- singularities are enabled,
+- `self.singularity_gate` exists,
+- `metric_component` is explicitly passed to the engine call.
 
-```python
-def damp_force(self, force, metric_component):
-    gate = self.forward(None, None, metric_component)
-    return force * gate
+Then the engine does:
+
+```text
+net_accel = singularity_gate.damp_force(net_accel, metric_component)
 ```
 
----
+Important current caveat:
 
-## 5. Sigmoid Gate Properties
+- if no `metric_component` is provided, the singularity gate does not affect the acceleration path.
 
-### Smooth Transition
+So the docs should not imply that singularity damping is always automatically active whenever the config flag is enabled.
 
-The sigmoid provides a smooth, differentiable transition:
+## `SingularityDetector`
 
-$$\sigma(x) = \frac{1}{1 + e^{-x}}$$
+`SingularityDetector` still exists and analyzes a metric tensor by:
 
-Derivative:
+- determinant magnitude,
+- minimum eigenvalue magnitude,
+- taking the minimum of those measures.
 
-$$\sigma'(x) = \sigma(x)(1 - \sigma(x))$$
+It can produce:
 
-### Parameter Effects
+- a binary singularity mask,
+- or a scalar measure through `get_metric_component(...)`.
 
-| Parameter | Effect |
-|-----------|--------|
-| slope ↑ | Sharper transition |
-| slope ↓ | Smoother transition |
-| threshold ↑ | Earlier damping |
-| threshold ↓ | Later damping |
+Important current caveat:
 
----
+- this detector is a real component,
+- but it is not automatically inserted into the engine's main acceleration path in the validated runtime flow here.
 
-## 6. Configuration
+## Configuration Reality
 
-```python
-physics = {
-    'singularities': {
-        'enabled': True,
-        'epsilon': 1e-8,        # Small value for numerical stability
-        'strength': 0.1,        # Slope = strength × 20.0
-        'threshold': 0.0001     # Distance threshold
-    }
-}
-```
+The schema currently exposes:
 
-### Parameter Formulas
+- `enabled`
+- `epsilon`
+- `strength`
+- `threshold`
 
-| Config | Code Variable | Default | Formula |
-|--------|--------------|---------|---------|
-| `epsilon` | `EPS` | 1e-8 | $\epsilon_{numerical}$ |
-| `strength` | `slope` | 0.1 | $s = strength \times 20$ |
-| `threshold` | `threshold` | 1e-4 | $\tau$ |
+In the gate path:
 
----
+- `threshold` is used directly,
+- `strength` becomes `slope = strength * 20.0`.
 
-## 7. Complete Flow
+Important current caveat:
 
-```python
-# 1. Detect singularity
-singularity_measure = min(|det(g)|, |λ_min|)
+- `epsilon` matters in the detector helper logic,
+- not in the basic gate formula itself.
 
-# 2. Compute gate
-gate = sigmoid(slope * (singularity_measure - threshold))
+## Practical Interpretation
 
-# 3. Apply damping
-v_damped = v * gate
-F_damped = F * gate
+The safest current description is:
 
-# 4. Return to physics engine
-net_accel = net_accel + F_damped  # etc.
-```
+- singularity handling is available,
+- the main runtime protection is a smooth damping gate,
+- its effect depends on whether a metric-component signal is actually passed through the active path.
 
----
+## What This Document Should Not Claim
 
-## 8. Physical Interpretation
+It would be inaccurate to claim that:
 
-- **Singularity**: Point where metric tensor loses invertibility
-- **Metric determinant**: Volume element of tangent space
-- **Near singularities**: Christoffel symbols diverge
-- **Gate function**: Smoothly prevents the system from entering unstable regions
+- singularity detection is always active in every forward pass,
+- the engine always computes determinant and eigenvalues internally before damping,
+- enabling the config flag alone guarantees active damping in all acceleration calls.
 
----
+Those claims do not match the current runtime.
 
-## 9. Comparison with Physics
+## Runtime Cross-References
 
-| Concept | Physics | GSSM |
-|---------|---------|------|
-| Black hole singularity | $r \to 0$ | $\det(g) \to 0$ |
-| Event horizon | $r = 2M$ | $d = threshold$ |
-| Escape velocity | $v_{esc}$ | Gate → 0 |
-
----
-
-*File: technical/0_architecture/math/05_singularities.md*
-*Last Updated: 2026-04-02*
+- `gfn/realizations/gssm/physics/components/singularities.py`
+- `gfn/realizations/gssm/physics/engine.py`
+- `docs/gssm/technical/0_architecture/math/01_physics_engine.md`

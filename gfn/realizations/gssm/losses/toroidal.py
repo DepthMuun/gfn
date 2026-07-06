@@ -1,8 +1,5 @@
 """
-ToroidalLoss — GFN V5
-Loss specific for toroidal geometries.
-Toroidal loss works with angular distances in the manifold.
-Improved version for compatibility with training pipeline.
+Toroidal loss based on angular distance with optional CUDA acceleration.
 """
 
 import torch

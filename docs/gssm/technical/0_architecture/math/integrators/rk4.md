@@ -1,145 +1,109 @@
 # RK4 (Runge-Kutta 4th Order)
 
-## What is it?
+This document describes the **current `RK4Integrator` implementation**.
 
-The Runge-Kutta 4th order method (RK4) is a classic numerical integration technique developed by Carl Runge and Martin Kutta around 1900. Unlike symplectic integrators, RK4 prioritizes accuracy over energy conservation.
+The authoritative code is:
 
-RK4 is the most widely used general-purpose ODE solver due to its excellent accuracy-to-cost ratio.
+- `gfn/realizations/gssm/physics/integrators/runge_kutta/rk4.py`
 
----
+## What It Is In The Current Runtime
 
-## The Algorithm
+`RK4Integrator` is the classic non-symplectic fourth-order Runge-Kutta solver adapted to the shared GSSM runtime helpers.
 
-RK4 uses a weighted average of four intermediate estimates to compute the next state.
+That means the current implementation includes:
 
-### Four Intermediate Steps
+- topology resolution at intermediate position proposals,
+- velocity clamping on intermediate velocity proposals,
+- final topology resolution and final velocity clamping.
 
-Given the current state $(x_n, v_n)$:
+So it is not just a bare mathematical tableau detached from the rest of the runtime.
 
-#### k1: Initial slope
-$$k_{1x} = v_n$$
-$$k_{1v} = a(x_n, v_n)$$
+## Current Step Pattern
 
-#### k2: Midpoint using k1
-$$k_{2x} = v_n + \frac{\Delta t}{2} \cdot k_{1v}$$
-$$x_{mid} = x_n + \frac{\Delta t}{2} \cdot k_{1x}$$
-$$k_{2v} = a(x_{mid}, v_n + \frac{\Delta t}{2} \cdot k_{1v})$$
+For each step, the code computes:
 
-#### k3: Midpoint using k2
-$$k_{3x} = v_n + \frac{\Delta t}{2} \cdot k_{2v}$$
-$$x_{mid2} = x_n + \frac{\Delta t}{2} \cdot k_{2x}$$
-$$k_{3v} = a(x_{mid2}, v_n + \frac{\Delta t}{2} \cdot k_{2v})$$
+- `k1` from the current state,
+- `k2` from midpoint state built from `k1`,
+- `k3` from midpoint state built from `k2`,
+- `k4` from endpoint state built from `k3`.
 
-#### k4: Endpoint using k3
-$$k_{4x} = v_n + \Delta t \cdot k_{3v}$$
-$$x_{end} = x_n + \Delta t \cdot k_{3x}$$
-$$k_{4v} = a(x_{end}, v_n + \Delta t \cdot k_{3v})$$
+The actual runtime path is:
 
-### Final Update
+```text
+k1_v = v
+k1_a = accel(x, v)
 
-$$x_{n+1} = x_n + \frac{\Delta t}{6} \cdot (k_{1x} + 2k_{2x} + 2k_{3x} + k_{4x})$$
+k2_v_val = v + h/2 * k1_a
+k2_x_val = resolve_topology(x + h/2 * k1_v)
+k2_a = accel(k2_x_val, clamp_velocity(k2_v_val))
 
-$$v_{n+1} = v_n + \frac{\Delta t}{6} \cdot (k_{1v} + 2k_{2v} + 2k_{3v} + k_{4v})$$
+k3_v_val = v + h/2 * k2_a
+k3_x_val = resolve_topology(x + h/2 * k2_v)
+k3_a = accel(k3_x_val, clamp_velocity(k3_v_val))
 
----
+k4_v_val = v + h * k3_a
+k4_x_val = resolve_topology(x + h * k3_v)
+k4_a = accel(k4_x_val, clamp_velocity(k4_v_val))
+```
 
-## The Butcher Tableau
+Then it applies the standard RK4 weighted update and again:
 
-RK4 can be represented as:
+- resolves topology for `x`,
+- clamps velocity for `v`.
 
-$$
-\begin{array}{c|cccc}
-0 & & & & \\
-1/2 & 1/2 & & & \\
-1/2 & 0 & 1/2 & & \\
-1 & 0 & 0 & 1 & \\
-\hline
-& 1/6 & 1/3 & 1/3 & 1/6
-\end{array}
-$$
+## Important Runtime Detail
 
-This compactly encodes the coefficient structure.
+The code stores:
 
----
+- `k2_v = k2_v_val`
+- `k3_v = k3_v_val`
+- `k4_v = k4_v_val`
 
-## Properties
+for the final weighted position update, while the acceleration calls use the clamped versions.
 
-| Property | Value |
-|----------|-------|
-| **Order** | 4th order (error ~ $O(\Delta t^5)$) |
-| **Symplectic** | No |
-| **Force evaluations** | 4 per step |
-| **Energy conservation** | Drifts over time |
-| **Accuracy** | Very high |
+So the runtime behavior is slightly more nuanced than a pure unclamped textbook RK4 description.
 
----
+## Relationship To Symplectic Solvers
 
-## Why it Works
+RK4 is the main non-symplectic fourth-order option in the current factory.
 
-### Weighted Average
+Compared to the symplectic family:
 
-The coefficients (1/6, 1/3, 1/3, 1/6) are carefully chosen to:
-- Match Taylor series expansion up to 4th order
-- Minimize truncation error
-- Provide optimal accuracy for 4 evaluations
+- it favors local accuracy,
+- it does not preserve the symplectic structure,
+- it still participates in the same topology- and velocity-safety scaffolding.
 
-### Simpson's Rule Connection
+So the docs should present it as:
 
-The weights approximate Simpson's rule for integration:
+- non-symplectic but runtime-integrated,
+- not as a completely separate world from the other solvers.
 
-$$\int_0^{\Delta t} f(t) dt \approx \frac{\Delta t}{6}[f(0) + 4f(\Delta t/2) + f(\Delta t)]$$
+## When To Use It
 
-RK4 extends this to handle state-dependent forces.
+Use RK4 when:
 
----
+- you explicitly want a non-symplectic alternative,
+- short-horizon local accuracy matters,
+- you are comparing solver families.
 
-## Error Analysis
+It is less attractive when:
 
-Local truncation error: $O(\Delta t^5)$
+- you want the main default path,
+- long-term symplectic behavior matters,
+- you are already satisfied with higher-order symplectic solvers.
 
-Global error: $O(\Delta t^4)$
+## What This Document Should Not Claim
 
-The error constant is smaller than symplectic methods of the same order.
+It would be inaccurate to claim that:
 
----
+- RK4 ignores topology in the current runtime,
+- RK4 never applies shared velocity control,
+- the current implementation is just the raw textbook formula with no safety helpers.
 
-## Comparison with Symplectic Methods
+Those claims do not match the code.
 
-| Aspect | RK4 | Yoshida/Forest-Ruth |
-|--------|-----|---------------------|
-| Order | 4th | 4th |
-| Symplectic | No | Yes |
-| Energy drift | Linear in time | Bounded/oscillatory |
-| Accuracy per step | Higher | Lower |
-| Long-term behavior | Energy error grows | Energy oscillates |
-| Force evaluations | 4 | 3 |
+## Runtime Cross-References
 
----
-
-## When to Use
-
-**Use RK4 for:**
-- Short trajectories where accuracy matters
-- Non-Hamiltonian systems
-- Validation and testing
-- When symplectic properties don't matter
-
-**Don't use for:**
-- Long training runs (energy drift)
-- Production systems (accumulating errors)
-- When stability matters more than accuracy
-
----
-
-## Energy Drift
-
-Unlike symplectic methods, RK4 has systematic energy drift:
-
-$$\frac{\Delta E}{E} \propto t \cdot \Delta t^4$$
-
-Over long times, this can cause significant deviation from the true trajectory.
-
----
-
-*File: technical/0_architecture/math/integrators/rk4.md*
-*Last Updated: 2026-04-02*
+- `gfn/realizations/gssm/physics/integrators/runge_kutta/rk4.py`
+- `gfn/realizations/gssm/physics/integrators/base.py`
+- `docs/gssm/technical/0_architecture/math/02_integrators.md`

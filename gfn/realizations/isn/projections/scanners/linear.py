@@ -1,7 +1,5 @@
 """
-ISN Linear Scanner — Modular V5
-============================
-Simple linear token-to-impulse projection.
+Scanner that maps tokens to impulses through a learned embedding table.
 """
 
 import torch

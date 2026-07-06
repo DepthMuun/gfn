@@ -1,8 +1,5 @@
 """
-gfn/physics/dynamics/__init__.py — GFN V5
-Ported from: gfn_old/nn/layers/flow/dynamics/
-
-Dynamics System: 5 state update modes on the manifold.
+Dynamics registry and factory for manifold state update modules.
 """
 from .base import BaseDynamics
 from .direct import DirectDynamics

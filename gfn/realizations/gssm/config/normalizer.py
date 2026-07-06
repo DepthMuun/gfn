@@ -124,7 +124,7 @@ class ConfigNormalizer:
         """
         # Caso especial para active_inference
         if key.startswith('active_inference_'):
-            real_k = key[len('active_inference_')+1:]
+            real_k = key[len('active_inference_'):]
             self._apply_physics_override('active_inference', {real_k: value})
             return True
         

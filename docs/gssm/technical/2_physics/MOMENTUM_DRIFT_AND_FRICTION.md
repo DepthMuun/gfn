@@ -1,37 +1,105 @@
-# G-SSM Physics Notes: Momentum Drift and The Overdamped Limit
+# Momentum Drift And Friction
 
-**Date:** March 18, 2026
-**Topic:** Continuous Momentum vs. Discrete Automata
+This note explains a real behavioral tradeoff in GSSM, but it is now phrased in terms that match the current runtime.
 
-## The Problem: "Momentum Drift"
-The Geometric State Space Model (G-SSM) uses continuous physical integrators (Yoshida, Leapfrog) to evolve the state vector over a Riemann manifold (e.g., Torus or Sphere). 
-The fundamental equation of motion is:
-$v_{t+1} = \frac{v_t + \Delta t \cdot F_{ext}}{1 + \Delta t \cdot \mu_f}$
+It should be read together with:
 
-Where $F_{ext}$ is the external force from the token embedding, and $\mu_f$ is the internal friction.
+- `technical/runtime/01-hyperparameters.md`
+- `technical/2_physics/engine.md`
+- `technical/0_architecture/math/integrators/`
 
-### Why it fails in strictly discrete sequences length>1000:
-In tasks like **Logic XOR** or boolean parity, the model must act as an exact discrete state machine (a Flip-Flop). 
-- A token `1` applies a positive force `+F`.
-- A token `0` applies exactly `0` force (do nothing).
+## The Core Issue
 
-If $\mu_f$ (friction) is low (e.g., $0.05$), the system operates in an **Underdamped Regime**.
-When a long sequence of `1`s is fed, the velocity $v$ saturates to the upper limit (e.g., $10.0$).
-When a subsequent long sequence of `0`s (force=0) is fed, the G-SSM should stop changing because $0$ does not alter Parity. However, due to the **momentum** (low friction), it takes $>50$ timesteps for the velocity to decay to zero. During those 50 steps, the state continues to spin and drift wildly, utterly destroying the recorded parity phase.
+GSSM keeps a velocity state `v`. That is one of the reasons it can preserve motion and trajectory information, but it also means the model can continue moving after the external force becomes small or zero.
 
-## The Solution: The Overdamped Limit
-To force a continuous mechanical system to behave exactly like a memoryless discrete automaton, the internal friction MUST be set extremely high (e.g., `friction = 2.0` to `5.0`), moving the system into the **Overdamped Regime**.
+This is the practical meaning of momentum drift:
 
-In the Overdamped Regime, $1 + \Delta t \cdot \mu_f \gg 1$. 
-Any residual velocity from the previous step is immediately dissipated in a single timestep.
-$v_{t} \approx \frac{F_{ext}}{\mu_f}$
+- the input force changes
+- but the latent trajectory keeps moving because `v` still carries energy
 
-- When token `1` arrives, it moves exactly $\frac{F_{ext}}{\mu_f} \cdot \Delta t$ distance, and effectively stops.
-- When token `0` arrives ($F_{ext}=0$), the velocity immediately drops to 0. There is no coasting. There is no momentum drift.
+For tasks that want smooth physical trajectories, that can be desirable.
+For tasks that want near-discrete state flips, it can be harmful.
 
-### Implementation Checklist for Logic Gates / Counting Automata
-If using G-SSM for perfectly discrete sequence resolution (XOR parity, Counting, Exact Pattern Matching), ALWAYS use:
-1. `friction: 2.0` (or higher) to kill momentum.
-2. `velocity_saturation: 15.0` (allow high instant velocity to traverse the manifold in one step).
-3. `holographic=True` (or Trace Normalization) to prevent long-term scaling collapse.
-4. `integrator: yoshida` (to properly handle the massive $\Delta v$ kicks).
+## Where Friction Enters
+
+In the current runtime, friction is combined inside `ManifoldPhysicsEngine`.
+
+At a high level:
+
+```text
+mu_total = config.stability.friction + mu_geo
+```
+
+and then optional velocity scaling is applied when `velocity_friction_scale > 0`.
+
+So the main knobs that affect drift are:
+
+- `stability.friction`
+- `stability.velocity_friction_scale`
+- `stability.base_dt`
+- `stability.integrator_type`
+- the geometry itself, if it returns `mu`
+
+## Why Old Rules Were Too Strong
+
+Older notes often described one fixed "overdamped recipe" such as:
+
+- very high friction
+- large velocity saturation
+- one preferred integrator
+
+That is too rigid for the current codebase.
+
+The actual effect of friction depends on:
+
+- timestep size
+- solver choice
+- topology
+- force scale from the embedding
+- whether velocity saturation is enabled
+- whether the geometry returns extra friction
+
+There is no universal rule like "friction must always be between `2.0` and `5.0` for discrete tasks."
+
+## Practical Heuristic
+
+If a task behaves too much like a coasting dynamical system when you really want abrupt state changes, test changes in this order:
+
+1. increase `friction` moderately
+2. reduce `base_dt`
+3. keep `integrator_type="leapfrog"` until the task is stable
+4. only then consider velocity-dependent friction or saturation
+
+This is safer than jumping immediately to an extreme overdamped regime.
+
+## About Velocity Saturation
+
+Current runtime caveat:
+
+- `velocity_saturation` exists in the schema
+- its default is `0.0`, which means disabled
+- saturation is handled in integrator helpers, not by the physics engine directly
+
+So if you rely on saturation to suppress drift, that is an explicit design choice, not part of the default path.
+
+## About Discrete-Like Tasks
+
+For parity-like, counting-like, or exact symbolic transitions, the main question is not only friction.
+
+You also need to verify:
+
+- whether the embedding produces the intended force pattern
+- whether the readout matches the target space
+- whether the loss is appropriate for the manifold and target representation
+- whether the task actually benefits from persistent velocity
+
+If the task fundamentally wants "token causes immediate state flip and then stop," a high-momentum setup can be the wrong inductive bias regardless of solver order.
+
+## Recommended Interpretation
+
+Use momentum drift as a diagnosis term, not as a fixed recipe:
+
+- if the model keeps moving after the force should effectively stop, friction may be too low for the task
+- if the model becomes inert and cannot explore, friction may be too high
+
+The correct setting is the one that matches the task's desired persistence, not the one that follows an old benchmark snapshot.

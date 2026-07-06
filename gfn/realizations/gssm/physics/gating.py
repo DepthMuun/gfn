@@ -1,9 +1,5 @@
 """
-gfn/physics/gating.py — GFN V5
-Ported from: gfn_old/nn/layers/physics/gating/core.py
-              gfn_old/nn/layers/physics/thermo.py
-
-Gating modules for dynamic time (adaptive dt per head).
+Gating modules for adaptive timestep control and friction modulation.
 """
 import torch
 import torch.nn as nn
@@ -53,8 +49,7 @@ class RiemannianGating(nn.Module):
 
 class ThermodynamicLayer(nn.Module):
     """
-    Thermodynamic Gating (Paper 03).
-    Modulates dt based on Hamiltonian energy: H = T + U.
+    Modulates dt based on a simple energy estimate H = T + U.
     
     If energy is above reference → small dt (hot system).
     If energy is below → larger dt (cold system).
@@ -85,7 +80,7 @@ class ThermodynamicLayer(nn.Module):
 
 class FrictionGate(nn.Module):
     """
-    Friction Gate with position and force dependency (Paper 25).
+    Friction gate with position and optional force dependency.
     
     mu(x, f) = sigmoid(W_f * x + W_i * f + b) * FRICTION_SCALE
     

@@ -1,6 +1,5 @@
 """
-CheckpointCallback — GFN V5
-Guarda el modelo periódicamente o cuando mejora la métrica de referencia.
+Checkpoint callback that saves periodic and best-model snapshots.
 """
 
 import torch

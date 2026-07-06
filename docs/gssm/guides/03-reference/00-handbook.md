@@ -1,296 +1,237 @@
-# DepthMuun (GFN v2) Technical Handbook
+# GSSM Handbook
 
+This handbook is the practical reference for working with GSSM from the public API.
 
-**Status:** Unified Reference
-**Last Updated:** February 26, 2026
+It does not freeze one "best benchmark configuration." Instead, it summarizes what the current runtime actually does, which defaults are effective, and which decisions you usually need to make first.
 
-This handbook provides the mathematical foundations, training protocols, and technical specifications of the DepthMuun (GFN v2) architecture, an implementation of Geodesic Flow Networks for sequence modeling with O(1) memory complexity.
+## Public Entry Point
 
-
-
-## I. Fundamental Equations
-
-The DepthMuun architecture is governed by the principles of **Symplectic Sequence Modeling**, which reformulates neural computation as the movement of a particle over a learnable Riemannian manifold.
-
-### 1.1 The Geodesic Equation
-
-State evolution is modeled as a particle following the shortest path (geodesic) in a latent Riemann space:
-
-$$\frac{d^2x^k}{d\tau^2} + \Gamma^k_{ij} \frac{dx^i}{d\tau} \frac{dx^j}{d\tau} + \mathcal{F}^k_{\text{friction}} = F^k_{\text{ext}}$$
-
-Where notation follows the conventions of mathematical physics:
-
-| Symbol | Meaning | Neural Analogue |
-|--------|---------|-----------------|
-| $x$ | Semantic position | Latent state |
-| $v = \frac{dx}{d\tau}$ | Semantic velocity | Information momentum |
-| $\Gamma^k_{ij}$ | Christoffel symbols | Manifold curvature |
-| $F_{\text{ext}}$ | External force | Token embeddings $E(\text{token}_t)$ |
-
-### 1.2 Low-Rank Christoffel Parameterization
-
-To ensure O(d) parameter complexity, we approximate Christoffel symbols using a low-rank symmetric decomposition defined solely by the velocity state:
-
-$$\Gamma(v) \approx W \cdot \left[ (U^T v)^2 \odot \frac{1}{1 + \| U^T v \|_2} \right]$$
-
-This formulation enables O(d²) interaction resolution (Multi-Head Attention-like mixing) while remaining linear in memory.
-
-| Component | Dimension | Function |
-|------------|-----------|---------|
-| $U \in \mathbb{R}^{d \times r}$ | Basis matrix | Velocity projection |
-| $W \in \mathbb{R}^{d \times r}$ | Weight matrix | Curvature composition |
-| $\sigma(\cdot)$ | Soft saturation | Numerical stability |
-| $r$ | Rank (16-64) | Compression |
-
-### 1.3 Symplectic Integration (Leapfrog)
-
-To preserve information over infinite horizons, we use the second-order Velocity Verlet scheme:
-
-1. **Velocity half-step**:
-   $$v_{t+\frac{1}{2}} = v_t + \frac{1}{2}\Delta t \cdot \left(A(x_t, v_t) - \sigma(W_f x_t)v_t\right)$$
-
-2. **Position full-step**:
-   $$x_{t+1} = x_t + \Delta t \cdot v_{t+\frac{1}{2}}$$
-
-3. **Final velocity half-step**:
-   $$v_{t+1} = v_{t+\frac{1}{2}} + \frac{1}{2}\Delta t \cdot \left(A(x_{t+1}, v_{t+\frac{1}{2}}) - \sigma(W_f x_{t+1})v_{t+\frac{1}{2}}\right)$$
-
-This phase-space volume preservation ensures that gradients neither vanish nor explode, solving the fundamental gradient problem in traditional RNNs.
-
-
-
-## II. Loss Engine (Force Fields)
-
-DepthMuun uses a composite loss function to balance task performance with geometric stability.
-
-### 2.1 Hamiltonian Loss (`hamiltonian_loss`)
-
-**Purpose**: Energy conservation.
-
-**Formula**: $L_H = \lambda_h \sum |E_t - E_{t-1}|$ where $E = \|v\|^2$.
-
-**Usage**: Prevents violent transitions in latent energy. If the model "startles" between tokens, this loss penalizes the discontinuity.
-
-| Weight | Behavior |
-|------|----------------|
-| High | Rigid, linear reasoning |
-| Low | Fluid, highly curved reasoning |
-
-### 2.2 Geodesic Regularization (`geodesic_regularization`)
-
-**Purpose**: Curvature control.
-
-**Formula**: $L_G = \lambda_g \| \Gamma(v, v) \|^2$.
-
-**Usage**: Prevents "Semantic Black Holes" (singularities). Keeps the manifold "locally flat," ensuring that small input changes do not lead to catastrophic state changes.
-
-### 2.3 Curiosity Loss (`curiosity_loss`)
-
-**Purpose**: Entropy maximization / Exploration.
-
-**Formula**: $L_C = -\lambda_c \sum \log(\text{std}(v))$.
-
-**Usage**: Prevents "Cognitive Collapse" where all neurons synchronize to the same value. Forces the manifold to use its full dimensional capacity.
-
-> [!WARNING]
-> High curiosity weights can cause divergence in rigid logic tasks (e.g., Parity).
-
-### 2.4 Noether Loss (`noether_loss`)
-
-**Purpose**: Semantic symmetry.
-
-**Usage**: Ensures that different "Heads" on the manifold learn consistent physical laws. Enforce SO(N) rotational invariance in latent space.
-
-
-
-## III. Riemannian Optimization
-
-Standard optimizers (Adam, SGD) assume a flat Euclidean space. DepthMuun requires **Riemannian Optimization** to respect weight constraints.
-
-### 3.1 The Euclidean Drift Problem
-
-In curved spaces, a standard update $W \leftarrow W - \eta \nabla$ moves weights "out of" the desired manifold, leading to "Gradient Drift" and loss oscillations.
-
-### 3.2 RiemannianAdam
-
-**Implementation**: `gfn.optim.RiemannianAdam`.
-
-**Key mechanism: Retraction.**
-
-After the Adam update, we project the weights back onto the manifold boundary:
-
-$$W_{\text{new}} = \text{Retract}(W_{\text{old}} - \eta \cdot \hat{g}) = \frac{W_{\text{old}} - \eta \cdot \hat{g}}{\max(1, \|W\| / \text{max\_norm})}$$
-
-### 3.3 Recommended Configuration
-
-| Parameter | Value | Reason |
-|-----------|-------|-------|
-| `lr` | 1e-4 (stability) to 3e-4 (speed) | Precision-speed balance |
-| `max_norm` | 10.0 | Stops weight explosion |
-| `retraction` | `'torus'` | Must match `torus` topology boundary requirements |
-| `weight_decay` | 1e-4 | Regularization |
-
-
-
-## IV. Optimal Configuration
-
-The following master configuration (`ManifoldConfig`) has been validated in the superiority benchmark (`vis_gfn_superiority.py`) and represents the recommended architecture:
+Use the top-level API:
 
 ```python
-config = {
-    # Core Architecture Blocks
-    'embedding': {
-        'type': 'functional',     # Neural field embedding
-        'mode': 'linear',         # Treats token bits directly as Force channels
-        'coord_dim': 16
-    },
-    'readout': {
-        'type': 'implicit',       # Holographic latent projection
-        'coord_dim': 16
-    },
-    'fractal': {                  # Fractal State Feedback
-        'enabled': True,
-        'threshold': 0.5,
-        'alpha': 0.2
-    },
-    
-    # Physics & Stability Subsets
-    'physics_config': {
-        'active_inference': {
-            'enabled': True,
-            'dynamic_time': { 'enabled': True },
-            'reactive_curvature': {
-                'enabled': True,
-                'plasticity': 0.2
-            },
-            'singularities': {
-                'enabled': True,
-                'strength': 1.5,      # Aggressive bounds
-                'threshold': 0.5      # Trigger early
-            }
+import gfn
+
+model = gfn.create("gssm", vocab_size=32000)
+```
+
+That creation path goes through the current config-resolution and factory pipeline, which means the effective behavior comes from more than one file.
+
+## Effective Default Runtime
+
+A fresh `gfn.create("gssm", vocab_size=...)` currently resolves to:
+
+- topology: `torus`
+- effective geometry: analytical torus
+- integrator: `leapfrog`
+- `base_dt = 0.1`
+- `friction = 0.01`
+- `velocity_friction_scale = 0.0`
+- `velocity_saturation = 0.0`
+- embedding type: `standard`
+- embedding mode: `linear`
+- readout type: `standard`
+- `holographic = False`
+- effective `rank = 16` unless explicitly overridden
+
+Those values are derived from the schema, normalizer, factory synchronization, and geometry selection logic together.
+
+## First Decisions To Make
+
+Most GSSM setups become easier if you decide these items in order.
+
+### 1. Output Contract
+
+Pick the readout according to the supervision target:
+
+- `standard`: categorical logits over `vocab_size`
+- `implicit`: learned MLP projection to a task-specific output dimension
+- `identity`: raw latent state for latent-space or geometry-aware supervision
+
+Important runtime caveat:
+
+- `holographic=True` no longer auto-switches `standard` readout into `identity`
+- if you need latent-state supervision, set `readout.type="identity"` explicitly
+
+### 2. Input Contract
+
+Pick the embedding according to the input modality:
+
+- `lookup`: classic discrete embedding table
+- `linear`: bit expansion of token IDs then projection
+- `binary`: bit expansion mapped to `[-1, 1]`
+- SIREN-style implicit path for sinusoidal coordinate encoding
+- `continuous`: direct projection of continuous vectors
+
+The current schema default remains `embedding.mode="linear"`.
+
+### 3. Geometry Contract
+
+Decide whether you want:
+
+- an analytical topology such as `torus`, `euclidean`, `hyperbolic`, or `spherical`
+- or a learned geometry such as `low_rank`, `reactive`, or `adaptive`
+
+Important runtime caveat:
+
+- `topology.type="torus"` now wins by default
+- `riemannian_type` only overrides the analytical topology when it was explicitly requested
+
+### 4. Numerical Contract
+
+Start conservative:
+
+- `integrator_type="leapfrog"`
+- `base_dt=0.1`
+- `friction=0.01`
+
+Only widen the configuration once the rest of the training loop is behaving correctly.
+
+## What The Forward Pass Returns
+
+The current model forward contract is:
+
+```python
+logits, (x_final, v_final), state_info = model(input_ids)
+```
+
+`state_info` is the bridge between the model core and physics-aware losses. It includes:
+
+- `x_seq`
+- `v_seq`
+- `forces`
+- `x_final`
+- `v_final`
+- `mask`
+- `plugin_results`
+
+## Dynamics Overview
+
+GSSM separates three ideas that older docs often mixed together:
+
+- geometry: computes curvature-like effects and may also return friction
+- integrator: numerically advances the state
+- dynamics mode: merges the proposal back into the persistent state
+
+The current registered dynamics modes are:
+
+- `direct`
+- `residual`
+- `mix`
+- `gated`
+- `stochastic`
+
+Use `direct` as the simplest baseline unless you have a reason to bias the system toward residual or gated updates.
+
+## Optional Physics Modules
+
+These modules exist in the current runtime but are off by default:
+
+- hysteresis
+- singularities
+- stochasticity
+- curiosity
+- dynamic-time plugin
+- fractal plugin
+
+They are real runtime features, but they should be introduced intentionally. Enabling several at once can make debugging much harder.
+
+## Loss Selection
+
+GSSM does not have a single universal "best" loss.
+
+In the current runtime, the practical split is:
+
+- categorical tasks: task loss on the readout output, usually with `standard` readout
+- latent or manifold-aligned tasks: `identity` or `implicit` readout plus an aligned supervision target
+- physics regularization: optional losses that consume `state_info`
+- toroidal tasks: torus-aware losses when the target itself lives on periodic coordinates
+
+Do not assume that every training script should use the same loss family. The correct loss depends on whether your target lives in vocabulary space, Euclidean output space, or manifold coordinates.
+
+## Recommended Starting Templates
+
+### Language-Like Discrete Setup
+
+```python
+import gfn
+
+model = gfn.create(
+    "gssm",
+    vocab_size=50000,
+    dim=512,
+    depth=4,
+    heads=4,
+    physics={
+        "topology": {"type": "torus"},
+        "stability": {
+            "integrator_type": "leapfrog",
+            "base_dt": 0.1,
+            "friction": 0.01,
         },
-        'topology': {
-            'type': 'torus'           # Cyclic periodic boundary
+        "readout": {"type": "standard"},
+    },
+)
+```
+
+### Latent-Space Supervision Setup
+
+```python
+import gfn
+
+model = gfn.create(
+    "gssm",
+    vocab_size=1024,
+    physics={
+        "readout": {"type": "identity"},
+        "topology": {"type": "torus"},
+        "stability": {"integrator_type": "leapfrog"},
+    },
+)
+```
+
+### Continuous-Input Setup
+
+```python
+import gfn
+
+model = gfn.create(
+    "gssm",
+    vocab_size=1,
+    continuous_input_dim=128,
+    physics={
+        "embedding": {
+            "mode": "continuous",
         },
-        'stability': {
-            'base_dt': 0.4,           # Integration timestep
-            'curvature_clamp': 5.0    # Asymptotic max curvature
-        }
-    }
-}
+        "readout": {
+            "type": "implicit",
+            "out_dim": 64,
+        },
+    },
+)
 ```
 
-### 4.1 Reactive Curvature
+## Troubleshooting Order
 
-Reactive curvature modulates geometry based on model uncertainty:
+When a GSSM training run behaves badly, check these in order:
 
-$$K = \frac{1}{2}\|v\|^2 \quad \text{(Kinetic energy)}$$
-$$\lambda(K) = \alpha \cdot \tanh(K)$$
-$$\Gamma_{\text{eff}} = \Gamma_{\text{base}} \cdot (1 + \lambda(K))$$
+1. Are the targets aligned with the chosen readout?
+2. Are the inputs aligned with the chosen embedding mode?
+3. Are you relying on an old config snapshot with stale defaults?
+4. Are `base_dt`, friction, and topology still close to the effective defaults?
+5. Did you enable optional modules before validating the base path?
 
-When the model is "confused" (high velocity), space becomes more curved, acting as automatic braking.
+## Where To Go Next
 
-### 4.2 Logical Singularities
+Use these docs together:
 
-Singularities represent discrete decisions as topological attractors:
+- `01-constants.md` for currently relevant constants and schema defaults
+- `02-api-classes.md` for the public-facing class and return-contract map
+- `03-integrators.md` for the solver family
+- `04-geometries.md` for geometry choices
+- `05-dynamics-modes.md` for proposal-merging behavior
 
-$$x_{\text{macro}} \xrightarrow{\mathcal{R} > \tau} x_{\text{micro}}$$
+For implementation-level details, prefer:
 
-This allows a continuous system to represent discrete logical operations.
-
-
-
-## V. Stability Protocols
-
-### 5.1 Gradient Clipping
-
-Use strictly $0.05$ to $1.0$. DepthMuun dynamics are sensitive to high-frequency topological boundary noise.
-
-```python
-torch.nn.utils.clip_grad_norm_(model.parameters(), 0.05)
-```
-
-### 5.2 Velocity Normalization
-
-The v2.6.0+ engine automatically normalizes $v$ to unit norm post-integration to prevent numerical drift:
-
-```python
-v_next = v_next / (||v_next|| + ε)
-```
-
-### 5.3 Warm-up
-
-Always use learning rate warm-up (e.g., `OneCycleLR`) to allow curvature kernels to stabilize before high-speed training.
-
-### 5.4 Integrator Parameters
-
-| Integrator | Order | Energy Error | Use Case |
-|------------|-------|------------------|-------------|
-| Forest-Ruth | 4th | 0.000048% | **Maximum precision** |
-| Leapfrog | 2nd | Low | **Production** |
-| Heun | 2nd | Medium | Debugging |
-
-
-
-## VI. Specifications Summary
-
-### 6.1 Computational Complexity
-
-| Operation | Training | Inference |
-|-----------|---------------|------------|
-| Embedding | O(L·d²) | O(d²) |
-| Christoffel | O(L·d²·r) | O(d²·r) |
-| Integration | O(L·d) | O(d) |
-| Readout | O(L·d·V) | O(d·V) |
-| **Total** | **O(L·d²·r)** | **O(d²·r)** |
-
-### 6.2 Memory Scaling
-
-| Configuration | VRAM (approx) |
-|---------------|--------------|
-| Small (d=128, depth=4) | 512 MB |
-| Medium (d=256, depth=6) | 1.2 GB |
-| Large (d=512, depth=12) | 3.8 GB |
-| XL (d=1024, depth=24) | 8.5 GB |
-
-### 6.3 Architecture Comparison
-
-| Architecture | Memory | Gradients | Inductive Bias |
-|--------------|---------|------------|----------------|
-| Transformer | O(N²) | Good | Permutation |
-| LSTM/GRU | O(1) | Poor | Sequential |
-| Mamba | O(1) | Medium | Compression |
-| **DepthMuun**| **O(1)** | **Excellent** | **Geometry** |
-
-
-
-## VII. Experimental Validation
-
-### 7.1 Parity Task
-
-| Length | Accuracy | VRAM | Ratio |
-|----------|----------|------|-------|
-| 20 (train) | 100% | 28.3 MB | 1× |
-| 1,000 | 100% | 30.5 MB | 50× |
-| 100,000 | 100% | 30.6 MB | 5,000× |
-
-**Key result**: Perfect generalization to sequences 5,000× longer than training.
-
-### 7.2 Transformer Comparison
-
-| Metric | DepthMuun | Transformer |
-|---------|----------|-------------|
-| Accuracy (L=1000) | 100% | 52.5% |
-| VRAM (L=2000) | 33.3 MB | 325.1 MB |
-| Convergence | ~500 steps | ~4000 steps |
-
-
-
-**Document Version**: 2.7.0  
-**Last Update**: February 26, 2026
-
-For implementation details, see [API.md](API.md) or [IMPLEMENTATION_GUIDE.md](IMPLEMENTATION_GUIDE.md).  
-For system architecture, see [ARCHITECTURE.md](ARCHITECTURE.md).  
-For training, see [TRAINING.md](TRAINING.md).  
-For benchmarks, see [BENCHMARKS.md](BENCHMARKS.md).  
-For theoretical foundations, see [PHYSICS.md](PHYSICS.md).
+- `technical/runtime/00-effective-defaults.md`
+- `technical/runtime/01-hyperparameters.md`
+- `technical/0_architecture/`

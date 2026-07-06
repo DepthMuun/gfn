@@ -1,7 +1,5 @@
 """
-ISN GFN Emitter — Modular V5
-==========================
-Physical states -> Prediction logits.
+Emitter that projects world embeddings back to token logits.
 """
 
 import torch
@@ -12,7 +10,7 @@ from ...registry import emitters
 @emitters.register("gfn")
 class GFNEmitter(nn.Module):
     """
-    Standard GFN Emitter that reconstructs tokens from world embeddings.
+    Default emitter that reconstructs token logits from world embeddings.
     """
     def __init__(self, d_embedding: int, vocab_size: int, **kwargs):
         super().__init__()

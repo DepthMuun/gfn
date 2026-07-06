@@ -1,7 +1,5 @@
 """
-GeometryFactory — GFN V5
-Creates geometry instances from PhysicsConfig.
-Supports: euclidean, torus, low_rank, reactive, adaptive, hyperbolic, holographic.
+Factory helpers for constructing geometry modules from `PhysicsConfig`.
 """
 
 from typing import Optional
@@ -46,18 +44,32 @@ class GeometryFactory:
         topo_type = config.topology.type.lower()
         riem_type = getattr(config.topology, 'riemannian_type', 'reactive').lower()
         available = GEOMETRY_REGISTRY.list_keys()
+        explicit_keys = set(getattr(config, '_explicit_keys', set()))
+
+        riem_explicit = any(
+            key in explicit_keys
+            for key in (
+                'riemannian_type',
+                'topology.riemannian_type',
+                'physics.topology.riemannian_type',
+                'topology_riemannian_type',
+            )
+        )
         
         # Priority Logic:
-        # 1. Prioritize learned Riemannian geometries (low_rank, reactive, adaptive)
-        #    even if the topology is specialized (torus, etc.), as they handle topology via features.
+        # 1. Specialized analytical topologies win by default.
+        #    Learned riemannian geometries only override them when the user
+        #    explicitly requested riemannian_type.
         learned_types = {'low_rank', 'reactive', 'adaptive', 'low_rank_paper'}
+        if topo_type in available and topo_type != TOPOLOGY_EUCLIDEAN:
+            if riem_explicit and riem_type in learned_types and riem_type in available:
+                return riem_type
+            return topo_type
+
+        # 2. For Euclidean/default spaces, prefer learned geometries when available.
         if riem_type in learned_types and riem_type in available:
             return riem_type
 
-        # 2. Otherwise, if topology is specific (torus, hyperbolic, etc.), use its analytical model.
-        if topo_type in available and topo_type != TOPOLOGY_EUCLIDEAN:
-            return topo_type
-            
         # 3. Fallback to riem_type or topo_type
         if riem_type in available:
             return riem_type

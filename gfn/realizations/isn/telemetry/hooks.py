@@ -1,7 +1,5 @@
 """
-ISN Hook System — Modular V5
-==========================
-Middleware for ISN telemetry and visualization.
+Hook interfaces and dispatcher for ISN telemetry and visualization.
 """
 
 import torch

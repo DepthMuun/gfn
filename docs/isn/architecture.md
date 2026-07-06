@@ -1,33 +1,100 @@
-# ISN Architecture: The Physics of Persistent State
+# ISN Architecture: Persistent Latent World
 
-The **Inertial State Network (ISN)** is designed around the principle of **Inertial Persistence**. In this realization, the sequence context is not an external buffer (like a KV-cache) but the state of a dynamical system itself.
+The **Inertial State Network (ISN)** treats sequence processing as the evolution of a persistent latent world instead of storing context in an external attention cache. The current implementation is a **modular pipeline** assembled from registered components.
 
-## The Entity-Centric World ($W$)
+## Runtime Structure
 
-Unlike standard GFN realizations that use monolithic state vectors, ISN implements an **Entity-Based Simulation**. The World State $W$ is a collection of discrete **Entities**.
+At runtime, an ISN model is composed of three injected modules:
 
-### The Anatomy of an Entity ($E$)
-Each entity $E$ is defined by the tuple $E = (id, \tau, p, e, R, s)$:
-- **$\tau$ (Type)**: Categorization (NUMBER, CONCEPT, OBJECT, OPERATION).
-- **$p$ (Properties)**: Intrinsic attribute vector (e.g., magnitude, parity).
-- **$e$ (Embedding)**: Semantic location in the manifold.
-- **$R$ (Relations)**: Connections to other entities in the world.
-- **$s$ (Dynamic State)**: Temporal variables like momentum or decay.
+1. **Scanner**: maps token IDs to continuous impulses.
+2. **World Engine**: updates the persistent latent state using those impulses.
+3. **Emitter**: projects emitted world embeddings back to token logits when the world engine does not already provide logits directly.
 
-### Persistence & Interaction
-- **Persistence**: Entities survive across time steps unless they undergo **Decay** or **Transformation**.
-- **Interactions**: Sequence tokens act as catalysts for interactions between entities:
-    - **TRANSFORMATION**: $E_1 + E_2 \to E_3$ (e.g., addition).
-    - **RELATION**: Establishing links between concepts.
-    - **INFLUENCE**: One entity perturbing the properties of another.
-    - **EMERGENCE**: A collection of entities forming a higher-order concept.
+Conceptually, the forward path is:
 
-## Efficiency Characteristics
+```text
+token ids -> scanner -> impulses -> world engine -> emitted embeddings -> emitter -> logits
+```
 
-| Metric | ISN | Transformer |
-|--------|-----|-------------|
-| **Memory** | $O(1)$ | $O(L^2)$ or $O(L)$ (with cache) |
-| **Inference Time** | $O(L)$ total, $O(1)$ per token | $O(L^2)$ or $O(L)$ per token |
-| **Backprop Memory** | $O(1)$ (with Adjoint Method) | $O(L^2)$ |
+This matches the actual `Model.forward()` orchestration used by the implementation.
 
-This architecture allows ISN models like the Shakespeare realization (363k params) to maintain stable throughput of over **2000 TPS** on standard hardware.
+## Registries And Assembly
+
+ISN is assembled through registries rather than a hard-coded monolith:
+
+- `scanners`
+- `physics`
+- `emitters`
+- `strategies`
+
+The public factory resolves component names from those registries and instantiates the model:
+
+```python
+from gfn import isn
+
+model = isn.create(
+    vocab_size=50000,
+    d_model=256,
+    scanner="gfn",
+    world="gfn",
+    emitter="gfn",
+)
+```
+
+This is the canonical public entry point for most users.
+
+## World Engine
+
+The default ISN world engine is `GFNPhysics`, which maintains a continuous latent state and updates it from scanner impulses. In `v2.7.3`, the integrator became a swappable component while preserving backward compatibility.
+
+Supported integrators in the default world engine are:
+
+- `euler`
+- `leapfrog`
+- `yoshida`
+
+`euler` remains the default for backward compatibility. The symplectic variants (`leapfrog` and `yoshida`) additionally maintain velocity internally and expose `final_velocity` in the world output.
+
+Example:
+
+```python
+from gfn import isn
+
+model = isn.create(
+    vocab_size=50000,
+    d_model=256,
+    world="gfn",
+    world_kwargs={"integrator": "leapfrog"},
+)
+```
+
+ISN also exposes alternative registered world engines such as `topological` and `parallel`, but they are different physics backends, not aliases for the default `GFNPhysics` integrator stack.
+
+## Stateful Operation
+
+Persistence comes from carrying the latent state across calls. `Model.forward()` accepts an optional `world_state`, and `Model.generate()` keeps both `world_state` and `scanner_state` internally while generating autoregressively.
+
+That means ISN can process long contexts by advancing the latent state rather than re-materializing a full attention history.
+
+## Output Contract
+
+The model returns a dictionary centered on:
+
+- `logits`
+- `energy_trace`
+- `world_coherence`
+- `emitted_embeddings`
+- `final_state`
+- `final_scanner_state`
+
+If a world engine already produces logits directly, the model uses them. Otherwise, logits are produced by the emitter from `emitted_embeddings`.
+
+## Complexity Notes
+
+ISN is designed around a persistent state whose size does not scale with sequence length in the same way as a quadratic attention matrix. In practice:
+
+- autoregressive generation advances the model one token at a time while reusing latent state,
+- the stored world state is constant-size with respect to the processed sequence length,
+- training-time memory depends on the chosen backpropagation strategy.
+
+When the `adjoint` training strategy is used, the world evolution can be differentiated with reduced memory usage, subject to the constraints of that strategy and its dependencies.

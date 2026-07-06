@@ -1,399 +1,428 @@
 # Advanced Configuration
 
-## Philosophy
+This guide explains how to configure GSSM using the **current runtime structure** rather than older config conventions.
 
-Advanced configuration allows you to adjust system behavior beyond default values. This section documents parameter interactions and optimization strategies.
+For low-level runtime behavior, see:
 
-## Configuration Hierarchy
+- `docs/gssm/technical/runtime/00-effective-defaults.md`
+- `docs/gssm/technical/runtime/01-hyperparameters.md`
 
-Configuration follows this hierarchy:
+## Configuration Model
 
-1. Code constants (gfn/constants.py) - lowest priority
-2. YAML configuration files - medium priority
-3. Command-line arguments - higher priority
-4. Environment variables - highest priority
+GSSM configuration is split between:
 
-For debugging, use the highest priority level. For production, use YAML files.
+- top-level `ManifoldConfig` fields such as `dim`, `depth`, `heads`, `rank`, `integrator`, `initial_spread`, `holographic`
+- nested `physics` fields such as topology, stability, embedding, readout, dynamics, hysteresis, singularities, and active inference
 
-## Model Parameters
-
-### Dimension and Depth
-
-Dimension (dim) and depth control model capacity.
-
-```yaml
-model:
-  dim: 512        # Embedding dimension
-  depth: 6        # Number of processing layers
-  rank: 64        # Rank for low-rank approximation
-  heads: 8        # Attention heads
-```
-
-**Guidelines:**
-
-- dim >= 4 * heads for good distribution
-- depth between 4 and 12 for most tasks
-- rank between dim/8 and dim/4 for accuracy/speed balance
-
-For large models:
-
-```yaml
-model:
-  dim: 1024
-  depth: 12
-  rank: 128
-  heads: 16
-```
-
-For small models (embedded, edge devices):
-
-```yaml
-model:
-  dim: 256
-  depth: 4
-  rank: 32
-  heads: 4
-```
-
-### Integrator Type
-
-The integrator affects accuracy and stability.
-
-```yaml
-model:
-  integrator_type: "leapfrog"  # Default, balanced
-  # integrator_type: "yoshida"  # More precise, slower
-  # integrator_type: "heun"     # More stable, less precise
-  # integrator_type: "forest_ruth"  # Alternative to Yoshida
-```
-
-## Physics Parameters
-
-### Friction
-
-Friction damps dynamics and prevents infinite oscillations.
-
-```yaml
-physics:
-  friction_scale: 0.02      # Main friction coefficient
-  default_friction: 0.002   # Base friction
-  velocity_friction_scale: 0.02  # Velocity-dependent friction
-```
-
-**Interactions:**
-
-- High friction + high LR = divergence
-- Low friction + low LR = slow convergence
-- Very low friction = persistent oscillations
-
-**Tuning:**
-
-For fast convergence: friction_scale = 0.05, LR = 1e-3
-
-For maximum stability: friction_scale = 0.1, LR = 1e-4
-
-For maximum exploration: friction_scale = 0.005, LR = 5e-4
-
-### Timestep
-
-The timestep (dt) controls integration granularity.
-
-```yaml
-physics:
-  dt: 0.05                  # Default timestep
-  leapfrog_substeps: 3      # Substeps per token
-```
-
-**Interactions:**
-
-- High dt + low substeps = unstable
-- Low dt + high substeps = stable but slow
-- dt * substeps = effective time per token
-
-**Typical combinations:**
-
-```yaml
-# Fast and unstable
-physics:
-  dt: 0.1
-  leapfrog_substeps: 1
-
-# Balanced (default)
-physics:
-  dt: 0.05
-  leapfrog_substeps: 3
-
-# Precise and slow
-physics:
-  dt: 0.02
-  leapfrog_substeps: 5
-```
-
-### Physical Regularization
-
-Loss weights control how much the model respects physics.
-
-```yaml
-physics:
-  lambda_h: 0.0      # Energy conservation
-  lambda_g: 0.00005  # Geodesic regularization
-  lambda_k: 0.0001   # Kinetic energy
-  lambda_n: 0.0      # Noether symmetries
-```
-
-**Effects:**
-
-- lambda_h > 0: The model conserves energy better but may underfit
-- lambda_g > 0: Trajectories are more geodesic
-- lambda_k > 0: Additional damping
-
-**Guidelines:**
-
-- For simple tasks: lambda_g = 0
-- For tasks that require reasoning: lambda_g = 0.0001
-- For maximum stability: lambda_h = 0.001, lambda_k = 0.001
-
-## Optimizer Parameters
-
-### Learning Rate
-
-The learning rate is the most important hyperparameter.
-
-```yaml
-training:
-  lr: 0.0001             # Default
-  warmup_steps: 100      # Warmup steps
-  warmup_ratio: 0.1      # Alternative warmup ratio
-```
-
-**Interactions:**
-
-- High LR + small batch = divergence
-- Low LR + large batch = slow convergence
-- Optimal LR depends on batch size and model
-
-**Schedule:**
-
-The system uses linear warmup + cosine decay:
+In practice, model creation usually looks like:
 
 ```python
-lr = base_lr * warmup_ratio (warmup)
-lr = base_lr * 0.5 * (1 + cos(pi * progress)) (decay)
+import gfn
+
+model = gfn.create(
+    "gssm",
+    vocab_size=1000,
+    dim=512,
+    depth=4,
+    heads=4,
+    physics={
+        "topology": {"type": "torus"},
+        "stability": {"integrator_type": "leapfrog"},
+    },
+)
 ```
 
-**Tuning for different scales:**
+## Real Configuration Resolution
 
-| Model Scale | Recommended LR |
-|------------------|----------------|
-| small (dim=256) | 5e-4 |
-| medium (dim=512) | 1e-4 |
-| large (dim=1024) | 5e-5 |
+The current runtime resolves configuration in this order:
 
-### Adam Parameters
+1. instantiate `ManifoldConfig`
+2. apply nested `physics={...}` overrides
+3. normalize flat kwargs into nested fields where possible
+4. synchronize top-level and nested values
+5. preserve explicit keys for downstream factory decisions
 
-```yaml
-training:
-  adam_beta1: 0.9       # Momentum
-  adam_beta2: 0.99      # RMSProp
-  adam_epsilon: 1e-7    # Stability
-  weight_decay: 0.001   # L2 regularization
-```
+This matters because some fields are **bidirectionally synchronized**:
 
-**Guidelines:**
+- `integrator` <-> `physics.stability.integrator_type`
+- `impulse_scale` <-> `physics.embedding.impulse_scale`
+- `rank` <-> `physics.topology.riemannian_rank`
+- `dynamics_type` <-> `physics.dynamics.type`
+- `trajectory_mode` <-> `physics.trajectory_mode`
+- `coupler_mode` <-> `physics.mixture.coupler_mode`
+- `holographic` <-> `physics.active_inference.holographic_geometry`
 
-- beta2 = 0.99 for noisy data
-- beta2 = 0.999 for clean data
-- weight_decay = 0.01 for severe overfitting
+So the safest way to document or debug a config is to think in terms of **effective runtime configuration**, not only raw input dictionaries.
 
-### Gradient Clipping
+## Top-Level Fields
 
-```yaml
-training:
-  grad_clip_norm: 1.0    # Norm clipping
-```
-
-Enable when:
-
-- Gradients explode during training
-- Loss oscillates strongly
-- After large LR changes
-
-## Initialization Parameters
-
-### Initialization Scales
-
-```yaml
-initialization:
-  init_std: 0.01        # Standard deviation
-  init_x0_scale: 0.01   # Position scale
-  init_v0_scale: 0.005  # Velocity scale
-  gate_bias_open: 1.0   # Open gate bias
-  gate_bias_closed: -3.0 # Closed gate bias
-```
-
-**Guidelines:**
-
-- Lower init_std for deep models
-- init_v0_scale < init_x0_scale to avoid initial oscillations
-- Low gate_bias_open for conservative gates
-
-## Preset Configurations
-
-### Stable Configuration
-
-For maximum production stability:
-
-```yaml
-model:
-  dim: 512
-  depth: 6
-  rank: 64
-  integrator_type: "leapfrog"
-
-physics:
-  friction_scale: 0.05
-  dt: 0.02
-  leapfrog_substeps: 5
-  lambda_g: 0.0001
-
-training:
-  lr: 5e-5
-  adam_beta2: 0.99
-  grad_clip_norm: 0.5
-  warmup_steps: 200
-```
-
-### Fast Configuration
-
-For fast iterative experiments:
-
-```yaml
-model:
-  dim: 256
-  depth: 4
-  rank: 32
-  integrator_type: "heun"
-
-physics:
-  friction_scale: 0.02
-  dt: 0.1
-  leapfrog_substeps: 1
-  lambda_g: 0.0
-
-training:
-  lr: 1e-3
-  warmup_steps: 50
-```
-
-### High-Precision Configuration
-
-For maximum trajectory quality:
-
-```yaml
-model:
-  dim: 512
-  depth: 8
-  rank: 128
-  integrator_type: "yoshida"
-
-physics:
-  friction_scale: 0.01
-  dt: 0.02
-  leapfrog_substeps: 5
-  lambda_g: 0.0002
-  lambda_h: 0.001
-
-training:
-  lr: 5e-5
-  adam_beta2: 0.999
-  grad_clip_norm: 1.0
-```
-
-## GPU Parameters
-
-### Memory Configuration
-
-```yaml
-gpu:
-  max_batch_size: 16    # Batch limit per GPU
-  precision: "float32"  # float32 or float16
-  cuda_kernel: true     # Use CUDA kernels
-```
-
-float16 can cut memory usage in half but may cause numerical instability.
-
-### Multi-GPU
-
-```bash
-# Distributed training
-torchrun --nproc_per_node=4 train.py --config ...
-```
-
-The system automatically parallelizes across multiple GPUs with DataParallel.
-
-## Configuration Debugging
-
-### Environment Variables
-
-```bash
-# Force CPU
-export GFN_DEVICE=cpu
-
-# Disable CUDA
-export GFN_USE_CUDA=0
-
-# Verbose logging
-export GFN_LOG_LEVEL=debug
-
-# Save all checks
-export GFN_SAFETY_CHECKS=all
-```
-
-### Gradient Logging
+These are the most important top-level parameters:
 
 ```python
-# In your script
-from gfn.utils import GradientMonitor
-
-monitor = GradientMonitor(model)
-for batch in dataloader:
-    loss = model(batch)
-    loss.backward()
-    monitor.log()
+model = gfn.create(
+    "gssm",
+    vocab_size=1000,
+    dim=512,
+    depth=4,
+    heads=4,
+    rank=32,
+    integrator="leapfrog",
+    initial_spread=0.1,
+    holographic=False,
+)
 ```
 
-### Performance Profiling
+### What they do
 
-```bash
-# Basic profiler
-python -m cProfile -s cumulative train.py | head -50
+- `dim`: base latent dimension used to build the state layout
+- `depth`: number of manifold layers
+- `heads`: number of latent heads
+- `rank`: low-rank geometry and mixer rank, synchronized with `physics.topology.riemannian_rank`
+- `integrator`: synchronized with `physics.stability.integrator_type`
+- `initial_spread`: scale used to initialize learned `x0` and `v0`
+- `holographic`: top-level holographic flag, merged with nested active-inference holographic geometry
 
-# Detailed profiler with PyTorch
-python -m torch.utils.bottleneck train.py
+## Nested `physics` Structure
+
+The most important nested sections are:
+
+- `topology`
+- `stability`
+- `dynamics`
+- `active_inference`
+- `embedding`
+- `readout`
+- `mixture`
+- `fractal`
+- `hysteresis`
+- `singularities`
+
+### Example
+
+```python
+import gfn
+
+model = gfn.create(
+    "gssm",
+    vocab_size=1000,
+    physics={
+        "topology": {
+            "type": "torus",
+            "riemannian_type": "low_rank",
+            "learnable_R": True,
+            "learnable_r": True,
+        },
+        "stability": {
+            "integrator_type": "yoshida",
+            "base_dt": 0.05,
+            "friction": 0.01,
+            "velocity_friction_scale": 0.02,
+            "velocity_saturation": 5.0,
+        },
+        "embedding": {
+            "mode": "linear",
+            "coord_dim": 16,
+        },
+        "readout": {
+            "type": "standard",
+        },
+    },
+)
 ```
 
-## Common Configuration Errors
+## Topology And Geometry
 
-**high lr + high friction = divergence**
+### `physics.topology.type`
 
-If the loss diverges, lower LR first.
+This declares the main topology:
 
-**high dt + low substeps = inaccurate trajectories**
+- `torus`
+- `euclidean`
+- `spherical`
+- `hyperbolic`
+- other registered analytical topologies
 
-If validation metrics are poor, increase dt or substeps.
+### `physics.topology.riemannian_type`
 
-**low rank = underfitting**
+This declares an optional learned geometry override such as:
 
-If the model does not learn, increase rank.
+- `low_rank`
+- `reactive`
+- `adaptive`
 
-**high lambda_g = underfitting**
+Important runtime behavior:
 
-If the loss does not decrease, reduce lambda_g to 0.
+- analytical topologies such as `torus` now win by default,
+- `riemannian_type` only overrides them when it was **explicitly requested**.
 
-## Version Notes
+That means:
 
-This documentation assumes GFN Framework v2.7.2.
+```python
+physics={"topology": {"type": "torus"}}
+```
 
----
+does **not** silently become `reactive` just because the schema has `riemannian_type='reactive'`.
 
-**DepthMuun (GFN v2)**
+### Recommended patterns
+
+Use:
+
+```python
+physics={"topology": {"type": "torus"}}
+```
+
+when you want analytical torus behavior.
+
+Use:
+
+```python
+physics={"topology": {"type": "torus", "riemannian_type": "low_rank"}}
+```
+
+when you intentionally want learned geometry to override the analytical torus default.
+
+## Stability And Integrators
+
+The most important runtime stability fields are:
+
+```python
+physics={
+    "stability": {
+        "integrator_type": "leapfrog",
+        "base_dt": 0.1,
+        "friction": 0.01,
+        "velocity_friction_scale": 0.0,
+        "velocity_saturation": 0.0,
+        "enable_trace_normalization": True,
+    }
+}
+```
+
+### Current baseline
+
+A clean baseline is:
+
+- `integrator_type = "leapfrog"`
+- `base_dt = 0.1`
+- `friction = 0.01`
+- `velocity_friction_scale = 0.0`
+- `enable_trace_normalization = True`
+
+### Practical tuning
+
+If training is unstable:
+
+- reduce `base_dt`,
+- keep `leapfrog`,
+- increase `friction` carefully,
+- consider enabling `velocity_saturation`,
+- only then try more structural changes.
+
+If dynamics feel too damped:
+
+- reduce `friction`,
+- reduce `velocity_friction_scale`,
+- keep the topology fixed while tuning,
+- compare with a lower-order but simpler solver such as `heun` only when necessary.
+
+## Embedding Configuration
+
+Embedding is configured through:
+
+```python
+physics={
+    "embedding": {
+        "type": "standard",
+        "mode": "linear",
+        "coord_dim": 16,
+        "impulse_scale": 1.0,
+        "omega_0": 30.0,
+    }
+}
+```
+
+Important modes:
+
+- `linear`
+- `lookup`
+- `binary`
+- `siren`
+- `continuous`
+
+### Important runtime caveat: `continuous`
+
+The embedding component supports `mode="continuous"`, but the main model forward path currently resolves forces through `self.embedding(input_ids)` unless `force_manual` is supplied.
+
+That means continuous-input workflows should be treated as a special path and tested carefully instead of being assumed to work exactly like token-id mode in every existing training script.
+
+## Readout Configuration
+
+Readout is configured through:
+
+```python
+physics={
+    "readout": {
+        "type": "standard",
+    }
+}
+```
+
+Available modes:
+
+- `standard`
+- `implicit`
+- `identity`
+
+### Important current behavior
+
+`holographic=True` no longer converts `standard` into `identity` automatically.
+
+If you want latent-state output, use:
+
+```python
+physics={"readout": {"type": "identity"}}
+```
+
+explicitly.
+
+For toroidal topologies, `standard` and `implicit` readouts use `[sin(x), cos(x)]` features internally.
+
+## Dynamics And Mixing
+
+Two related high-level controls are:
+
+- `dynamics_type` or `physics.dynamics.type`
+- `coupler_mode` or `physics.mixture.coupler_mode`
+
+Common dynamics modes:
+
+- `direct`
+- `residual`
+- `mix`
+- `gated`
+- `stochastic`
+
+Use `direct` unless you are intentionally exploring alternative routing behavior.
+
+## Holographic And Identity Paths
+
+There are two distinct ideas here:
+
+- `holographic`: a configuration flag merged between top-level and active-inference config
+- `identity` readout: a concrete readout mode that returns latent state directly
+
+Do not assume they are interchangeable.
+
+Recommended rule:
+
+- if you want latent supervision, set `readout.type="identity"`
+- if you want standard token logits, keep `readout.type="standard"`
+
+## Practical Configurations
+
+### Conservative baseline
+
+```python
+import gfn
+
+model = gfn.create(
+    "gssm",
+    vocab_size=1000,
+    dim=512,
+    depth=4,
+    heads=4,
+    initial_spread=0.1,
+    physics={
+        "topology": {
+            "type": "torus",
+        },
+        "stability": {
+            "integrator_type": "leapfrog",
+            "base_dt": 0.1,
+            "friction": 0.01,
+            "enable_trace_normalization": True,
+        },
+        "embedding": {
+            "mode": "linear",
+        },
+        "readout": {
+            "type": "standard",
+        },
+    },
+)
+```
+
+### Learned-geometry experiment
+
+```python
+import gfn
+
+model = gfn.create(
+    "gssm",
+    vocab_size=1000,
+    rank=32,
+    physics={
+        "topology": {
+            "type": "torus",
+            "riemannian_type": "low_rank",
+            "riemannian_rank": 32,
+        },
+        "stability": {
+            "integrator_type": "yoshida",
+            "base_dt": 0.05,
+        },
+    },
+)
+```
+
+### Latent-state supervision
+
+```python
+import gfn
+
+model = gfn.create(
+    "gssm",
+    vocab_size=1000,
+    holographic=True,
+    physics={
+        "readout": {
+            "type": "identity",
+        }
+    },
+)
+```
+
+In this case, the downstream loss must be compatible with latent-state output rather than standard token NLL alone.
+
+## Common Mistakes
+
+### Assuming a raw table value is the runtime default
+
+Do not copy values from `config/defaults.py` and assume the model uses them unchanged. The effective runtime configuration also depends on:
+
+- schema defaults,
+- normalization,
+- sync rules,
+- explicit-key tracking,
+- geometry and integrator factories.
+
+### Assuming `torus` always means torus analytical geometry
+
+This is only guaranteed when `riemannian_type` was not explicitly used to override it.
+
+### Assuming `holographic=True` implies identity readout
+
+That silent conversion was removed. Request `identity` explicitly.
+
+### Assuming `continuous` embedding is drop-in for every script
+
+Continuous mode exists in the embedding component, but the main forward path still needs careful handling because force resolution is centered on `input_ids` unless `force_manual` is used.
+
+## Documentation Rule
+
+When you add advanced-configuration examples elsewhere:
+
+- prefer public `gfn.create("gssm", ...)`,
+- show both top-level and nested config paths,
+- use runtime-effective defaults,
+- avoid legacy names such as `friction_scale`, `default_friction`, `dt`, or `physics_config` when the current code uses different fields.

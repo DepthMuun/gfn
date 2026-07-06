@@ -1,9 +1,5 @@
 """
-Hysteresis Components — GFN V5
-================================
-Migrated and modularized from gfn_original/nn/layers/physics/hysteresis.py
-Provides stateful memory dynamics with ghost force readout for manifold evolution.
-Decouples stateful hysteresis dynamics from core integrator logic.
+Stateful hysteresis module with optional ghost-force readout.
 """
 
 import torch
@@ -14,14 +10,13 @@ from ...constants import EPS
 from ...config.schema import HysteresisConfig
 
 
-# Default values from original GFN
 DEFAULT_HYSTERESIS_DECAY = 0.95
 GHOST_FORCE_SCALE = 0.1
 
 
 class HysteresisModule(nn.Module):
     """
-    Encapsulates Hysteresis (Memory) state management and Ghost Force readout.
+    Encapsulates hysteresis state management and ghost-force readout.
     
     Provides stateful memory dynamics that persist across timesteps, enabling
     the model to maintain internal state information. The ghost force readout

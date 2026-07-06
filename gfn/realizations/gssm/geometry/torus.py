@@ -1,7 +1,5 @@
 """
-ToroidalRiemannianGeometry — GFN V5
-Full analytical torus geometry (canonical implementation).
-Replaces old stub. Migrated from gfn/geo/topological/toroidal_geometry.py
+Analytical torus geometry with Christoffel-based curvature response.
 """
 
 import torch
@@ -20,7 +18,7 @@ from ..registry import register_geometry
 from ..physics.components.friction import FrictionGate
 
 # Torus-specific constants
-TOROIDAL_CURVATURE_SCALE = 0.1
+DEFAULT_TOROIDAL_CURVATURE_SCALE = 0.1
 CLAMP_MIN_STRONG = 1e-4
 EPSILON_SMOOTH = 1e-9
 
@@ -52,28 +50,24 @@ class ToroidalRiemannianGeometry(BaseGeometry):
 
         topo = self.config.topology
         
-        # FIX: Make R and r learnable according to GFN_Paper_Complete.md Section 5.1
-        # "where R_i are the (learnable) radii"
-        # AND 01_HYPER_TORUS.md Section 2.2: R is major radius, r is minor radius
         learnable_R = getattr(topo, 'learnable_R', True)
         learnable_r = getattr(topo, 'learnable_r', True)
         
         if learnable_R:
-            # R as learnable parameter
             self.R = nn.Parameter(torch.tensor(topo.R, dtype=torch.float32))
         else:
-            # R as non-trainable buffer
             self.register_buffer('R', torch.tensor(topo.R, dtype=torch.float32))
             
         if learnable_r:
-            # r as learnable parameter
             self.r = nn.Parameter(torch.tensor(topo.r, dtype=torch.float32))
         else:
-            # r as non-trainable buffer
             self.register_buffer('r', torch.tensor(topo.r, dtype=torch.float32))
         
         self.topology = topo.type.lower()
         self.clamp_val = self.config.stability.curvature_clamp
+        self.toroidal_curvature_scale = getattr(
+            self.config.stability, 'toroidal_curvature_scale', DEFAULT_TOROIDAL_CURVATURE_SCALE
+        )
 
         active_cfg = self.config.active_inference
         self.active_cfg = active_cfg
@@ -126,9 +120,9 @@ class ToroidalRiemannianGeometry(BaseGeometry):
             v_th, v_ph = v[..., i], v[..., i + 1]
             w_th, w_ph = w[..., i], w[..., i + 1]
             denom = torch.clamp(self.R + self.r * torch.cos(th), min=CLAMP_MIN_STRONG)
-            term_th = (denom * torch.sin(th) / (self.r + EPSILON_SMOOTH)) * TOROIDAL_CURVATURE_SCALE
+            term_th = (denom * torch.sin(th) / (self.r + EPSILON_SMOOTH)) * self.toroidal_curvature_scale
             gamma[..., i] = term_th * (v_ph * w_ph)
-            term_ph = (-(self.r * torch.sin(th)) / (denom + EPSILON_SMOOTH)) * TOROIDAL_CURVATURE_SCALE
+            term_ph = (-(self.r * torch.sin(th)) / (denom + EPSILON_SMOOTH)) * self.toroidal_curvature_scale
             gamma[..., i + 1] = term_ph * (v_ph * w_th + v_th * w_ph)
         return gamma
 
@@ -142,7 +136,7 @@ class ToroidalRiemannianGeometry(BaseGeometry):
         if HAS_CUDA_EXT and x.is_cuda and v is not None and v.is_cuda:
             gamma = toroidal_cuda.forward(
                 x, v, self.R, self.r, 
-                TOROIDAL_CURVATURE_SCALE, EPSILON_SMOOTH, CLAMP_MIN_STRONG
+                self.toroidal_curvature_scale, EPSILON_SMOOTH, CLAMP_MIN_STRONG
             )
         else:
             is_odd = (self.dim % 2 != 0)
@@ -157,8 +151,8 @@ class ToroidalRiemannianGeometry(BaseGeometry):
             term_th = (denom * torch.sin(th) / (self.r + EPSILON_SMOOTH))
             term_ph = -(self.r * torch.sin(th)) / (denom + EPSILON_SMOOTH)
     
-            gamma_th = term_th * (v_ph ** 2) * TOROIDAL_CURVATURE_SCALE
-            gamma_ph = 2.0 * term_ph * v_ph * v_th * TOROIDAL_CURVATURE_SCALE
+            gamma_th = term_th * (v_ph ** 2) * self.toroidal_curvature_scale
+            gamma_ph = 2.0 * term_ph * v_ph * v_th * self.toroidal_curvature_scale
     
             half = x.shape[-1] // 2
             gamma = torch.zeros_like(x)
@@ -195,8 +189,7 @@ class ToroidalRiemannianGeometry(BaseGeometry):
                     soft_m = torch.sigmoid(5.0 * (potential - self.singularity_threshold))
                     gamma = gamma * (1.0 + soft_m * (self.black_hole_strength - 1.0))
 
-        # CONTRACT: Always return (gamma_pure, mu) — engine applies friction, not geometry.
-        # This unifies the contract with LowRankRiemannianGeometry (P0.2 fix).
+        # The engine applies friction separately from the geometric response.
         return gamma, mu
 
     def project(self, x: torch.Tensor) -> torch.Tensor:
@@ -216,7 +209,6 @@ class FlatToroidalRiemannianGeometry(BaseGeometry):
         self.num_heads = num_heads
         topo = self.config.topology
         
-        # FIX: Make R and r learnable also in FlatTorus
         learnable_R = getattr(topo, 'learnable_R', True)
         learnable_r = getattr(topo, 'learnable_r', True)
         

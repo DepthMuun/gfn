@@ -1,0 +1,19 @@
+{
+  "device": "cuda",
+  "n_params": 166087,
+  "train_time_sec": 7152.867666721344,
+  "n_steps": 36380,
+  "early_exit_acc": 1,
+  "all_reached_early_exit": true,
+  "train": {
+    "avg_pixel_acc": 1.0,
+    "n_perfect": 25,
+    "n_total": 25
+  },
+  "val": {
+    "task_accuracy": 0.0,
+    "pixel_accuracy": 0.1764249337897117,
+    "num_tasks": 20,
+    "tasks_perfect": 0
+  }
+}

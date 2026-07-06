@@ -1,7 +1,5 @@
 """
-ForestRuthIntegrator — GFN V5
-Forest-Ruth 4th-order symplectic integrator.
-Migrated from gfn/nn/physics/integrators/symplectic/forest_ruth.py
+Forest-Ruth fourth-order symplectic integrator.
 """
 
 import torch

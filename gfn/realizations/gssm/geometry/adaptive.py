@@ -1,7 +1,5 @@
 """
-AdaptiveRiemannianGeometry — GFN V5
-Adaptive rank Christoffel symbol decomposition.
-Migrated from gfn/geo/riemannian/adaptive_geometry.py
+Adaptive-rank geometry that changes curvature capacity based on state complexity.
 """
 
 import torch

@@ -1,6 +1,5 @@
 """
-Métricas de evaluación — GFN V5
-Calcula métricas de evaluación para modelos de secuencia.
+Evaluation metrics for sequence and benchmark-style GSSM tasks.
 """
 
 import torch

@@ -1,9 +1,5 @@
 """
-Singularity Components — GFN V5
-================================
-Migrated and modularized from gfn_original/nn/layers/physics/singularities.py
-Provides smooth gating/damping logic to prevent numerical explosions
-near manifold singularities where Christoffel symbols diverge.
+Smooth gating and damping utilities for regions near manifold singularities.
 """
 
 import torch

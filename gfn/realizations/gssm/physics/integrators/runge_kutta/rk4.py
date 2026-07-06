@@ -1,7 +1,5 @@
 """
-RK4Integrator — GFN V5
-Classic 4th-order Runge-Kutta integrator.
-New file (port of legacy euler.py + rk4.py)
+Classic fourth-order Runge-Kutta integrator for non-symplectic dynamics.
 """
 
 import torch

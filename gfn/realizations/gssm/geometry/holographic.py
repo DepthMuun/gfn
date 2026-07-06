@@ -1,7 +1,5 @@
 """
-HolographicRiemannianGeometry — GFN V5
-AdS/CFT-inspired holographic extensions (Paper 18).
-Migrated from gfn/geo/physical/holographic_geometry.py
+Holographic geometry wrapper that augments a base geometry with a radial field.
 """
 
 import torch

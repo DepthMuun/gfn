@@ -1,9 +1,5 @@
 """
-ISN Topological Physics Engine — Modular V5
-======================================
-O(1) Memory Causal Topological Engine.
-Uses high-performance C++ Bilinear Geodesic Operators.
-Includes Reconciliation Layer for 1:1 Training Compatibility.
+Topological world engine based on bilinear operators and optional C++ kernels.
 """
 
 import os

@@ -1,126 +1,166 @@
 # Leapfrog Integrator
 
-## What is it?
+This document describes the **current `LeapfrogIntegrator` implementation** used by GSSM.
 
-The Leapfrog (also called Störmer-Verlet or Velocity Verlet) is a second-order symplectic integrator. It is the default integrator in GSSM because it provides the best balance of stability, accuracy, and computational cost.
+The authoritative code is:
 
-The name "leapfrog" comes from the way position and velocity "leap over" each other in time: velocity is computed at half-time steps while position is computed at full time steps.
+- `gfn/realizations/gssm/physics/integrators/symplectic/leapfrog.py`
 
----
+## What It Is In The Current Runtime
 
-## The Algorithm
+`LeapfrogIntegrator` is the current default integrator selected by the factory.
 
-Leapfrog uses a "kick-drift-kick" pattern:
+It is still a symplectic kick-drift-kick style solver, but the present runtime implementation is not just the bare textbook formula. It includes:
 
-### Step 1: Half-Step Velocity (Kick)
+- explicit friction handling,
+- velocity saturation through `BaseIntegrator`,
+- torus-aware topology wrapping,
+- an optional fused CUDA fast path for low-rank geometries.
 
-Update velocity using the acceleration at the current position:
+## Current Slow-Path Algorithm
 
-$$v_{n+1/2} = v_n + \frac{\Delta t}{2} \cdot a(x_n, v_n)$$
+In the Python fallback path, one step effectively does:
 
-Where:
-- $v_n$ is velocity at time step $n$
-- $a(x_n, v_n)$ is the acceleration computed by the PhysicsEngine
-- $\Delta t$ is the time step
+1. resolve friction coefficient at the current state,
+2. compute acceleration,
+3. build a non-friction acceleration estimate,
+4. perform a half-kick velocity update with damping in the denominator,
+5. clamp velocity,
+6. drift position and wrap topology,
+7. resolve friction again at the updated position,
+8. recompute acceleration using `v_half`,
+9. average the two acceleration estimates,
+10. finish the velocity update with averaged friction,
+11. clamp velocity again.
 
-### Step 2: Full-Step Position (Drift)
+That is more faithful to the current code than the frictionless textbook version.
 
-Update position using the half-step velocity:
+## Friction-Aware Update
 
-$$x_{n+1} = x_n + \Delta t \cdot v_{n+1/2}$$
+The current update uses:
 
-### Step 3: Re-evaluate Acceleration
+```text
+a1_nf = a1 + mu1 * v
+v_half = (v + 0.5 * dt * a1_nf) / (1 + 0.5 * dt * mu1)
+```
 
-Compute acceleration at the new position:
+and later:
 
-$$a_{n+1} = a(x_{n+1}, v_{n+1/2})$$
+```text
+a2_nf = a2 + mu2 * v_half
+a_avg = (a1_nf + a2_nf) / 2
+mu_avg = (mu1 + mu2) / 2
+v_next = (v + dt * a_avg) / (1 + dt * mu_avg)
+```
 
-### Step 4: Half-Step Velocity (Kick)
+So the leapfrog solver is currently adapted to the engine's centralized friction design rather than pretending the system is frictionless.
 
-Complete the velocity update:
+## Topology Handling
 
-$$v_{n+1} = v_{n+1/2} + \frac{\Delta t}{2} \cdot a_{n+1}$$
+After the drift update, the integrator resolves topology through the shared helper:
 
----
+- torus -> `atan2(sin(x), cos(x))`
+- Euclidean -> identity
 
-## With Friction
+This means position wrapping is part of the actual leapfrog runtime path.
 
-When friction is present, the algorithm becomes:
+## Velocity Saturation
 
-$$v_{n+1/2} = \frac{v_n + \frac{\Delta t}{2} \cdot a_n}{1 + \frac{\Delta t}{2} \cdot \mu}$$
+Velocity clamping or saturation also comes from the shared base helper.
 
-$$x_{n+1} = x_n + \Delta t \cdot v_{n+1/2}$$
+If:
 
-$$v_{n+1} = \frac{v_{n+1/2} + \frac{\Delta t}{2} \cdot a_{n+1}}{1 + \frac{\Delta t}{2} \cdot \mu}$$
+- `stability.velocity_saturation > 0`
 
-Where $\mu$ is the friction coefficient.
+then the clamp is differentiable:
 
----
+```text
+tanh(v / sat) * sat
+```
 
-## Properties
+Otherwise the fallback is hard clamping.
 
-| Property | Value |
-|----------|-------|
-| **Order** | 2nd order (error ~ $O(\Delta t^3)$ per step) |
-| **Symplectic** | Yes (preserves phase space volume) |
-| **Time-reversible** | Yes |
-| **Force evaluations** | 2 per step |
-| **Energy drift** | Minimal over long times |
+So leapfrog inherits this runtime safety mechanism automatically.
 
----
+## CUDA Fast Path
 
-## Why it Works
+There is an optimized fused CUDA path when:
 
-### Symplectic Property
+- CUDA extensions are available,
+- geometry is `LowRankRiemannianGeometry` or `PaperLowRankRiemannianGeometry`,
+- external force is present,
+- tensors are on CUDA.
 
-Leapfrog preserves the symplectic 2-form $\omega = dp \wedge dq$ in phase space. This means:
+That fused path bundles:
 
-- Energy oscillates around the true value but doesn't drift systematically
-- Long-term behavior remains qualitatively correct
-- Good for Hamiltonian systems
+- low-rank geometry tensors,
+- friction parameters,
+- velocity scaling,
+- velocity saturation,
+- singularity parameters,
+- and gate parameters.
 
-### Time Reversibility
+This is important because the current performance characteristics of leapfrog depend strongly on whether that path is available.
 
-If you reverse time (flip $v \to -v$ and integrate backwards), you return to the original state exactly. This implies:
+## Practical Properties
 
-$$x_{-n} = x_0 \quad \text{and} \quad v_{-n} = -v_0$$
+In the current runtime, leapfrog is still the best default description for:
 
-when integrated backwards from $(x_n, -v_n)$.
+- stable geometry-aware training,
+- standard GSSM sequence evolution,
+- the most battle-tested solver path in the codebase.
 
-### Error Analysis
+The most accurate high-level summary is:
 
-Local truncation error per step: $O(\Delta t^3)$
+- symplectic-style,
+- friction-aware,
+- topology-aware,
+- optionally CUDA-fused.
 
-Global error after $N$ steps: $O(\Delta t^2)$
+## Relationship To Verlet
 
-The error doesn't accumulate catastrophically due to the symplectic property.
+The repo also contains `VerletIntegrator`, but the current implementations are not literally the same code path.
 
----
+`VerletIntegrator` uses:
 
-## When to Use
+- explicit position update with `x + v dt + 0.5 a dt^2`
+- then recomputes acceleration and updates velocity
 
-**Always use Leapfrog for:**
-- Training (most stable)
-- Long sequences (energy conservation)
-- Production systems (reliable)
-- When stability matters more than extreme accuracy
+`LeapfrogIntegrator` uses:
 
-**Don't use when:**
-- You need 4th order accuracy (use Yoshida instead)
-- Non-Hamiltonian dynamics dominate
+- the half-kick / drift / corrected-kick pattern,
+- plus explicit friction averaging.
 
----
+So they are related symplectic methods, but this doc should not oversimplify them as interchangeable line-for-line implementations.
 
-## Relationship to Verlet
+## When To Use It
 
-Leapfrog and Verlet are mathematically equivalent but implemented differently:
+Use leapfrog when:
 
-- **Leapfrog**: Computes velocity at half-integer time steps
-- **Verlet**: Computes position using $x_{n+1} = 2x_n - x_{n-1} + a_n \Delta t^2$
+- you want the current default,
+- you care about stable training,
+- you want the path most aligned with the current docs and factory behavior.
 
-They produce identical trajectories given the same initial conditions.
+Consider other solvers when:
 
----
+- you need a higher-order symplectic method such as Yoshida,
+- you explicitly want the `adaptive` wrapper path,
+- you are testing non-symplectic alternatives.
 
-*File: technical/0_architecture/math/integrators/leapfrog.md*
-*Last Updated: 2026-04-02*
+## What This Document Should Not Claim
+
+It would be inaccurate to claim that:
+
+- the current runtime leapfrog is just the exact textbook frictionless formula,
+- it has no topology-aware wrapping,
+- it has no CUDA specialization,
+- it is identical in implementation to the repo's Verlet integrator.
+
+Those claims do not match the current code.
+
+## Runtime Cross-References
+
+- `gfn/realizations/gssm/physics/integrators/symplectic/leapfrog.py`
+- `gfn/realizations/gssm/physics/integrators/base.py`
+- `gfn/realizations/gssm/physics/engine.py`
+- `docs/gssm/technical/0_architecture/math/02_integrators.md`

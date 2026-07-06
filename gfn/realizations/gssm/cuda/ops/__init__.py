@@ -22,17 +22,20 @@ def _get_op(module_path: str, name: str):
         return None
 
 # ── Geometry ──────────────────────────────────────────────────────────────────
-christoffel_cuda_fwd = _get_op("gfn_cuda", "compute_christoffel_symbols_fwd")
-christoffel_cuda_bwd = _get_op("gfn_cuda", "compute_christoffel_symbols_bwd")
+christoffel_cuda_fwd     = _get_op("gfn_cuda", "compute_christoffel_symbols_fwd")
+christoffel_cuda_bwd     = _get_op("gfn_cuda", "compute_christoffel_symbols_bwd")
 low_rank_christoffel_fwd = _get_op("gfn_cuda", "low_rank_christoffel_fwd")
 low_rank_christoffel_bwd = _get_op("gfn_cuda", "low_rank_christoffel_bwd")
-toroidal_christ_fwd = _get_op("gfn_cuda", "toroidal_geo_christoffel_fwd")
+toroidal_christ_fwd      = _get_op("gfn_cuda", "toroidal_geo_christoffel_fwd")
+
+# New: standalone toroidal wrap kernel
+toroidal_wrap_fwd        = _get_op("gfn_cuda", "toroidal_wrap_fwd")
 
 # ── Integrators ───────────────────────────────────────────────────────────────
-heun_fused       = _get_op("gfn_cuda", "heun_fwd")
-leapfrog_fused   = _get_op("gfn_cuda", "leapfrog_fwd")
-yoshida_fused    = _get_op("gfn_cuda", "yoshida_fwd")
-rk4_fused        = _get_op("gfn_cuda", "rk4_fwd")
+heun_fused     = _get_op("gfn_cuda", "heun_fwd")
+leapfrog_fused = _get_op("gfn_cuda", "leapfrog_fwd")
+yoshida_fused  = _get_op("gfn_cuda", "yoshida_fwd")
+rk4_fused      = _get_op("gfn_cuda", "rk4_fwd")
 
 # ── Loss ──────────────────────────────────────────────────────────────────────
 toroidal_loss_fwd = _get_op("gfn_cuda", "toroidal_distance_loss_fwd")
@@ -47,6 +50,7 @@ __all__ = [
     "CUDA_AVAILABLE",
     "christoffel_cuda_fwd", "christoffel_cuda_bwd",
     "low_rank_christoffel_fwd", "low_rank_christoffel_bwd",
-    "toroidal_christ_fwd", "heun_fused", "leapfrog_fused",
-    "yoshida_fused", "rk4_fused", "toroidal_loss_fwd", "toroidal_loss_bwd"
+    "toroidal_christ_fwd", "toroidal_wrap_fwd",
+    "heun_fused", "leapfrog_fused", "yoshida_fused", "rk4_fused",
+    "toroidal_loss_fwd", "toroidal_loss_bwd",
 ]

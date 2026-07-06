@@ -1,126 +1,128 @@
 # Euclidean Geometry
 
-## What is Euclidean Space?
+This document describes the **current `EuclideanGeometry` implementation**.
 
-Euclidean space is the familiar flat geometry of everyday experience: $\mathbb{R}^n$.
+The authoritative code is:
 
-Unlike the torus, Euclidean space is:
-- **Unbounded**: extends infinitely in all directions
-- **Flat**: zero curvature everywhere
-- **Linear**: straight lines are truly straight
+- `gfn/realizations/gssm/geometry/euclidean.py`
 
-Think of it as: "Regular flat space with no wrapping."
+## What It Does
 
----
+`EuclideanGeometry` is the simplest registered geometry in the current runtime.
 
-## Mathematical Definition
+Its behavior is exactly what the code suggests:
 
-### Metric Tensor
+- metric tensor is identity-like,
+- Christoffel symbols are zero,
+- projection is identity,
+- distance is ordinary Euclidean norm.
 
-The metric is simply the identity matrix:
+## Metric
 
-$$g_{ij} = \delta_{ij} = \begin{cases} 1 & \text{if } i = j \\ 0 & \text{if } i \neq j \end{cases}$$
+The implementation returns:
 
-In matrix form:
-$$g = I_n = \begin{pmatrix} 1 & 0 & \cdots & 0 \\ 0 & 1 & \cdots & 0 \\ \vdots & \vdots & \ddots & \vdots \\ 0 & 0 & \cdots & 1 \end{pmatrix}$$
+```python
+torch.ones_like(x)
+```
 
-### Distance
+for `metric_tensor(x)`.
 
-Standard Euclidean distance:
-$$d(x, y) = \sqrt{\sum_i (x_i - y_i)^2}$$
+So in the current runtime the Euclidean metric is represented as a diagonal per-coordinate weight tensor of ones, not as an explicit dense identity matrix.
 
----
+That distinction matters because other runtime utilities, such as metric-aware normalization, are written to accept diagonal forms too.
 
-## Christoffel Symbols
+## Curvature
 
-### Result
+`christoffel_symbols(x)` returns:
 
-For Euclidean space, ALL Christoffel symbols are zero:
+```python
+torch.zeros_like(x)
+```
 
-$$\Gamma^k_{ij} = 0 \quad \text{for all } i, j, k$$
+So the Euclidean geometry contributes no analytical curvature term of its own.
 
-### Physical Meaning
+In practical engine terms, this means the acceleration will come from:
 
-**No geometric force**:
-$$a_{geo} = -\Gamma(x, v) = 0$$
+- friction,
+- external force,
+- optional hysteresis,
+- optional stochasticity,
+- optional curiosity,
 
-The manifold exerts no "curvature force" on trajectories.
+but not from Euclidean geometric curvature.
 
-**Straight-line motion**:
-Objects move in straight lines unless external forces act.
+## Projection
 
----
+`project(x)` is identity.
 
-## Implications for GSSM
+So Euclidean geometry itself does not wrap or constrain coordinates.
 
-### Simpler Dynamics
+Important practical caveat:
 
-Without geometric forces:
-$$\frac{dv}{dt} = F_{ext} - \mu v$$
+- if you use Euclidean geometry, boundedness must come from other mechanisms,
+- not from geometry projection.
 
-Just external force + friction.
+## Distance
 
-### Unbounded State
+`dist(x1, x2)` is:
 
-Positions can grow indefinitely:
-- No wrapping to $[-\pi, \pi]$
-- State can explode if unchecked
-- Requires stronger regularization
+```python
+torch.norm(x1 - x2, dim=-1)
+```
 
-### When to Use
+So the distance path is the standard Euclidean norm in the last dimension.
 
-**Use Euclidean when**:
-- Problem has natural linear structure
-- Boundedness is not required
-- Simplicity is preferred
-- Working with continuous regression
+## Return Contract
 
-**Don't use when**:
-- Stability is critical
-- Periodic patterns exist
-- State explosion is a risk
+Unlike torus or low-rank, `EuclideanGeometry` does not override `forward(...)`.
 
----
+That means it inherits the fallback `BaseGeometry.forward(...)` behavior.
 
-## Comparison with Torus
+Important consequence:
 
-| Property | Euclidean | Torus |
-|----------|-----------|-------|
-| Curvature | Flat (0) | Variable |
-| Bounded | No | Yes |
-| Geometric force | None | Present |
-| Stability | Lower | Higher |
-| Complexity | Simple | Rich |
-| Wrapping | None | Periodic |
+- in practice, with Euclidean Christoffels equal to zero, the base path yields zero geometry acceleration and zero geometry-side friction output.
 
----
+So the engine will usually rely on:
 
-## Normalization Differences
+- fallback friction from config,
+- and the non-geometry force terms.
 
-### Position
+## When It Is A Good Fit
 
-**Euclidean**: Identity (no operation)
-$$x_{norm} = x$$
+Euclidean geometry makes sense when:
 
-**Torus**: Wrap to $[-\pi, \pi]$
-$$x_{norm} = \arctan_2(\sin x, \cos x)$$
+- you want the simplest flat baseline,
+- periodic structure is not meaningful,
+- you explicitly do not want analytical curvature.
 
-### Velocity
+It is less safe when:
 
-Same for both: clamp + RMS norm
+- you want bounded latent coordinates,
+- you rely on topology itself for stability,
+- toroidal wrapping is part of the intended inductive bias.
 
----
+## Normalization Interaction
 
-## Why Torus is Default
+With Euclidean topology, the registry currently chooses:
 
-Despite Euclidean simplicity, torus is the GSSM default because:
+- identity for position,
+- metric-aware velocity normalization if geometry is passed through,
+- otherwise tangent velocity normalization.
 
-1. **Stability**: Bounded state prevents explosion
-2. **Generalization**: Works for most problems
-3. **Physics**: Curvature adds useful structure
-4. **Safety**: Fail-safe behavior
+So even though the geometry is flat, velocity control can still come from the normalization stack.
 
----
+## What This Document Should Not Claim
 
-*File: technical/0_architecture/math/geometry/euclidean.md*
-*Last Updated: 2026-04-02*
+It would be inaccurate to claim that:
+
+- Euclidean geometry itself provides any wrapping,
+- Euclidean geometry provides curvature-based friction,
+- Euclidean space is automatically safe just because the geometry is simple.
+
+Those claims do not match the current runtime.
+
+## Runtime Cross-References
+
+- `gfn/realizations/gssm/geometry/euclidean.py`
+- `gfn/realizations/gssm/geometry/base.py`
+- `docs/gssm/technical/0_architecture/math/components/normalization.md`

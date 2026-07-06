@@ -42,9 +42,9 @@ A differential realization using continuous dynamics on Riemannian manifolds.
 
 ### ISN (Inertial State Network)
 
-A simulative realization using discrete entity-based dynamics.
+A simulative realization using a persistent latent world with modular dynamics.
 
-- **Documentation**: [docs/ISN/README.md](ISN/README.md)
+- **Documentation**: [docs/isn/README.md](isn/README.md)
 - **Type**: Simulative Flow
 - **Complexity**: O(1) or O(world_size)
 
@@ -82,7 +82,7 @@ GFN Framework
     ├── ARCHITECTURES.md        # (duplicate for navigation)
     ├── realization_template.md # Template for new realizations
     ├── gssm/                   # G-SSM documentation
-    └── ISN/                    # ISN documentation
+    └── isn/                    # ISN documentation
 ```
 
 ## Resources

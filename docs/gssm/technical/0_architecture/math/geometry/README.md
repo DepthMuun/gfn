@@ -1,86 +1,107 @@
 # Geometries
 
-This directory contains mathematical explanations of all manifold geometries available in GSSM.
+This directory contains the geometry-specific notes for the GSSM runtime.
 
----
+The safest way to read this folder is:
 
-## Available Geometries
+- use [03_geometry.md](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/0_architecture/math/03_geometry.md) for the shared runtime contract,
+- then use the files in this folder for geometry-specific details.
 
-| File | Geometry | Curvature | Bounded | Use Case |
-|------|----------|-----------|---------|----------|
-| `torus.md` | Torus $T^n$ | Variable | Yes | **Default** - General use |
-| `euclidean.md` | Euclidean $\mathbb{R}^n$ | Flat (0) | No | Simple tasks |
-| `low_rank.md` | Low-Rank Approximation | Variable | Yes | High dimensions |
+## What A Geometry Means In The Current Runtime
 
----
+A geometry module can provide:
 
-## Quick Selection Guide
+- a metric tensor,
+- a curvature or Christoffel-like contribution,
+- a projection method,
+- a distance function,
+- and sometimes a geometry-side friction signal.
 
-### For Most Applications
+Important current caveat:
 
-**Use Torus** (default)
-- Best stability
-- Bounded state
-- Rich structure
-- Works for most problems
+- modern geometries may return `(gamma, mu)`, not just one tensor,
+- the physics engine is still the component that decides how friction is finally applied.
 
-### For Specific Needs
+## Most Relevant Geometries Right Now
 
-| Need | Geometry | Why |
-|------|----------|-----|
-| Maximum simplicity | Euclidean | Flat, easy to understand |
-| High dimension ($D>256$) | Low-Rank | Memory efficient |
-| Production stability | Torus | Battle-tested |
+### `torus`
 
----
+Documented in [torus.md](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/0_architecture/math/geometry/torus.md).
 
-## What is a Geometry?
+This is the most important analytical topology in the current runtime.
 
-A geometry defines:
+Properties:
 
-1. **The space**: Where the state $(x, v)$ lives
-2. **The metric**: How to measure distances
-3. **The Christoffel symbols**: How curvature affects motion
-4. **The boundary**: What happens at edges
+- bounded through periodic wrapping,
+- analytical toroidal curvature,
+- optional learnable radii,
+- optional torus-aware friction gating.
 
-### Components
+### `euclidean`
 
-| Component | Purpose | Example (Torus) |
-|-----------|---------|-----------------|
-| Metric $g_{ij}$ | Measure distances | $g = \text{diag}(r^2, (R+r\cos\theta)^2)$ |
-| Christoffel $\Gamma$ | Curvature force | $\Gamma^\theta_{\phi\phi} = (R+r\cos\theta)\sin\theta/r$ |
-| Projection | Handle boundaries | Wrap to $[-\pi, \pi]$ |
-| Friction | Damping | $\mu(\theta) = \mu_0 + \alpha \cdot \text{curv}(\theta)$ |
+Documented in [euclidean.md](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/0_architecture/math/geometry/euclidean.md).
 
----
+Properties:
 
-## Mathematical Summary
+- flat metric,
+- zero Christoffel symbols,
+- no wrapping,
+- simplest baseline geometry.
 
-### Common Equation
+### `low_rank`
 
-All geometries compute the **geometric acceleration**:
+Documented in [low_rank.md](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/0_architecture/math/geometry/low_rank.md).
 
-$$a_{geo} = -\Gamma(x, v)$$
+Properties:
 
-Where the Christoffel symbols depend on the specific geometry.
+- learned low-rank curvature approximation,
+- optional CUDA fused path,
+- separate friction gate,
+- can behave toroidally or Euclidean-like depending on the configured topology.
 
-### Space Comparison
+Important current caveat:
 
-| Property | Torus | Euclidean | Low-Rank |
-|----------|-------|-----------|----------|
-| $\Gamma$ | Non-zero | Zero | Approximate |
-| Boundary | Periodic | None | Periodic |
-| Cost | Medium | Low | Low |
-| Stability | High | Low | Medium |
+- `low_rank` is not inherently bounded on its own,
+- boundedness depends on the active topology behavior, especially whether toroidal projection is in play.
 
----
+## Selection Guidance
+
+Use `torus` when:
+
+- you want the main analytical bounded topology,
+- periodic coordinates are a good fit,
+- you want the most explicit toroidal behavior.
+
+Use `euclidean` when:
+
+- you want the simplest flat baseline,
+- periodic structure is not needed,
+- you want to remove analytical curvature entirely.
+
+Use `low_rank` when:
+
+- you want a learned geometry approximation,
+- you care about scaling or CUDA support,
+- exact analytical curvature is less important than flexibility or efficiency.
+
+## Important Runtime Note
+
+The geometry factory now prefers:
+
+- the declared `topology.type`
+
+unless a learned override such as `riemannian_type` was explicitly requested.
+
+So this folder should not describe geometry choice as if one learned default always overrides the declared topology.
 
 ## Reading Order
 
-1. **Torus** (most important, default)
-2. **Euclidean** (for comparison)
-3. **Low-Rank** (for high dimensions)
+1. [torus.md](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/0_architecture/math/geometry/torus.md)
+2. [euclidean.md](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/0_architecture/math/geometry/euclidean.md)
+3. [low_rank.md](file:///D:/ASAS/principal_proyects/manifold_mini/dev/dev/gfn/docs/gssm/technical/0_architecture/math/geometry/low_rank.md)
 
----
+## Runtime Cross-References
 
-*Last Updated: 2026-04-02*
+- `gfn/realizations/gssm/geometry/factory.py`
+- `gfn/realizations/gssm/geometry/base.py`
+- `docs/gssm/technical/0_architecture/math/03_geometry.md`

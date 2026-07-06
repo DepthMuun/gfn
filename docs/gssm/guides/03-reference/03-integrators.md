@@ -1,172 +1,286 @@
 # Integrator Reference
 
-## Overview
+This guide describes the integrators available in the current GSSM runtime and how to choose among them.
 
-Integrators are algorithms that numerically solve the system's differential equations. The choice of integrator affects accuracy, stability, and speed. Manifold implements multiple integrators for different use cases, ranging from simple first-order methods to sophisticated fourth-order symplectic schemes.
+For formulas and parameter-level behavior, see:
+
+- `docs/gssm/technical/runtime/01-hyperparameters.md`
+
+## Current Default
+
+The effective runtime default integrator is:
+
+- `leapfrog`
+
+This is resolved from `physics.stability.integrator_type` through `IntegratorFactory`.
+
+It is **not** `yoshida`, and the baseline step size is **not** `0.4`. The current schema-backed default is:
+
+- `base_dt = 0.1`
+- `integrator_type = "leapfrog"`
+
+## Available Integrators
+
+The current built-in integrators are:
+
+- `leapfrog`
+- `yoshida`
+- `verlet`
+- `forest_ruth`
+- `omelyan`
+- `heun`
+- `rk4`
+- `adaptive`
 
 ## Symplectic Integrators
 
-Symplectic integrators preserve the Hamiltonian structure of the system, resulting in better energy preservation and more stable long-term trajectories. These integrators are particularly well-suited for Hamiltonian systems where energy conservation is important.
+Symplectic integrators are usually the best fit when you want the latent dynamics to behave like a structured physical flow rather than a generic ODE update.
 
-### Leapfrog (Störmer-Verlet)
+### `leapfrog`
 
-This is the main integrator and the most widely used. It is second-order accurate, which means the per-step error scales as O(h²). However, the energy error scales as O(h³), which makes it exceptional for Hamiltonian systems where long-term stability is critical.
+`leapfrog` is the current default and the safest production baseline.
 
-The algorithm has three phases per step:
-1. Partial momentum update (kick)
-2. Full position update (drift)
-3. Partial momentum update (kick)
+Why it is a good default:
 
-The DepthMuun implementation adds friction and geometric constraints implicitly for stable Conformal Symplectic integration:
+- second-order symplectic update,
+- stable for many sequence tasks,
+- lower cost than higher-order symplectic methods,
+- explicit support in the current optimized runtime path.
 
-```markdown
-v_{t+1/2} = \frac{v_t + \frac{h}{2} \cdot (F - \Gamma(x_t, v_t))}{1 + \frac{h}{2} \mu}
+In the Python fallback path, leapfrog also applies damping in a way that depends on both `dt` and total friction, so it behaves better than a naive undamped kick-drift-kick implementation.
+
+Use `leapfrog` when:
+
+- you want a conservative default,
+- you are training generative or sequence models,
+- you want a good balance between stability and cost.
+
+### `yoshida`
+
+`yoshida` is a higher-order symplectic integrator built from a composition of sub-steps.
+
+Use `yoshida` when:
+
+- you want a more accurate symplectic path,
+- you can afford more compute per step,
+- you are running geometry-sensitive experiments where the extra order is worthwhile.
+
+Trade-off:
+
+- more expensive than `leapfrog`,
+- more internal sub-steps,
+- still subject to instability if `base_dt` and damping are poorly chosen.
+
+### `verlet`
+
+`verlet` is another second-order symplectic option.
+
+Use it when:
+
+- you want a simple symplectic baseline distinct from leapfrog,
+- you are comparing behavior across second-order integrators.
+
+### `forest_ruth`
+
+`forest_ruth` is a fourth-order symplectic method.
+
+Use it when:
+
+- you want a high-order symplectic alternative to `yoshida`,
+- you are benchmarking integrator sensitivity,
+- runtime cost is secondary to trajectory quality.
+
+### `omelyan`
+
+`omelyan` is a second-order symplectic method with different coefficients than plain leapfrog.
+
+Use it when:
+
+- you want a symplectic path with slightly different long-horizon error behavior,
+- you are doing controlled comparisons among symplectic solvers.
+
+## Non-Symplectic Integrators
+
+These methods can still be useful, but they are no longer described as the primary default path.
+
+### `heun`
+
+`heun` is a second-order explicit trapezoidal Runge-Kutta method.
+
+Use `heun` when:
+
+- you want a simpler explicit solver,
+- preserving symplectic structure is less important,
+- you are debugging or testing a non-conservative regime.
+
+Trade-off:
+
+- easier to reason about as a generic ODE solver,
+- does not preserve symplectic structure,
+- can behave differently from leapfrog under the same friction and topology settings.
+
+### `rk4`
+
+`rk4` is the standard fourth-order Runge-Kutta method.
+
+Use `rk4` when:
+
+- you want a familiar high-order explicit baseline,
+- you are benchmarking against standard ODE solvers,
+- exact symplectic structure is not the priority.
+
+Trade-off:
+
+- not symplectic,
+- more compute per step than simple second-order methods.
+
+## Adaptive Integrator
+
+### `adaptive`
+
+`adaptive` is not a standalone physical scheme in the same sense as leapfrog or heun. It is a wrapper that computes:
+
+```text
+dt_eff = base_dt / (1 + alpha * ||accel||)
 ```
 
-This implicit fractional form prevents gradient explosion during deep recursive calls and guarantees phase volume contraction.
+and then delegates the actual step to `base_solver`.
 
-Configurable parameters:
-- `dt`: timestep (base value: 0.4)
-- `friction_scale`: friction coefficient
-- `substeps`: iterations per token step
+Relevant config:
 
-### Yoshida
+- `physics.stability.integrator_type = "adaptive"`
+- `physics.stability.base_solver`
+- `physics.stability.adaptive_alpha`
+- `physics.stability.dt_min`
 
-A fourth-order integrator that uses a sequence of 10 steps with optimized coefficients. The error scales as O(h⁵), significantly better than Leapfrog for the same timestep.
+Use `adaptive` when:
 
-Better accuracy has a cost: more operations per step and higher memory usage to store intermediate states.
+- you want the timestep to shrink automatically in high-acceleration regions,
+- you want more protection against local instability,
+- you can tolerate extra variability in effective step size.
 
-Useful when:
-- High trajectory precision is required
-- The timestep must be large
-- Computational cost is not critical
+The safest pairing is usually:
 
-Not recommended for production due to cost, but useful for benchmarking and validation.
+- `integrator_type = "adaptive"`
+- `base_solver = "leapfrog"`
 
-### Forest-Ruth
+## Choosing An Integrator
 
-Another fourth-order symplectic integrator, an alternative to Yoshida with a different structure. Less common in the literature but implemented for completeness.
+### Good default
 
-The characteristics are similar to Yoshida: O(h⁵) error but more operations. The choice between Yoshida and Forest-Ruth is mostly a matter of preference.
+Use `leapfrog` when you do not have a strong reason to choose otherwise.
 
-### Omelyan
+### Higher-order symplectic path
 
-A second-order symplectic integrator optimized to minimize phase error. It combines Leapfrog simplicity with coefficients that reduce energy drift.
+Use `yoshida` or `forest_ruth` when:
 
-Useful when you need Leapfrog with better energy preservation, especially for long simulations.
+- you want higher-order symplectic behavior,
+- the extra compute cost is acceptable.
 
-## Runge-Kutta Integrators
+### Simpler explicit solver
 
-Runge-Kutta integrators are generic methods for ordinary differential equations. They do not preserve symplectic structure but can be more accurate for non-Hamiltonian problems or when high precision is needed.
+Use `heun` when:
 
-### Euler
+- you want a non-symplectic solver that is easy to interpret,
+- you are debugging interactions among force terms.
 
-The simplest integrator: y(t+h) = y(t) + h * f(y,t).
+### Dynamic timestep
 
-It does not preserve energy and diverges quickly. Included only for demonstration and testing, not for production use.
+Use `adaptive` when:
 
-### Heun (Improved Euler)
+- acceleration varies strongly across the trajectory,
+- a fixed `base_dt` is either too aggressive in hard regions or too conservative everywhere else.
 
-Second-order method with predictor-corrector structure. More stable than Euler but less than Leapfrog for Hamiltonian systems.
+## Common Interactions
 
-Useful when friction dominates and symplectic structure is less important. This is used as the standard fallback integrator when computational speed is prioritized over strict topological preservation.
+Integrator behavior depends strongly on:
 
-### Runge-Kutta 4 (RK4)
+- `physics.stability.base_dt`
+- `physics.stability.friction`
+- `physics.stability.velocity_friction_scale`
+- `physics.stability.velocity_saturation`
+- `physics.topology.type`
 
-Standard fourth-order method. Accurate but expensive and does not preserve symplectic structure.
+Two rules are especially important:
 
-Useful for problems where accuracy is critical and the timestep is small.
+- a larger `base_dt` makes all integrators behave more aggressively,
+- stronger damping changes leapfrog-like schemes non-linearly because friction enters the update denominators.
 
-## Comparison Table
+## Configuration Examples
 
-| Integrator | Order | Symplectic Preservation | Relative Cost | Recommended Use |
-|------------|-------|-------------------------|---------------|-----------------|
-| Leapfrog   | 2     | Yes                     | 1.0x          | Generative tasks|
-| Yoshida    | 4     | Yes                     | ~3.0x         | Default choice  |
-| Forest-Ruth| 4     | Yes                     | ~3.0x         | High precision  |
-| Omelyan    | 2     | Yes                     | ~1.2x         | Long simulations|
-| Heun       | 2     | No                      | ~1.2x         | Speed-focused   |
-| RK4        | 4     | No                      | ~4.0x         | Benchmarking    |
-
-## Integrator Selection
-
-For most tasks, Heun or Leapfrog is the right choice. They balance accuracy, stability, and efficiency.
-
-Use Yoshida or Forest-Ruth when:
-- The timestep must be large
-- Trajectory precision is critical
-- Computational cost is acceptable
-
-Use Heun when:
-- Default integrator is preferred
-- Smooth transitions are needed
-
-Avoid Euler in production. Its instability can cause divergence.
-
-## Default Configuration
-
-The system architecture defaults to `Yoshida` as the primary integrator to ensure maximum precision across heavily curved geometric manifolds, with the following standard configurations:
-- `dt` = 0.4
-- `curvature_clamp` = 3.0
-
-This baseline config guarantees numerical stability even when facing high velocity impulses.
-
-## Usage Example
+### Minimal explicit integrator choice
 
 ```python
-from gfn.core.config.manifold_configuration import ManifoldConfig, PhysicsConfig
+import gfn
 
-# Using Heun integrator (fast fallback)
-config_heun = ManifoldConfig(
+model = gfn.create(
+    "gssm",
     vocab_size=1000,
-    dim=256,
-    depth=4,
-    integrator='heun',
-    physics_config=PhysicsConfig(
-        stability={'base_dt': 0.4}
-    )
-)
-
-# Using Leapfrog integrator (symplectic operations)
-config_leapfrog = ManifoldConfig(
-    vocab_size=1000,
-    dim=256,
-    depth=4,
-    integrator='leapfrog',
-    physics_config=PhysicsConfig(
-        stability={'base_dt': 0.4}
-    )
-)
-
-# Using RK4 for non-symplectic high precision
-config_rk4 = ManifoldConfig(
-    vocab_size=1000,
-    dim=256,
-    depth=4,
-    integrator='rk4',
-    physics_config=PhysicsConfig(
-        stability={'base_dt': 0.4}
-    )
+    physics={
+        "stability": {
+            "integrator_type": "leapfrog",
+        }
+    },
 )
 ```
 
-## Common Errors
+### Higher-order symplectic example
 
-If the loss diverges:
-- Reduce base_dt in stability configuration
-- Increase friction_scale
-- Consider using a lower timestep
+```python
+import gfn
 
-If the loss converges too slowly:
-- Increase base_dt (up to 0.5)
-- Reduce friction_scale
-- Verify the integrator is appropriate for your use case
+model = gfn.create(
+    "gssm",
+    vocab_size=1000,
+    physics={
+        "stability": {
+            "integrator_type": "yoshida",
+            "base_dt": 0.05,
+        }
+    },
+)
+```
 
-If you observe persistent oscillations:
-- Friction may be too low
-- Consider using Heun instead of Leapfrog
-- Reduce impulse_scale in embedding configuration
+### Adaptive timestep example
 
----
+```python
+import gfn
 
-**DepthMuun (GFN v2)**
+model = gfn.create(
+    "gssm",
+    vocab_size=1000,
+    physics={
+        "stability": {
+            "integrator_type": "adaptive",
+            "base_solver": "leapfrog",
+            "base_dt": 0.1,
+            "adaptive_alpha": 0.1,
+            "dt_min": 0.001,
+        }
+    },
+)
+```
+
+## Troubleshooting
+
+If training becomes unstable:
+
+- reduce `base_dt`,
+- prefer `leapfrog` over more aggressive alternatives,
+- increase damping carefully through `friction` or `velocity_friction_scale`,
+- enable `velocity_saturation` if velocity spikes are the main issue.
+
+If the model becomes too damped or too slow:
+
+- reduce `friction`,
+- reduce `velocity_friction_scale`,
+- keep `leapfrog` but try a slightly different `base_dt`,
+- only then consider switching to another integrator.
+
+## Documentation Rule
+
+When writing about GSSM integrators elsewhere in the repo:
+
+- treat `leapfrog` as the current default,
+- avoid stale claims such as `yoshida` default or `dt=0.4` baseline,
+- describe integrator choice together with `base_dt` and damping, not in isolation.

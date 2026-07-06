@@ -1,10 +1,8 @@
 """
-gfn/physics/normalization.py — GFN V5
-Ported from: gfn_old/nn/layers/physics/normalization.py
+Centralized registry of geometry-dependent normalizations for manifold states.
 
-Centralized registry of geometry-dependent normalizations for the manifold.
-Principle: POSITION normalizations depend on topology; VELOCITY normalizations
-are always Euclidean (tangent space).
+Position normalization depends on topology, while velocity normalization is
+applied in tangent space.
 """
 import torch
 import torch.nn as nn

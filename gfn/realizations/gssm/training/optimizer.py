@@ -1,7 +1,5 @@
 """
-Optimizers — GFN V5
-Includes standard and Riemannian optimizers.
-Migrated from gfn/optim/riemannian_adam.py and riemannian_sgd.py
+Standard and geometry-aware optimizers used by GSSM training utilities.
 """
 
 import torch
@@ -12,12 +10,10 @@ from ..constants import TOPOLOGY_TORUS, TOPOLOGY_EUCLIDEAN
 
 class RiemannianAdam(optim.Adam):
     """
-    Riemannian Adam — extension of standard Adam for manifolds.
-    In version V5, acts as standard Adam but is prepared
-    to receive manifold metrics to adjust the update.
+    Adam variant with optional toroidal parameter wrapping after the update.
 
-    For simple manifolds (Euclidean), identical to Adam.
-    For torus and curved manifolds, applies a retract in parameter space.
+    For Euclidean geometry it behaves like standard Adam.
+    For toroidal geometry it can wrap marked position parameters into `[-pi, pi]`.
     """
 
     def __init__(self, params: Iterable, lr: float = 1e-3,

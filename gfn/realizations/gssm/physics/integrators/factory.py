@@ -1,6 +1,5 @@
 """
-IntegratorFactory — GFN V5
-Creates integrator instances from PhysicsConfig.
+Factory for constructing integrator instances from `PhysicsConfig`.
 """
 
 from typing import Optional

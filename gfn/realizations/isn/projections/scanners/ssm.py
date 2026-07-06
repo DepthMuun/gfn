@@ -1,7 +1,5 @@
 """
-ISN SSM Scanner — Modular V5
-==========================
-O(1) Memory complexity using a simplified State Space Model (SSM) backbone.
+State-space scanner built from stacked recurrent SSM-style layers.
 """
 
 import torch

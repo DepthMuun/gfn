@@ -1,102 +1,143 @@
 # Installation
 
+This guide covers a practical setup path for working with GSSM inside the current `gfn` repository.
+
+It avoids older installation instructions that referenced historical demos or repository layouts that no longer match the tree cleanly.
+
 ## System Requirements
 
-The project requires Python 3.10 or higher. Earlier versions are not compatible due to type dependencies and language features used in the codebase.
+Recommended baseline:
 
-For NVIDIA GPUs, CUDA 12.9 or higher is required. The code uses CUDA features that are not available in earlier versions. If you have an older GPU with CUDA 11.8, you will need to modify the build scripts or use the pure Python implementation, which is slower but functional.
+- Python `3.10+`
+- PyTorch installed and importable
+- optional NVIDIA CUDA setup if you want GPU acceleration
 
-The minimum recommended RAM is 16 GB for running medium-scale experiments. Experiments with large models or large batches may require 32 GB or more, especially during CUDA kernel compilation.
+You can work on CPU, but many GSSM experiments and benchmarks are much slower there.
 
-## Core Dependencies
+## Create A Virtual Environment
 
-The project depends on PyTorch 2.0 or higher for automatic differentiation and tensor operations. We install torch with CUDA support for GPU, but the code also runs on CPU with significant performance degradation.
+Use a clean virtual environment before installing dependencies.
 
-We need einops for efficient tensor manipulation and einops.layers for layers with simplified notation. Most reshaping and transposition operations depend on this library.
+### Windows
 
-For visualization and debugging, we install matplotlib and seaborn. These dependencies are optional if you only need to train models without visualizing results.
-
-## Virtual Environment
-
-Creating a virtual environment is highly recommended to isolate project dependencies.
-
-```bash
-python -m venv manifold-env
-source manifold-env/bin/activate  # Linux/Mac
-# o
-manifold-env\Scripts\activate  # Windows
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
 ```
 
-On Windows, activation may require administrator permissions depending on security settings. If it fails, run the terminal as administrator.
-
-## Step-by-Step Installation
-
-First, clone the repository and navigate to the project directory.
+### Linux / macOS
 
 ```bash
-git clone https://github.com/DepthMuun/gfn.git
-cd gfn
+python -m venv .venv
+source .venv/bin/activate
 ```
 
-Second, install the Python dependencies. The requirements.txt file includes all required dependencies.
+## Install Dependencies
+
+From the repository root:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Third, if you have an NVIDIA GPU and want acceleration, compile the CUDA kernels. This step is optional but recommended for performance.
+If the project is being used as a local editable package in your environment, also ensure the repo root is the active working tree when running scripts.
+
+## Verify The Core Import
+
+Run the simplest import check first:
 
 ```bash
-python -m gfn.cuda.precompile_kernels
+python -c "import gfn; print('gfn import ok')"
 ```
 
-The compilation process can take several minutes depending on your GPU. If you see compilation errors, verify that CUDA is properly installed and that your GPU is compatible.
+If this fails, solve that before trying any benchmark or training script.
 
-## Installation Verification
-
-Run the consistency tests to verify that the installation is correct.
+## Verify PyTorch
 
 ```bash
-python tests/test_cuda_python_consistency.py
+python -c "import torch; print(torch.__version__); print(torch.cuda.is_available())"
 ```
 
-This test verifies that the Python implementation produces the same results as the CUDA implementation. If the test fails, the system can still function, but with degraded performance.
+This confirms:
 
-For a more basic verification, run the quick start script.
+- PyTorch imports correctly
+- CUDA is visible if you expect GPU support
+
+## Optional CUDA / Native Paths
+
+The repository contains CUDA and native extension code under the GSSM realization, for example:
+
+- `gfn/realizations/gssm/csrc/`
+- `gfn/realizations/gssm/cuda/`
+
+These paths are relevant if you are explicitly working on backend performance or low-level kernels.
+
+For normal model usage and documentation work, the Python runtime path is enough to get started.
+
+## First Runtime Check
+
+Once the import works, verify the public API:
 
 ```bash
-python demos/tinystories/train_tinystories.py --config configs/training/experiment_overfit_10k.yaml --steps 100
+python -c "import gfn; m = gfn.create('gssm', vocab_size=16, dim=64, depth=2, heads=4); print(type(m).__name__)"
 ```
 
-If the script runs without errors and reports loss, the basic installation is correct.
+This is a much better current sanity check than relying on older demo scripts outside the present GSSM workflow.
+
+## First Validation Check
+
+After the import and model-construction checks work, run the health suite:
+
+```bash
+pytest tests/gssm/health -v
+```
+
+That is the most direct current validation path in the repository for GSSM installation and runtime consistency.
+
+## First Benchmark Check
+
+If you want a real end-to-end task after the health suite:
+
+```bash
+python tests/gssm/benchmarks/convergence/math/train_math.py
+```
+
+This benchmark uses the current public API and is a better match for the present codebase than historical demo paths.
 
 ## Common Issues
 
-If you import the gfn module and receive an error about torch, verify that PyTorch is installed correctly.
+### `ModuleNotFoundError: No module named 'gfn'`
 
-```bash
-python -c "import torch; print(torch.__version__)"
-```
+Make sure:
 
-If the version is earlier than 2.0, update PyTorch with pip install torch --upgrade.
+- you are in the repository environment
+- dependencies are installed
+- you are launching Python from the project root or from an environment that can resolve the package
 
-If CUDA compilation fails with include errors, verify that the CUDA toolkit is in your PATH. On Linux, it typically needs to be in /usr/local/cuda.
+### `torch` import errors
 
-If parity tests fail with small differences, this may be expected depending on your GPU. Differences smaller than 1e-5 are generally acceptable.
+Reinstall or upgrade PyTorch in the active environment.
 
-## GPU Configuration
+### CUDA is unavailable
 
-For optimal performance, make sure CUDA dominates GPU memory allocation before training. The following script configures the environment.
+That does not block basic GSSM usage. Start on CPU, then fix the CUDA environment separately.
 
-```bash
-export PYTORCH_CUDA_ALLOCATOR=max
-export CUDA_LAUNCH_BLOCKING=0
-```
+### Health tests fail immediately
 
-These environment variables improve memory allocation and reduce synchronization overhead.
+Check:
 
-If you have multiple GPUs, you can specify which one to use with export CUDA_VISIBLE_DEVICES=0 to use only the first GPU.
+- Python version
+- PyTorch version
+- whether the environment is mixing incompatible packages
+- whether the repo root and imports are resolving consistently
 
----
+## Recommended Order
 
-**DepthMuuns (Joaquin Sturtz)**
+Use this order every time:
+
+1. create environment
+2. install dependencies
+3. verify `import gfn`
+4. verify `gfn.create("gssm", ...)`
+5. run `pytest tests/gssm/health -v`
+6. run one benchmark script if needed

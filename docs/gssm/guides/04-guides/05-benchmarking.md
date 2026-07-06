@@ -1,97 +1,173 @@
-# DepthMuun Benchmarking Guide
+# Benchmarking Guide
 
-## Overview
+This guide summarizes the benchmark structure that actually exists today under `tests/gssm/benchmarks/`.
 
-This document describes the benchmarking framework integrated within the DepthMuun (GFN v2) architecture. The suite evaluates model performance natively against state-of-the-art baselines like `micro_gpt` across several functional pillars: convergence proofs, hardware matrix testing, and system stress testing.
+It does not treat every script as equally canonical. Some benchmark scripts are current and useful, while others still carry older experimental assumptions.
 
-The benchmarks are specifically designed to test the O(1) continuous state-space claims, energy conservation over deep trajectories, and the capacity for symbolic learning through geometric representation.
+## Benchmark Areas
 
-### Benchmark Directory Structure
-
-The benchmark suite is fundamentally split into four functional pillars:
+The repository currently contains these main benchmark areas:
 
 ```text
 tests/gssm/benchmarks/
-├── baselines/               # Baseline model implementations (e.g., micro_gpt.py)
-├── convergence/             # Generalization and logical deduction proofs
-│   ├── xor/
-│   ├── language/
-│   ├── math/
-│   └── ...
-├── matrix/                  # Hyperparameter permutation and stability validation
-└── stress/                  # Computational overhead, latency, and hardware constraints
+├── baselines/
+├── convergence/
+├── matrix/
+├── physics/
+└── stress/
 ```
 
----
+## 1. Convergence Benchmarks
 
-## Convergence Benchmarks
+`convergence/` contains task-oriented runs that check whether a model can actually learn or generalize on specific problems.
 
-Convergence testing ensures the model can empirically solve mathematically rigorous problems that historically stump Recurrent Neural Networks and standard Transformers.
+Current examples in the tree include:
 
-### Current Test Scenarios
+- `xor/logic_xor.py`
+- `language/run.py`
+- `math/train_math.py`
+- `MQAR/`
+- `needle_haystack_*`
+- `arc-agi-2/`
+- `drone_detection/`
 
-1. **XOR Parity Bounds (`convergence/xor/`)**  
-   Evaluates pure combinatorial logic. Models are assessed on their ability to solve parity arrays of arbitrary bounds using `ToroidalGeometry`, proving the model can isolate and recall alternating state sequences over deep step counts.
+These are useful when you want to answer:
 
-2. **Language Context (`convergence/language/`)**  
-   Validates standard autoregressive perplexity parameters using synthetic dictionaries. Ensures the internal geometric representation translates cleanly to sequence prediction and language modeling.
+- does the model train at all on a real task?
+- does a config change break convergence?
+- does a geometry/readout/loss choice still fit the task?
 
-3. **Mathematical Reasoning (`convergence/math/`)**  
-   Tests the model's ability to learn and execute mathematical operations. Evaluates symbolic reasoning capabilities through geometric state evolution.
+## 2. Matrix Benchmarks
 
----
+`matrix/` is the combinatorial benchmark area.
 
-## Matrix Testing
+The current matrix flow is real and script-backed:
 
-The `tests/gssm/benchmarks/matrix/` module systematically validates the interaction between different system settings by permuting over wide hyperparameter domains (Integrator types, geometries, physics variables).
+- `generator.py`
+- `runner.py`
+- `analyser.py`
+- `run_suite.py`
 
-### The Run Suite (`run_suite.py`)
+Example command:
 
-The matrix suite uses a unified generator -> runner -> analyser pipeline:
-
-- `MatrixGenerator`: Spawns combinatorial combinations of active `ManifoldConfig` states.
-- `MatrixRunner`: Executes isolated mini-epochs capturing gradient norms, explosion rates, and convergence speeds.
-- `MatrixAnalyser`: Consolidates the permutations to mathematically declare the most robust architecture setups.
-
-**Execution:**
 ```bash
 python tests/gssm/benchmarks/matrix/run_suite.py --limit 10
 ```
 
-*Tip: Use `--filter-integrator leapfrog` to restrict the search space during iterative debugging.*
+You can also restrict the search space:
 
----
-
-## Stress & Hardware Profiling
-
-The `tests/gssm/benchmarks/stress/` suite evaluates the underlying hardware overhead and scaling characteristics. 
-
-### Latency & Performance Suites
-
-- **Overhead Tests (`bench_overhead.py`)**: Precisely clocks framework initialization versus computation time.
-- **CUDA Live Interaction (`bench_cuda_live.py`)**: Tests raw throughput via native PyTorch bindings against standard Python autograd graphs. Ensures the CUDA custom C++ engines correctly execute step operations.
-- **Performance (`bench_performance.py`)**: Determines tokens-per-second capabilities when scaling `model.dim` from embedded (256) architectures to dense cluster models (1024+).
-
-### Precision Checks (`bench_integrators.py`)
-
-Verifies the mathematical rigor of different integrators (Yoshida vs Leapfrog vs Heun). It calculates energy drift percentiles in continuous steps.
-
-```
-Expected Metric Standard:
-- Energy drift percentage < 1% over 1000 trajectory steps.
-- Zero spurious monotonic energy gains under constant boundary interactions.
+```bash
+python tests/gssm/benchmarks/matrix/run_suite.py --limit 10 --filter-integrator leapfrog
 ```
 
----
+This area is useful for:
 
-## Model Baselines
+- comparing integrators
+- comparing topology choices
+- screening robustness across many small trials
 
-Benchmarks are routinely checked against matched structural baselines mapping traditional network topologies.
+## 3. Physics Audits
 
-- **`micro_gpt.py`**: A clean, modern transformer baseline configured with exact parameter boundaries to evaluate perplexity metrics directly against the Geometry Flow standard.
+`physics/` contains targeted audits rather than broad training benchmarks.
 
-To ensure fair scientific evaluation, parameter counts (`dim`, `depth`, `heads`) are tightly coupled between models to analyze architectural advantages independent of parameter sizes.
+One current example is:
 
----
+```bash
+python tests/gssm/benchmarks/physics/integration_audit.py
+```
 
-**DepthMuun (GFN v2)**
+Use this area when you care about:
+
+- friction behavior
+- integration stability
+- update-form comparisons
+
+## 4. Stress And Performance Benchmarks
+
+`stress/` contains runtime-oriented scripts such as:
+
+- `performance/bench_overhead.py`
+- `performance/bench_performance.py`
+- `performance/bench_integrators.py`
+- `performance/bench_cuda_live.py`
+- `scale/bench_scaling.py`
+- `scale/test_batch_scaling.py`
+
+Use these when you want to inspect:
+
+- throughput
+- memory pressure
+- scaling behavior
+- backend-specific performance
+
+Important caveat:
+
+- some performance scripts still include older code paths or legacy assumptions, so treat them as investigative tools rather than as the final word on current runtime behavior
+
+## 5. Baselines
+
+The `baselines/` folder currently includes at least:
+
+- `micro_gpt.py`
+
+This is useful when you want a rough comparison point, but benchmark conclusions should still be checked carefully because fairness depends on:
+
+- parameter count
+- tokenization or input format
+- task framing
+- loss/readout contract
+- training budget
+
+## Recommended Workflow
+
+Use benchmarks in this order:
+
+1. health tests for correctness
+2. convergence benchmark for the relevant task family
+3. matrix or stress benchmark only if you are comparing configurations or runtime cost
+
+This avoids using a large benchmark script to debug a basic shape or config problem.
+
+## Example Commands
+
+### Small convergence run
+
+```bash
+python tests/gssm/benchmarks/convergence/math/train_math.py
+```
+
+### Matrix screening
+
+```bash
+python tests/gssm/benchmarks/matrix/run_suite.py --limit 10
+```
+
+### Physics audit
+
+```bash
+python tests/gssm/benchmarks/physics/integration_audit.py
+```
+
+### Performance check
+
+```bash
+python tests/gssm/benchmarks/stress/performance/bench_overhead.py
+```
+
+## How To Read Results
+
+For GSSM, benchmark results are only meaningful if you keep these aligned:
+
+- task target
+- readout type
+- loss family
+- topology / geometry choice
+- integrator settings
+
+If those are mismatched, a benchmark may “run” while still measuring the wrong thing.
+
+## Practical Caveats
+
+- Do not treat every benchmark script as a maintained production harness.
+- Do not use old benchmark claims as framework-wide defaults.
+- Do not compare runs unless the supervision and output contracts are actually equivalent.

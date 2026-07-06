@@ -186,7 +186,7 @@ pip install -e .
 
 ## Reproducible Benchmarks
 
-GFN v2.7.2 includes fully reproducible benchmark implementations demonstrating zero-shot length generalization and O(1) memory complexity:
+GFN v2.7.3 includes fully reproducible benchmark implementations demonstrating zero-shot length generalization and O(1) memory complexity:
 
 ### 🌀 XOR Parity Solver
 - **Repository**: [gssm-xor-extrapolation](https://github.com/DepthMuun/gssm-xor-extrapolation)

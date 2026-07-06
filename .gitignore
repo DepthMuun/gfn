@@ -45,6 +45,9 @@ memory/
 *.json
 *.png
 results/
+tgfn/
+paral.md
+paral2.md
 
 # Checkpoints (Exclude all model weights everywhere)
 checkpoints/
@@ -57,6 +60,8 @@ checkpoints/*.pth
 *.ckpt
 !checkpoints/**/config.yaml
 !checkpoints/**/train.txt
+results/
+outputs/
 
 # Results
 # results/

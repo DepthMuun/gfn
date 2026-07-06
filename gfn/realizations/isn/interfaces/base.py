@@ -1,7 +1,5 @@
 """
-ISN Base Interfaces — Modular V5
-=============================
-Standard protocols for all ISN components to ensure strict interchangeability.
+Core protocols for interchangeable ISN components.
 """
 
 import torch

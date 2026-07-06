@@ -1,172 +1,191 @@
-# Low-Rank Riemannian Geometry
+# Low-Rank Geometry
 
-## What is Low-Rank Geometry?
+This document describes the **current `LowRankRiemannianGeometry` runtime**.
 
-Low-rank geometry is an efficient approximation of full Riemannian geometry. Instead of computing the complete Christoffel symbols (which is expensive in high dimensions), it uses a low-rank decomposition.
+The authoritative code is:
 
-Think of it as: "Approximating complex curvature with a simpler, cheaper model."
+- `gfn/realizations/gssm/geometry/low_rank.py`
 
----
+## What It Is In The Current Code
 
-## The Problem with High Dimensions
+`LowRankRiemannianGeometry` is a learned geometry that approximates curvature through low-rank parameters:
 
-### Full Christoffel Computation
+- `U`
+- `W`
 
-In $D$ dimensions, the Christoffel symbols are:
-$$\Gamma^k_{ij} \quad \text{for } i, j, k \in \{1, ..., D\}$$
+and contracts them against velocity to produce a curvature-like tensor `gamma`.
 
-Total: $O(D^3)$ components.
+The code-level description is more specific than a generic "full Christoffel approximation": it is a bilinear learned contraction over velocity, not an exact symbolic computation of Levi-Civita derivatives.
 
-**Computation cost**:
-- Computing: $O(D^3)$ operations
-- Storing: $O(D^3)$ memory
-- For $D = 512$: 134 million values!
+## Core Learned Parameters
 
-### The Bottleneck
+For single-head mode:
 
-High-dimensional manifolds become computationally prohibitive.
+- `U`: `[D, R]`
+- `W`: `[D, R]`
 
----
+For multi-head mode:
 
-## Low-Rank Solution
+- `U`: `[H, D, R]`
+- `W`: `[H, D, R]`
 
-### Approximation
+These are initialized with very small random noise to break symmetry.
 
-Instead of full Christoffel, use rank-$R$ approximation:
+## Curvature Path
 
-$$\Gamma \approx \sum_{r=1}^R U_r \cdot W_r^T$$
+The main learned contraction is implemented through:
 
-Where:
-- $U_r, W_r \in \mathbb{R}^D$ are learnable vectors
-- $R \ll D$ (rank much smaller than dimension)
-- Typically $R = 16$ or $32$
-
-### Complexity Reduction
-
-| Aspect | Full | Low-Rank |
-|--------|------|----------|
-| Parameters | $O(D^3)$ | $O(R \cdot D)$ |
-| Computation | $O(D^3)$ | $O(R^2 \cdot D)$ |
-| For $D=512, R=16$ | 134M | 8K |
-
-**Savings**: ~16,000× fewer parameters!
-
----
-
-## How It Works
-
-### Christoffel Approximation
-
-The geometric force becomes:
-$$F_{geo} = -\Gamma(v, v) \approx -\sum_{r=1}^R (U_r \cdot W_r^T) \cdot (v \odot v)$$
-
-Where $\odot$ is element-wise multiplication.
-
-### Decomposition Structure
-
-**Matrix form**:
-$$\Gamma \approx U \cdot \Lambda \cdot W^T$$
-
-Where:
-- $U, W \in \mathbb{R}^{D \times R}$ (basis matrices)
-- $\Lambda \in \mathbb{R}^{R \times R}$ (diagonal scaling)
-
-### Physical Interpretation
-
-The low-rank structure assumes:
-- Curvature has "principal directions" (like PCA)
-- Most variation happens in a few directions
-- High-dimensional manifold is "almost flat" in most directions
-
----
-
-## When to Use Low-Rank
-
-### Use When
-
-- **High dimensions**: $D > 128$
-- **Speed critical**: Need fast computation
-- **Memory constrained**: Limited GPU memory
-- **Approximation acceptable**: Can trade accuracy for speed
-
-### Don't Use When
-
-- **Low dimensions**: $D < 64$ (overhead not worth it)
-- **Accuracy critical**: Need exact curvature
-- **Complex geometry**: Manifold has intricate structure
-
----
-
-## Comparison with Full Geometry
-
-| Property | Full | Low-Rank |
-|----------|------|----------|
-| Accuracy | Exact | Approximate |
-| Speed | Slow | Fast |
-| Memory | High | Low |
-| Expressiveness | Complete | Limited |
-| Training stability | May vary | Usually better |
-
----
-
-## Rank Selection
-
-### Guidelines
-
-| Dimension $D$ | Suggested Rank $R$ | Compression |
-|---------------|-------------------|-------------|
-| 64 | 16 | 4× |
-| 128 | 16 | 8× |
-| 256 | 16-32 | 16-32× |
-| 512 | 32-64 | 64-128× |
-
-### Trade-off
-
-- **Higher rank**: Better accuracy, slower
-- **Lower rank**: Faster, more approximate
-
----
-
-## Mathematical Formulation
-
-### Full Rank
-$$\Gamma_{ijk} = \frac{1}{2}\left(\frac{\partial g_{jk}}{\partial x^i} + \frac{\partial g_{ik}}{\partial x^j} - \frac{\partial g_{ij}}{\partial x^k}\right)$$
-
-### Low-Rank Approximation
-$$\tilde{\Gamma}_{ij}^k = \sum_{r=1}^R U_i^r \cdot W_j^r \cdot \lambda_r$$
-
-Learn $U, W, \lambda$ instead of computing derivatives.
-
----
-
-## Integration with GSSM
-
-### Configuration
-
-```python
-physics = {
-    'topology': {
-        'type': 'low_rank',
-        'rank': 16  # Low-rank dimension
-    }
-}
+```text
+v_r = v @ U
+sq  = v_r * v_r
+gamma = sq @ W^T
 ```
 
-### Compatibility
+or the multi-head equivalent with `einsum`.
 
-Low-rank works with:
-- All integrators (Leapfrog, Yoshida, etc.)
-- All topologies (wrapped in low-rank form)
-- All physics components (friction, hysteresis, etc.)
+So the actual runtime behavior is closer to:
 
-### CUDA Optimization
+- project velocity into rank space,
+- square or bilinearly combine that representation,
+- project back to feature space.
 
-Low-rank has optimized CUDA kernels:
-- Fused operations
-- Memory-efficient
-- Parallel across heads
+This is more faithful than presenting it as a generic dense Christoffel tensor decomposition.
 
----
+## Connection Method
 
-*File: technical/0_architecture/math/geometry/low_rank.md*
-*Last Updated: 2026-04-02*
+The class also exposes `connection(v, w, x=None)`, which computes a bilinear contraction:
+
+```text
+Gamma(v, w)
+```
+
+using both `v` and `w`.
+
+Important current detail:
+
+- `forward(...)` uses the self-connection style path through squared projected velocity,
+- while `connection(...)` is the explicit bilinear helper.
+
+So the doc should not pretend there is only one single formula used everywhere.
+
+## Trace Normalization
+
+The current implementation supports:
+
+- `enable_trace_normalization`
+
+When active, `_normalize(gamma)` subtracts the mean in the vector case, and uses a symmetry-preserving diagonal correction in the matrix case.
+
+This is a real runtime feature and affects the curvature term before the final `tanh` clamp.
+
+## Final Clamp
+
+After normalization, the non-CUDA path applies:
+
+```text
+gamma = clamp_val * tanh(gamma / clamp_val)
+```
+
+So curvature is softly bounded by `curvature_clamp`.
+
+## Friction Path
+
+Low-rank geometry also builds a `FrictionGate`.
+
+Important current runtime behavior:
+
+- low-rank always returns `(gamma, mu)`,
+- the physics engine is the single authority on how friction is ultimately applied.
+
+This was an explicit design fix to avoid double-applying damping.
+
+## Topology Interaction
+
+`low_rank` can run under different topological interpretations because it reads:
+
+- `config.topology.type`
+
+If topology is toroidal, gate features become:
+
+```text
+[sin(x), cos(x)]
+```
+
+If topology is non-toroidal, gate features use raw `x`.
+
+It also changes:
+
+- `project(x)`
+- `dist(x1, x2)`
+
+according to whether topology is toroidal.
+
+Important current caveat:
+
+- `low_rank` is a learned geometry family,
+- but boundedness and projection behavior still depend on the topology mode it is paired with.
+
+So it is inaccurate to describe low-rank as inherently periodic or inherently bounded by itself.
+
+## Metric Tensor
+
+The current metric path is implicit and diagonal-like:
+
+```text
+g_diag ~= sum_r U^2
+```
+
+The code returns per-coordinate metric scale derived from `U`, broadcast to the input shape.
+
+This is important because other runtime systems, such as metric-aware velocity normalization, use this diagonal metric approximation directly.
+
+## CUDA Path
+
+The class supports a fused CUDA path through:
+
+- `LowRankChristoffelFunction`
+- `low_rank_christoffel_fwd`
+- `low_rank_christoffel_bwd`
+
+This is one reason low-rank matters in the current runtime: it has a practical fast path for CUDA-heavy workloads.
+
+## `low_rank_paper`
+
+The same file also defines:
+
+- `PaperLowRankRiemannianGeometry`
+
+This variant changes the internal nonlinear contraction in `forward(...)` and still returns `(gamma, mu)`.
+
+So when documenting low-rank behavior in general, it is worth remembering that the repo currently contains at least two related learned low-rank variants.
+
+## When It Is A Good Fit
+
+Use low-rank when:
+
+- you want a learned geometry rather than a fixed analytical one,
+- you care about scalable curvature approximation,
+- you want access to the CUDA fused path.
+
+It is less appropriate when:
+
+- you need a closed-form analytical manifold,
+- you want the simplest possible flat baseline,
+- you want the explicit toroidal geometry rather than a learned approximation.
+
+## What This Document Should Not Claim
+
+It would be inaccurate to claim that:
+
+- low-rank is always bounded,
+- low-rank computes exact full Christoffel symbols,
+- low-rank returns only one tensor,
+- low-rank behavior is independent of topology.
+
+Those claims do not match the current runtime.
+
+## Runtime Cross-References
+
+- `gfn/realizations/gssm/geometry/low_rank.py`
+- `gfn/realizations/gssm/physics/components/friction.py`
+- `docs/gssm/technical/0_architecture/math/03_geometry.md`
